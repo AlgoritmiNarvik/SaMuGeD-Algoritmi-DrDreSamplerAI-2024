@@ -11,6 +11,4 @@ Replace REPO_NAME with repo url
 
 ## Straight Outta Compton Opening Scene Dr Dre
 
-<video controls="" height="360" width="640">
-  <source src="Straight Outta Compton Opening Scene Dr Dre.mp4" type="video/mp4"/>
-</video>
+[![Straight Outta Compton Opening Scene Dr Dre](https://img.youtube.com/vi/eiknHyeNCpY/0.jpg)](https://www.youtube.com/watch?v=eiknHyeNCpY)
