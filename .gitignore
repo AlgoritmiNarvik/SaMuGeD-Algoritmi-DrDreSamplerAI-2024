@@ -1,2 +1,5 @@
 music datasets/
 Meetings/
+.venv
+venv/
+ENV/
