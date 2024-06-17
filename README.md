@@ -8,3 +8,10 @@ git submodule update
 or use the --recursive flag when cloning \
 `git clone REPO_NAME --recursive` \
 Replace REPO_NAME with repo url
+
+## Straight Outta Compton Opening Scene Dr Dre
+
+<video controls="" height="360" width="640">
+  <source src="Straight Outta Compton Opening Scene Dr Dre.mp4" type="video/mp4"/>
+  Ваш браузер не поддерживает воспроизведение видео.
+</video>
