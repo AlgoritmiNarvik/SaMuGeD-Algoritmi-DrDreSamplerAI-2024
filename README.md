@@ -11,4 +11,4 @@ Replace REPO_NAME with repo url
 
 ## Straight Outta Compton Opening Scene Dr Dre
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/eiknHyeNCpY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+[![Straight Outta Compton Opening Scene Dr Dre](https://img.youtube.com/vi/eiknHyeNCpY/0.jpg)](https://www.youtube.com/embed/eiknHyeNCpY)
