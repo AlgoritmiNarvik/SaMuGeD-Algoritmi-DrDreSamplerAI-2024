@@ -1,2 +1,6 @@
 music datasets/
 Meetings/
+.venv
+venv/
+ENV/
+test_scripts/plots

@@ -1,0 +1,3 @@
+[submodule "sf_segmenter"]
+	path = sf_segmenter
+	url = https://github.com/wayne391/sf_segmenter
