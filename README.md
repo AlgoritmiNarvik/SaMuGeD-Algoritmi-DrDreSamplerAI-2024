@@ -1,4 +1,6 @@
-# SaMuGeD-24-midi-sampling-
+# SaMuGeD-24-midi-sampling
+#### Roadmap/Plan
+![Roadmap for SaMuGeD](/docs/Roadmap_for_SaMuGeD.png) 
 
 Use the following git command to download the sf_segmenter submodule \
 `
