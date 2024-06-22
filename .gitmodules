@@ -1,3 +1,6 @@
 [submodule "sf_segmenter"]
 	path = "testing tools/sf_segmenter"
 	url = https://github.com/wayne391/sf_segmenter
+[submodule "testing tools/sf_segmenter"]
+	path = testing tools/sf_segmenter
+	url = https://github.com/wayne391/sf_segmenter
