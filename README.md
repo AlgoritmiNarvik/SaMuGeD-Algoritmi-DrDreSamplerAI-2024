@@ -3,14 +3,18 @@
 ![Roadmap for SaMuGeD](/docs/Roadmap_for_SaMuGeD.png) 
 
 Create and start a virtual enviroment \
-Windows
+Windows: \
 `
-python -m venv .venv \n
+python -m venv .venv 
+` 
+`
 .\.venv\Scripts\activate
 `
-Unix \
+Unix: \
 `
-python3 -m venv .venv \n
+python3 -m venv .venv
+` 
+`
 source venv/bin/activate
 `
 
