@@ -5,12 +5,12 @@
 Create and start a virtual enviroment \
 Windows
 `
-python -m venv .venv \
+python -m venv .venv \n
 .\.venv\Scripts\activate
 `
 Unix \
 `
-python3 -m venv .venv \
+python3 -m venv .venv \n
 source venv/bin/activate
 `
 
