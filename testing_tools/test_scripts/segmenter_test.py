@@ -1,6 +1,6 @@
 import sf_segmenter
-import os
 import sys
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -44,4 +44,4 @@ segmenter.plot(output_dir)
 #plt.show()
 
 print(f'Plots have been saved to: {output_dir} \n Press enter to close this window')
-input() #To prevent window from closing before being able to read text
+#input() #To prevent window from closing before being able to read text

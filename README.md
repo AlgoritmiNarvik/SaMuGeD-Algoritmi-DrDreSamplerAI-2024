@@ -2,14 +2,22 @@
 #### Roadmap/Plan
 ![Roadmap for SaMuGeD](/docs/Roadmap_for_SaMuGeD.png) 
 
-Use the following git command to download the sf_segmenter submodule \
+Create and start a virtual enviroment \
+Windows
 `
-git submodule update
+python -m venv .venv \
+.\.venv\Scripts\activate
+`
+Unix \
+`
+python3 -m venv .venv \
+source venv/bin/activate
 `
 
-or use the --recursive flag when cloning \
-`git clone REPO_NAME --recursive` \
-Replace REPO_NAME with repo url
+Use the following to install all required packages \
+`
+pip install -r requirements.txt
+`
 
 ## Straight Outta Compton Opening Scene Dr Dre
 
