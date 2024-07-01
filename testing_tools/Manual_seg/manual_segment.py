@@ -29,7 +29,7 @@ def segment_tracks(input_path: str, start_bar: int, end_bar: int):
     try:
         print("Enter file name: ")
         output_path_input = input()
-        output_path = "E:/AI music project 2024 summer/Manual_seg/take_on_me_seg/"+ output_path_input + ".mid"
+        output_path = "type in dir"+ output_path_input + ".mid"
         mido_obj.dump(output_path ,segment=(st, ed))
         print("file has been saved as", output_path )
     except Exception as e:
@@ -37,7 +37,7 @@ def segment_tracks(input_path: str, start_bar: int, end_bar: int):
 
 
 
-input_path = "E:/AI music project 2024 summer/Manual_seg/take_on_me/track4.mid"
+input_path = "some midi file"
 print("Enter the start bar: ")
 start_bar = int(input())
 print("Enter the end bar:")
