@@ -1,0 +1,19 @@
+intro 1: 9-13 bar
+
+intro 2: 13-25 bar
+
+verse 1: 25-37 bar
+
+chorus 1: 37-53 bar
+
+verse 2: 53-65 bar
+
+chorus 2: 65-81 bar
+
+interlude 1: 81-94 bar
+
+interlude 2: 94-109 bar
+
+verse 3: 109-121 bar
+
+chorus 3:121-166 bar
