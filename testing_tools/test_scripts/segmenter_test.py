@@ -7,10 +7,10 @@ import numpy as np
 from miditoolkit.midi import parser as mid_parser  
 from miditoolkit.midi import containers as ct
 
-def extract_features(INPUT_PATH, save_plots = False, show_plots = False, CONFIG = None):
+def extract_features(INPUT_PATH, save_plots = False, show_plots = True, CONFIG = None):
     if CONFIG == None:
         CONFIG = {
-            "M_gaussian": 27,
+            "M_gaussian": 10,
             "m_embedded": 3,
             "k_nearest": 0.04,
             "Mp_adaptive": 28,
@@ -46,6 +46,7 @@ def extract_features(INPUT_PATH, save_plots = False, show_plots = False, CONFIG 
         segmenter.plot(output_dir)
         print(f'Plots have been saved to: {output_dir}')
     if show_plots == True:
+        segmenter.plot("temp")
         plt.show()
 
 
@@ -82,6 +83,10 @@ def split_tracks(INPUT_PATH: str):
             print("Skipped drum instrument")
 
     print(f'Each track has been saved to:')
+
+#INPUT_PATH = "track_1_seg_02_intro2.mid"
+#extract_features(INPUT_PATH,show_plots=True)
+
 
 INPUT_PATH = "take_on_me.mid"
 split_tracks(INPUT_PATH)
