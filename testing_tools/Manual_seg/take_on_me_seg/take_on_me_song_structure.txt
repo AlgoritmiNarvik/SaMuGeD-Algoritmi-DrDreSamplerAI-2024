@@ -1,3 +1,5 @@
+intro 0: 0-9 bar # it's drums++ that we ignore
+
 intro 1: 9-13 bar
 
 intro 2: 13-25 bar
@@ -16,4 +18,4 @@ interlude 2: 94-109 bar
 
 verse 3: 109-121 bar
 
-chorus 3:121-166 bar
+chorus 3: 121-166 bar
