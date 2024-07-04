@@ -28,9 +28,11 @@ HTML_TEMPLATE = """
     <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.18.2/plotly.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-        .container { display: flex; }
-        .left { width: 30%; }
-        .right { width: 60%; padding-left: 20px; }
+        .container { display: flex; flex-wrap: wrap; }
+        .column { flex: 1; padding: 10px; }
+        .column-1 { width: 20%; }
+        .column-2 { width: 50%; }
+        .column-3 { width: 25%; }
         h1, h2 { text-align: center; }
         .section { margin-bottom: 20px; }
         label { display: block; margin-bottom: 5px; }
@@ -66,21 +68,23 @@ HTML_TEMPLATE = """
             cursor: pointer; 
             border-radius: 5px; 
         }
+        .row { display: flex; width: 100%; margin-top: 20px; }
+        .row img { width: 33.33%; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="left">
+        <div class="column column-1">
             <h1>MIDI Segmentation Interface</h1>
             <div class="description">
                 <h2>About This Tool</h2>
                 <p>This interface allows you to segment a MIDI file using the SF segmenter algorithm. Upload a MIDI file, adjust the segmentation parameters, and visualize the resulting plots and segment boundaries.</p>
             </div>
-            <div class="section" style="max-width: 80%;">
+            <div class="section">
                 <label for="midiFile">Upload MIDI File:</label>
                 <input type="file" id="midiFile" accept=".mid,.midi">
             </div>
-            <div class="section" style="max-width: 80%;">
+            <div class="section">
                 <h2>Configuration Settings</h2>
                 <label for="gaussianWindow">Gaussian Window Size (M_gaussian):</label>
                 <input type="number" id="gaussianWindow" value="10" min="1">
@@ -103,18 +107,21 @@ HTML_TEMPLATE = """
                 <button id="updateButton">Segment/Update</button>
             </div>
         </div>
-        <div class="right">
-            <div class="section segmentation-output">
-                <h2>Segmentation Output</h2>
-                <div id="segmentOutput"></div>
-                <button id="saveButton">Save Results</button>
-            </div>
+        <div class="column column-2">
             <div class="section">
                 <h2>Novelty Curve</h2>
                 <div id="plotArea"></div>
             </div>
         </div>
+        <div class="column column-3">
+            <div class="section segmentation-output">
+                <h2>Segmentation Output</h2>
+                <div id="segmentOutput"></div>
+                <button id="saveButton">Save/Download Results</button>
+            </div>
+        </div>
     </div>
+    <div id="plotsContainer"></div>
     <script>
         let segmentationResult = null;
 
@@ -195,12 +202,27 @@ HTML_TEMPLATE = """
         function displayPlots(plots, noveltyCurve) {
             const plotArea = document.getElementById('plotArea');
             plotArea.innerHTML = `<img src="data:image/png;base64,${noveltyCurve}" alt="Novelty Curve">`;
-            for (const [name, data] of Object.entries(plots)) {
-                const plotDiv = document.createElement('div');
-                plotDiv.className = 'plot';
-                plotDiv.innerHTML = `<h3>${name}</h3><img src="data:image/png;base64,${data}" alt="${name}">`;
-                plotArea.appendChild(plotDiv);
-            }
+            const plotsContainer = document.getElementById('plotsContainer');
+            plotsContainer.innerHTML = '';
+
+            // Add rows of images dynamically
+            const rows = [['L.png', 'R.png', 'SF.png'], 
+                          ['lab_S.png', 'lab_S_final.png', 'lab_S_trans.png'], 
+                          ['input.png', 'nc.png']];
+
+            rows.forEach((row) => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'row';
+                row.forEach((imgName) => {
+                    if (plots[imgName]) {
+                        const img = document.createElement('img');
+                        img.src = `data:image/png;base64,${plots[imgName]}`;
+                        img.alt = imgName;
+                        rowDiv.appendChild(img);
+                    }
+                });
+                plotsContainer.appendChild(rowDiv);
+            });
         }
 
         function updateSegmentOutput(segments) {
