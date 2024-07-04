@@ -18,8 +18,7 @@ import pretty_midi
 app = Flask(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
-HTML_TEMPLATE = """
-<!DOCTYPE html>
+HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -30,14 +29,14 @@ HTML_TEMPLATE = """
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
         .container { display: flex; flex-wrap: wrap; }
         .column { flex: 1; padding: 10px; }
-        .column-1 { width: 20%; }
-        .column-2 { width: 50%; }
+        .column-1 { width: 25%; }
+        .column-2 { width: 40%; } /* Adjust this width to control the scaling of the plot */
         .column-3 { width: 25%; }
         h1, h2 { text-align: center; }
         .section { margin-bottom: 20px; }
         label { display: block; margin-bottom: 5px; }
         input[type="file"], input[type="number"], select, button {
-            width: 100%;
+            width: 90%; /* Adjusted to make input boxes narrower */
             padding: 10px;
             margin-bottom: 10px;
         }
@@ -49,6 +48,7 @@ HTML_TEMPLATE = """
             margin-bottom: 20px;
         }
         .segmentation-output { font-size: 0.9em; }
+        .segment-text { font-size: 0.8em; } /* Control the font size of segment descriptions */
         #saveButton { 
             display: none; 
             background-color: lightgreen; 
@@ -70,6 +70,7 @@ HTML_TEMPLATE = """
         }
         .row { display: flex; width: 100%; margin-top: 20px; }
         .row img { width: 33.33%; }
+        .plot img { width: 100%; } /* Ensure the plot image fills the width of the column */
     </style>
 </head>
 <body>
@@ -110,13 +111,13 @@ HTML_TEMPLATE = """
         <div class="column column-2">
             <div class="section">
                 <h2>Novelty Curve</h2>
-                <div id="plotArea"></div>
+                <div id="plotArea" class="plot"></div>
             </div>
         </div>
         <div class="column column-3">
             <div class="section segmentation-output">
                 <h2>Segmentation Output</h2>
-                <div id="segmentOutput"></div>
+                <div id="segmentOutput" class="segment-text"></div>
                 <button id="saveButton">Save/Download Results</button>
             </div>
         </div>
@@ -236,7 +237,6 @@ HTML_TEMPLATE = """
 </body>
 </html>
 """
-
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
