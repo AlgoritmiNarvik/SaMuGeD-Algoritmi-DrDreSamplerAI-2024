@@ -26,12 +26,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <title>MIDI Segmentation Interface</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.18.2/plotly.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 10px; }
         .container { display: flex; flex-wrap: wrap; }
         .column { flex: 1; padding: 10px; }
-        .column-1 { width: 25%; }
-        .column-2 { width: 40%; } /* Adjust this width to control the scaling of the plot */
-        .column-3 { width: 25%; }
+        .column-1 { width: 20%; }
+        .column-2 { width: 60%; } /* Adjust this width to control the scaling of the plot */
+        .column-3 { width: 20%; }
         h1, h2 { text-align: center; }
         .section { margin-bottom: 20px; }
         label { display: block; margin-bottom: 5px; }
@@ -57,7 +57,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             font-size: 16px; 
             cursor: pointer; 
             border-radius: 5px; 
-            width: 100%;
+            width: 110%;
             margin-top: 10px;
         }
         #updateButton { 
@@ -68,9 +68,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             cursor: pointer; 
             border-radius: 5px; 
         }
-        .row { display: flex; width: 100%; margin-top: 20px; }
-        .row img { width: 33.33%; }
-        .plot img { width: 100%; } /* Ensure the plot image fills the width of the column */
+        .row { display: flex; width: 100%; margin-top: 10px; }
+        .row img { width: 50%; }
+        .plot img { width: 110%; } /* Ensure the plot image fills the width of the column */
     </style>
 </head>
 <body>
