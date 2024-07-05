@@ -1,5 +1,5 @@
 # this down in line 2 is kind of like req.txt, it is for now, run this before evrth
-# pip install flask sf_segmenter numpy matplotlib midiutil
+# pip install flask sf_segmenter numpy matplotlib midiutil setuptools
 
 import os
 import io
