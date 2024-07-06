@@ -2,11 +2,11 @@
 # pip install flask sf_segmenter numpy matplotlib midiutil setuptools
 
 """
-changes made
-- names of the output files include the original MIDI file name followed by the relevant suffix.
-- zip file is named based on the original MIDI file name.
-- original MIDI file information is displayed in the HTML.
-- Python file name is included in the "About This Tool" section.
+changes made, v054
+- names of the output files include the original MIDI file name followed by the relevant suffix
+- zip file is named based on the original MIDI file name
+- original MIDI file information is displayed in the HTML
+- running Python file name is included in the "About This Tool" section
 """
 
 import os
@@ -27,7 +27,8 @@ import shutil
 app = Flask(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
-HTML_TEMPLATE = """<!DOCTYPE html>
+HTML_TEMPLATE = """
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -39,7 +40,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .container { display: flex; flex-wrap: wrap; }
         .column { flex: 1; padding: 10px; }
         .column-1 { width: 20%; }
-        .column-2 { width: 60%; } 
+        .column-2 { width: 60%; }
         .column-3 { width: 20%; }
         h1, h2 { text-align: center; }
         .section { margin-bottom: 20px; }
@@ -79,7 +80,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
         .row { display: flex; width: 100%; margin-top: 10px; }
         .row img { width: 50%; }
-        .plot img { width: 110%; } 
+        .plot img { width: 110%; }
     </style>
 </head>
 <body>
@@ -89,7 +90,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <div class="description">
                 <h2>About This Tool</h2>
                 <p>This interface allows you to segment a MIDI file using the SF segmenter algorithm. Upload a MIDI file, adjust the segmentation parameters, and visualize the resulting plots and segment boundaries.</p>
-                <p>Python file: {{ python_file_name }}</p>
+                <p>CAREFUL! sf_segmenter just takes 1st track of your midi (midi_obj.instruments[0]) for processing and segmentation!</p>
+                <p>Python file running now: {{ python_file_name }}</p>
             </div>
             <div class="section">
                 <label for="midiFile">Upload MIDI File:</label>
@@ -124,6 +126,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <div id="plotArea" class="plot"></div>
                 <div class="description">
                     <h3>MIDI Information</h3>
+                    <p>Input MIDI name: <span id="midiFileName"></span> </p>
                     <p>Tempo: <span id="midiTempo"></span> BPM</p>
                     <p>Duration: <span id="midiDuration"></span> seconds</p>
                     <p>Number of Tracks: <span id="numTracks"></span></p>
@@ -309,7 +312,7 @@ def segment_midi():
         
         app.logger.debug(f"Processing MIDI file: {temp_path}")
         try:
-            segmenter.proc_midi(temp_path)
+            segmenter.proc_midi(temp_path) # CAREFUL HERE, sf_segmenter just takes midi_obj.instruments[0] for processing
         except Exception as e:
             app.logger.error(f"Error processing MIDI file: {str(e)}", exc_info=True)
             return jsonify({'error': f"Error processing MIDI file: {str(e)}"}), 500
