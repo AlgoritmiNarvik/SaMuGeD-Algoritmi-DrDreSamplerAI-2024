@@ -7,6 +7,8 @@ changes made, v054
 - zip file is named based on the original MIDI file name
 - original MIDI file information is displayed in the HTML
 - running Python file name is included in the "About This Tool" section
+- added detailed titles for each plot from sf_segmenter
+- adjusted HTML and CSS to ensure plots fill maximum width and are not cramped
 """
 
 import os
@@ -78,8 +80,8 @@ HTML_TEMPLATE = """
             cursor: pointer; 
             border-radius: 5px; 
         }
-        .row { display: flex; width: 100%; margin-top: 10px; }
-        .row img { width: 50%; }
+        .row { display: flex; flex-wrap: wrap; width: 100%; margin-top: 10px; }
+        .plot-container { flex: 1; padding: 10px; }
         .plot img { width: 110%; }
     </style>
 </head>
@@ -92,10 +94,6 @@ HTML_TEMPLATE = """
                 <p>This interface allows you to segment a MIDI file using the SF segmenter algorithm. Upload a MIDI file, adjust the segmentation parameters, and visualize the resulting plots and segment boundaries.</p>
                 <p>CAREFUL! sf_segmenter just takes 1st track of your midi (midi_obj.instruments[0]) for processing and segmentation!</p>
                 <p>Python file running now: {{ python_file_name }}</p>
-            </div>
-            <div class="section">
-                <label for="midiFile">Upload MIDI File:</label>
-                <input type="file" id="midiFile" accept=".mid,.midi">
             </div>
             <div class="section">
                 <h2>Configuration Settings</h2>
@@ -117,8 +115,12 @@ HTML_TEMPLATE = """
                     <option value="log">log</option>
                     <option value="none">None</option>
                 </select>
-                <button id="updateButton">Segment/Update</button>
             </div>
+            <div class="section">
+                <label for="midiFile"><b>Upload MIDI File:</b></label>
+                <input type="file" id="midiFile" accept=".mid,.midi">
+            </div>
+            <button id="updateButton">Segment/Update</button>
         </div>
         <div class="column column-2">
             <div class="section">
@@ -126,15 +128,16 @@ HTML_TEMPLATE = """
                 <div id="plotArea" class="plot"></div>
                 <div class="description">
                     <h3>MIDI Information</h3>
-                    <p>Input MIDI name: <span id="midiFileName"></span> </p>
                     <p>Tempo: <span id="midiTempo"></span> BPM</p>
                     <p>Duration: <span id="midiDuration"></span> seconds</p>
                     <p>Number of Tracks: <span id="numTracks"></span></p>
                     <p>Track Names: <span id="trackNames"></span></p>
                     <p>Contains Drum Tracks: <span id="drumTracks"></span></p>
                     <p>Contains Silent Tracks: <span id="silentTracks"></span></p>
-                    <p>Time Signature Changes: <span id="timeSignatureChanges"></span> (Changes in the beats per measure, useful for understanding rhythmic complexity)</p>
-                    <p>Key Signature Changes: <span id="keySignatureChanges"></span> (Changes in the key signature, useful for understanding harmonic complexity)</p>
+                    <p>Time Signature Changes: <span id="timeSignatureChanges"></span></p>
+                    <p>(Changes in the beats per measure, useful for understanding rhythmic complexity)</p>
+                    <p>Key Signature Changes: <span id="keySignatureChanges"></span></p>
+                    <p>(Changes in the key signature, useful for understanding harmonic complexity)</p>
                 </div>
             </div>
         </div>
@@ -146,7 +149,7 @@ HTML_TEMPLATE = """
             </div>
         </div>
     </div>
-    <div id="plotsContainer"></div>
+    <div id="plotsContainer" class="row"></div>
     <script>
         let segmentationResult = null;
 
@@ -244,8 +247,8 @@ HTML_TEMPLATE = """
             };
 
             const rows = [['L.png', 'R.png', 'SF.png'], 
-                        ['lab_S.png', 'lab_S_final.png', 'lab_S_trans.png'], 
-                        ['input.png', 'nc.png']];
+                          ['lab_S.png', 'lab_S_final.png', 'lab_S_trans.png'], 
+                          ['input.png', 'nc.png']];
 
             rows.forEach((row) => {
                 const rowDiv = document.createElement('div');
@@ -257,6 +260,7 @@ HTML_TEMPLATE = """
                         img.alt = imgName;
                         img.title = plotTitles[imgName] || imgName.replace('.png', '').replace('_', ' ').toUpperCase();
                         const imgDiv = document.createElement('div');
+                        imgDiv.className = 'plot-container';
                         const title = document.createElement('p');
                         title.innerHTML = plotTitles[imgName] || imgName.replace('.png', '').replace('_', ' ').toUpperCase();
                         imgDiv.appendChild(title);
@@ -283,8 +287,8 @@ HTML_TEMPLATE = """
             document.getElementById('trackNames').textContent = info.track_names.join(', ');
             document.getElementById('drumTracks').textContent = info.drum_tracks ? 'Yes' : 'No';
             document.getElementById('silentTracks').textContent = info.silent_tracks ? 'Yes' : 'No';
-            document.getElementById('timeSignatureChanges').textContent = info.time_signature_changes;
-            document.getElementById('keySignatureChanges').textContent = info.key_signature_changes;
+            document.getElementById('timeSignatureChanges').textContent = info.time_signature_changes.join(', ');
+            document.getElementById('keySignatureChanges').textContent = info.key_signature_changes.join(', ');
         }
     </script>
 </body>
