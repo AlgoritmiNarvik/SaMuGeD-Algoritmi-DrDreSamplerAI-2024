@@ -133,6 +133,8 @@ HTML_TEMPLATE = """
                     <p>Track Names: <span id="trackNames"></span></p>
                     <p>Contains Drum Tracks: <span id="drumTracks"></span></p>
                     <p>Contains Silent Tracks: <span id="silentTracks"></span></p>
+                    <p>Time Signature Changes: <span id="timeSignatureChanges"></span> (Changes in the beats per measure, useful for understanding rhythmic complexity)</p>
+                    <p>Key Signature Changes: <span id="keySignatureChanges"></span> (Changes in the key signature, useful for understanding harmonic complexity)</p>
                 </div>
             </div>
         </div>
@@ -226,13 +228,24 @@ HTML_TEMPLATE = """
 
         function displayPlots(plots, noveltyCurve) {
             const plotArea = document.getElementById('plotArea');
-            plotArea.innerHTML = `<img src="data:image/png;base64,${noveltyCurve}" alt="Novelty Curve">`;
+            plotArea.innerHTML = `<img src="data:image/png;base64,${noveltyCurve}" alt="Novelty Curve" title="Novelty Curve with Segment Boundaries">`;
             const plotsContainer = document.getElementById('plotsContainer');
             plotsContainer.innerHTML = '';
 
+            const plotTitles = {
+                'L.png': 'Laplacian Eigenmaps Plot',
+                'R.png': 'Recurrence Plot',
+                'SF.png': 'Self-Similarity Matrix Plot',
+                'lab_S.png': 'Labelling Matrix (S)',
+                'lab_S_final.png': 'Final Labelling Matrix (S)',
+                'lab_S_trans.png': 'Transition Labelling Matrix (S)',
+                'input.png': 'Input Feature Matrix',
+                'nc.png': 'Normalized Novelty Curve'
+            };
+
             const rows = [['L.png', 'R.png', 'SF.png'], 
-                          ['lab_S.png', 'lab_S_final.png', 'lab_S_trans.png'], 
-                          ['input.png', 'nc.png']];
+                        ['lab_S.png', 'lab_S_final.png', 'lab_S_trans.png'], 
+                        ['input.png', 'nc.png']];
 
             rows.forEach((row) => {
                 const rowDiv = document.createElement('div');
@@ -242,7 +255,13 @@ HTML_TEMPLATE = """
                         const img = document.createElement('img');
                         img.src = `data:image/png;base64,${plots[imgName]}`;
                         img.alt = imgName;
-                        rowDiv.appendChild(img);
+                        img.title = plotTitles[imgName] || imgName.replace('.png', '').replace('_', ' ').toUpperCase();
+                        const imgDiv = document.createElement('div');
+                        const title = document.createElement('p');
+                        title.innerHTML = plotTitles[imgName] || imgName.replace('.png', '').replace('_', ' ').toUpperCase();
+                        imgDiv.appendChild(title);
+                        imgDiv.appendChild(img);
+                        rowDiv.appendChild(imgDiv);
                     }
                 });
                 plotsContainer.appendChild(rowDiv);
@@ -258,12 +277,14 @@ HTML_TEMPLATE = """
         }
 
         function updateMidiInfo(info) {
-            document.getElementById('midiTempo').textContent = info.tempo;
-            document.getElementById('midiDuration').textContent = info.duration;
+            document.getElementById('midiTempo').textContent = info.tempo.toFixed(2);
+            document.getElementById('midiDuration').textContent = info.duration.toFixed(2);
             document.getElementById('numTracks').textContent = info.num_tracks;
             document.getElementById('trackNames').textContent = info.track_names.join(', ');
             document.getElementById('drumTracks').textContent = info.drum_tracks ? 'Yes' : 'No';
             document.getElementById('silentTracks').textContent = info.silent_tracks ? 'Yes' : 'No';
+            document.getElementById('timeSignatureChanges').textContent = info.time_signature_changes;
+            document.getElementById('keySignatureChanges').textContent = info.key_signature_changes;
         }
     </script>
 </body>
@@ -378,13 +399,19 @@ def segment_midi():
         with open(novelty_curve_path, 'rb') as f:
             novelty_curve_base64 = base64.b64encode(f.read()).decode('utf-8')
 
+        # extracting more MIDI information
+        time_signature_changes = [(f"{ts.time:.2f} seconds: {ts.numerator}/{ts.denominator}") for ts in midi_data.time_signature_changes]
+        key_signature_changes = [(f"{ks.time:.2f} seconds: {pretty_midi.key_number_to_key_name(ks.key_number)}") for ks in midi_data.key_signature_changes]
+
         midi_info = {
             'tempo': midi_data.estimate_tempo(),
             'duration': midi_data.get_end_time(),
             'num_tracks': len(midi_data.instruments),
             'track_names': [instr.name for instr in midi_data.instruments],
             'drum_tracks': any(instr.is_drum for instr in midi_data.instruments),
-            'silent_tracks': any(len(instr.notes) == 0 for instr in midi_data.instruments)
+            'silent_tracks': any(len(instr.notes) == 0 for instr in midi_data.instruments),
+            'time_signature_changes': time_signature_changes,
+            'key_signature_changes': key_signature_changes
         }
 
         return jsonify({
