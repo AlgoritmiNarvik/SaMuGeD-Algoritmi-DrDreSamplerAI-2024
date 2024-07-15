@@ -1,6 +1,10 @@
 import numpy as np
-from miditoolkit.midi import parser as mid_parser  
+import os
 from collections import Counter, defaultdict
+
+from miditoolkit.midi.parser import MidiFile
+from miditoolkit.midi.containers import Instrument, Note
+from miditoolkit.midi import parser as mid_parser
 
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
@@ -244,6 +248,12 @@ def find_repeating_patterns(segmented_tracks, similarity_threshold=0.1):
     The function now adapts to the complexity of each track by using a track-specific
     maximum number of notes for feature vector creation.
     
+    Important to note:
+    - The first beat in each group becomes the "representative" of that group.
+    - All subsequent bars are compared to this representative, not to all bars in the group.
+    - This can lead to some "chain reaction" in grouping: 
+    tacts that are not very similar to each other may end up in the same group if they are similar to the representative.
+    
     Algorithm:
     1. For each track:
         a. Determine the maximum number of notes in any bar of the track.
@@ -284,6 +294,36 @@ def find_repeating_patterns(segmented_tracks, similarity_threshold=0.1):
     
     return patterns_by_track
 
+def save_pattern_as_midi(pattern, filename):
+    """
+    FOUND ISSUES HERE
+    Save a pattern (list of bars) as a MIDI file.
+    
+    Args:
+    pattern (list): List of bar dictionaries representing the pattern
+    filename (str): Name of the file to save the pattern to
+    """
+    midi = MidiFile()
+    instrument = Instrument(program=0, is_drum=False, name="Pattern")
+    
+    # adjust start times to fit within the bar
+    for bar in pattern:
+        start_offset = bar['start']
+        for note in bar['notes']:
+            # adjust the note start and end times relative to the bar start time
+            new_start = note.start - start_offset
+            new_end = note.end - start_offset
+            # ensure the times are non-negative
+            if new_start < 0:
+                new_start = 0
+            if new_end < new_start:
+                new_end = new_start + 1  # ensure end time is greater than start time
+            new_note = Note(velocity=note.velocity, pitch=note.pitch, start=new_start, end=new_end)
+            instrument.notes.append(new_note)
+    
+    midi.instruments.append(instrument)
+    midi.dump(filename)
+
 if __name__ == "__main__":
 
     midi_file = "testing_tools/test_scripts/take_on_me/track1.mid"
@@ -315,11 +355,19 @@ if __name__ == "__main__":
     segmented_tracks = segment_midi_to_bars(midi_file)
     repeating_patterns = find_repeating_patterns(segmented_tracks)
 
-for track_idx, patterns in repeating_patterns.items():
-    print(f"track {track_idx}:")
-    for i, pattern_group in enumerate(patterns):
-        print(f"  pattern group {i}: {len(pattern_group)} repetitions")
-        print(f"    representative: start={pattern_group[0]['start']}, end={pattern_group[0]['end']}, notes={len(pattern_group[0]['notes'])}")
-        print(f"    span: from bar {pattern_group[0]['start']} to {pattern_group[-1]['end']}")
+    # directory for saving pattern MIDI files
+    output_dir = "testing_tools/test_scripts/pattern_output"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    for track_idx, patterns in repeating_patterns.items():
+        print(f"track {track_idx}:")
+        for i, pattern_group in enumerate(patterns):
+            print(f"  pattern group {i}: {len(pattern_group)} repetitions")
+            print(f"    representative: start={pattern_group[0]['start']}, end={pattern_group[0]['end']}, notes={len(pattern_group[0]['notes'])}")
+            print(f"    span: from bar {pattern_group[0]['start']} to {pattern_group[-1]['end']}")
+            
+            filename = f"{output_dir}/track{track_idx}_pattern{i:02d}_rep{len(pattern_group):03d}.mid"
+            save_pattern_as_midi(pattern_group, filename)
+            print(f"    saved as: {filename}")
         print()
             
