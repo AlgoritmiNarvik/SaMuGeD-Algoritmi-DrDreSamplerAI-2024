@@ -1,9 +1,10 @@
 import numpy as np
 from miditoolkit.midi import parser as mid_parser  
-from collections import Counter
+from collections import Counter, defaultdict
 
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from scipy.spatial.distance import euclidean
 
 def detect_patterns(mido_obj: str | object) -> list:
     """
@@ -117,6 +118,8 @@ def segment_midi_to_bars(midi_file):
         track_end = max(note.end for note in sorted_notes)
         
         # get time signature information
+        # assume time signature doesn't change
+        # (which is a weak point, this should be upgraded in the future)
         time_sig = midi_obj.time_signature_changes[0]  # assume time signature doesn't change
         ticks_per_bar = time_sig.numerator * midi_obj.ticks_per_beat * 4 // time_sig.denominator
         
@@ -140,24 +143,76 @@ def segment_midi_to_bars(midi_file):
 
     return segments_by_track
 
-def convert_bar_to_feature_vector(bar):
+def get_max_notes(bars):
     """
-    converts a bar to a feature vector
+    Determine the maximum number of notes in any bar of the track.
     
-    args:
-    bar (dict): a dictionary representing a bar
+    Args:
+    bars (list): List of bar dictionaries for a track.
     
-    returns:
-    np.array: a feature vector representing the bar
+    Returns:
+    int: Maximum number of notes found in any bar.
+    """
+    return max(len(bar['notes']) for bar in bars)
+
+def convert_bar_to_feature_vector(bar, max_notes):
+    """
+    Converts a bar to a feature vector for similarity comparison.
+    
+    This function creates a variable-length feature vector that represents the musical content of a bar.
+    The vector includes information about pitch, timing, duration, and velocity of notes.
+    The length of the vector adapts to the maximum number of notes found in any bar of the track.
+    
+    Args:
+    bar (dict): A dictionary representing a bar, containing 'notes' and timing information.
+    max_notes (int): Maximum number of notes to consider, based on the track.
+    
+    Returns:
+    np.array: A feature vector representing the bar, with shape (4 * max_notes,).
     """
     n_notes = len(bar['notes'])
-    avg_pitch = np.mean([note.pitch for note in bar['notes']]) if n_notes > 0 else 0
-    avg_velocity = np.mean([note.velocity for note in bar['notes']]) if n_notes > 0 else 0
-    duration = bar['end'] - bar['start']
+    if n_notes > 0:
+        pitches = [note.pitch for note in bar['notes']]
+        start_times = [note.start - bar['start'] for note in bar['notes']]
+        durations = [note.end - note.start for note in bar['notes']]
+        velocities = [note.velocity for note in bar['notes']]
+    else:
+        pitches = start_times = durations = velocities = []
     
-    return np.array([n_notes, avg_pitch, avg_velocity, duration])
+    # pad to max_notes length
+    pitches = pitches + [0] * (max_notes - len(pitches))
+    start_times = start_times + [0] * (max_notes - len(start_times))
+    durations = durations + [0] * (max_notes - len(durations))
+    velocities = velocities + [0] * (max_notes - len(velocities))
+    
+    return np.array(pitches + start_times + durations + velocities)
 
-def cluster_bars(bars, n_clusters=5):
+def are_bars_similar(bar1, bar2, threshold=0.1, max_notes=None):
+    """
+    Determines if two bars are similar based on their feature vectors.
+    
+    This function computes the similarity between two bars using their feature vectors.
+    It uses Euclidean distance as a measure of dissimilarity, which is then converted to a similarity score.
+    
+    Args:
+    bar1, bar2 (dict): Dictionaries representing bars to be compared.
+    threshold (float): Similarity threshold. Bars are considered similar if their 
+                       similarity score is greater than (1 - threshold).
+    max_notes (int): Maximum number of notes to consider, based on the track.
+    
+    Returns:
+    bool: True if bars are similar (similarity > 1 - threshold), False otherwise.
+    """
+    if max_notes is None:
+        max_notes = max(len(bar1['notes']), len(bar2['notes']))
+    vec1 = convert_bar_to_feature_vector(bar1, max_notes)
+    vec2 = convert_bar_to_feature_vector(bar2, max_notes)
+    distance = euclidean(vec1, vec2)
+    max_distance = np.sqrt(len(vec1)) * 127  # maximum possible distance
+    similarity = 1 - (distance / max_distance)
+    return similarity > (1 - threshold)
+
+def cluster_bars(bars, n_clusters=5): # n_clusters=5 for now, experimenting
     """
     clusters bars using k-means algorithm
     
@@ -178,34 +233,53 @@ def cluster_bars(bars, n_clusters=5):
     
     return cluster_labels
 
-def find_repeating_patterns(segmented_tracks, n_clusters=5):
+def find_repeating_patterns(segmented_tracks, similarity_threshold=0.1):
     """
-    finds repeating patterns in segmented tracks, sorted by frequency
+    Finds repeating patterns in segmented tracks, grouped by similarity.
     
-    args:
-    segmented_tracks (dict): dictionary of segmented tracks
-    n_clusters (int): number of clusters to form for each track
+    This function identifies and groups similar bars within each track, effectively
+    finding repeating musical patterns. It uses a similarity-based approach rather than
+    clustering, allowing for detection of all repeating patterns regardless of their number.
     
-    returns:
-    dict: dictionary of sorted repeating patterns for each track
+    The function now adapts to the complexity of each track by using a track-specific
+    maximum number of notes for feature vector creation.
+    
+    Algorithm:
+    1. For each track:
+        a. Determine the maximum number of notes in any bar of the track.
+        b. Iterate through all bars in the track.
+        c. For each bar, compare it with the representative bar of each existing pattern group.
+        d. If the bar is similar to an existing pattern (based on the similarity threshold),
+           add it to that pattern group.
+        e. If the bar doesn't match any existing pattern, create a new pattern group with this bar.
+    2. Sort pattern groups by the number of repetitions (group size) in descending order.
+    
+    Args:
+    segmented_tracks (dict): Dictionary of segmented tracks, where each track is a list of bars.
+    similarity_threshold (float): Threshold for considering bars similar. Lower values result
+                                  in stricter matching, higher values allow more variation.
+    
+    Returns:
+    dict: Dictionary where keys are track indices and values are lists of pattern groups.
+          Each pattern group is a list of similar bars, sorted by frequency of occurrence.
     """
     patterns_by_track = {}
     
     for track_idx, bars in segmented_tracks.items():
-        cluster_labels = cluster_bars(bars, n_clusters)
+        max_notes = get_max_notes(bars)
+        patterns = defaultdict(list)
+        for i, bar in enumerate(bars):
+            found_match = False
+            for pattern_id, pattern_bars in patterns.items():
+                if are_bars_similar(bar, pattern_bars[0], similarity_threshold, max_notes):
+                    patterns[pattern_id].append(bar)
+                    found_match = True
+                    break
+            if not found_match:
+                patterns[len(patterns)] = [bar]
         
-        # count the frequency of each cluster
-        cluster_counts = Counter(cluster_labels)
-        
-        # sort clusters by frequency, most common first
-        sorted_clusters = sorted(cluster_counts, key=cluster_counts.get, reverse=True)
-        
-        # group bars by cluster, in order of frequency
-        sorted_patterns = []
-        for cluster in sorted_clusters:
-            pattern = [bar for bar, label in zip(bars, cluster_labels) if label == cluster]
-            sorted_patterns.append((pattern, cluster_counts[cluster]))  # include count
-        
+        # sort patterns by number of repetitions
+        sorted_patterns = sorted(patterns.values(), key=len, reverse=True)
         patterns_by_track[track_idx] = sorted_patterns
     
     return patterns_by_track
@@ -241,13 +315,11 @@ if __name__ == "__main__":
     segmented_tracks = segment_midi_to_bars(midi_file)
     repeating_patterns = find_repeating_patterns(segmented_tracks)
 
-    for track_idx, patterns in repeating_patterns.items():
-        print(f"track {track_idx}:")
-        for i, (pattern_group, count) in enumerate(patterns):
-            print(f"  pattern group {i}: {count} repetitions")
-            for j, pattern in enumerate(pattern_group[:3]):  # show first 3 patterns in each group
-                print(f"    pattern {j}: start={pattern['start']}, end={pattern['end']}, notes={len(pattern['notes'])}")
-            if len(pattern_group) > 3:
-                print("    ...")
+for track_idx, patterns in repeating_patterns.items():
+    print(f"track {track_idx}:")
+    for i, pattern_group in enumerate(patterns):
+        print(f"  pattern group {i}: {len(pattern_group)} repetitions")
+        print(f"    representative: start={pattern_group[0]['start']}, end={pattern_group[0]['end']}, notes={len(pattern_group[0]['notes'])}")
+        print(f"    span: from bar {pattern_group[0]['start']} to {pattern_group[-1]['end']}")
         print()
             
