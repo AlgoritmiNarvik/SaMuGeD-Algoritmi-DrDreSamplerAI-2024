@@ -1,5 +1,6 @@
 import numpy as np
 from miditoolkit.midi import parser as mid_parser  
+from collections import Counter
 
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
@@ -149,8 +150,6 @@ def convert_bar_to_feature_vector(bar):
     returns:
     np.array: a feature vector representing the bar
     """
-    # simple representation of 
-    # [number of notes, average pitch, average velocity, bar duration]
     n_notes = len(bar['notes'])
     avg_pitch = np.mean([note.pitch for note in bar['notes']]) if n_notes > 0 else 0
     avg_velocity = np.mean([note.velocity for note in bar['notes']]) if n_notes > 0 else 0
@@ -169,14 +168,11 @@ def cluster_bars(bars, n_clusters=5):
     returns:
     list: cluster labels for each bar
     """
-    # convert bars to feature vectors
     feature_vectors = np.array([convert_bar_to_feature_vector(bar) for bar in bars])
     
-    # normalize features
     scaler = StandardScaler()
     feature_vectors_normalized = scaler.fit_transform(feature_vectors)
     
-    # perform clustering
     kmeans = KMeans(n_clusters=n_clusters, random_state=42)
     cluster_labels = kmeans.fit_predict(feature_vectors_normalized)
     
@@ -184,27 +180,33 @@ def cluster_bars(bars, n_clusters=5):
 
 def find_repeating_patterns(segmented_tracks, n_clusters=5):
     """
-    finds repeating patterns in segmented tracks
+    finds repeating patterns in segmented tracks, sorted by frequency
     
     args:
     segmented_tracks (dict): dictionary of segmented tracks
     n_clusters (int): number of clusters to form for each track
     
     returns:
-    dict: dictionary of repeating patterns for each track
+    dict: dictionary of sorted repeating patterns for each track
     """
     patterns_by_track = {}
     
     for track_idx, bars in segmented_tracks.items():
         cluster_labels = cluster_bars(bars, n_clusters)
         
-        # find the most common cluster (the most repeating pattern)
-        most_common_cluster = np.argmax(np.bincount(cluster_labels))
+        # count the frequency of each cluster
+        cluster_counts = Counter(cluster_labels)
         
-        # get all bars that belong to the most common cluster
-        repeating_pattern = [bar for bar, label in zip(bars, cluster_labels) if label == most_common_cluster]
+        # sort clusters by frequency, most common first
+        sorted_clusters = sorted(cluster_counts, key=cluster_counts.get, reverse=True)
         
-        patterns_by_track[track_idx] = repeating_pattern
+        # group bars by cluster, in order of frequency
+        sorted_patterns = []
+        for cluster in sorted_clusters:
+            pattern = [bar for bar, label in zip(bars, cluster_labels) if label == cluster]
+            sorted_patterns.append((pattern, cluster_counts[cluster]))  # include count
+        
+        patterns_by_track[track_idx] = sorted_patterns
     
     return patterns_by_track
 
@@ -240,9 +242,12 @@ if __name__ == "__main__":
     repeating_patterns = find_repeating_patterns(segmented_tracks)
 
     for track_idx, patterns in repeating_patterns.items():
-        print(f"track {track_idx}: {len(patterns)} repeating patterns")
-        for i, pattern in enumerate(patterns[:10]):  # show first 5 patterns
-            print(f"  pattern {i}: start={pattern['start']}, end={pattern['end']}, notes={len(pattern['notes'])}")
-        if len(patterns) > 10:
-            print("  ...")
+        print(f"track {track_idx}:")
+        for i, (pattern_group, count) in enumerate(patterns):
+            print(f"  pattern group {i}: {count} repetitions")
+            for j, pattern in enumerate(pattern_group[:3]):  # show first 3 patterns in each group
+                print(f"    pattern {j}: start={pattern['start']}, end={pattern['end']}, notes={len(pattern['notes'])}")
+            if len(pattern_group) > 3:
+                print("    ...")
+        print()
             
