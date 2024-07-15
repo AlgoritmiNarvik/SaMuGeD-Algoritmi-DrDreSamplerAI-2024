@@ -1,6 +1,9 @@
 import numpy as np
 from miditoolkit.midi import parser as mid_parser  
 
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+
 def detect_patterns(mido_obj: str | object) -> list:
     """
     Takes path to a midifile or a class instance of miditoolkit.midi.parser.MidiFile
@@ -136,8 +139,78 @@ def segment_midi_to_bars(midi_file):
 
     return segments_by_track
 
+def convert_bar_to_feature_vector(bar):
+    """
+    converts a bar to a feature vector
+    
+    args:
+    bar (dict): a dictionary representing a bar
+    
+    returns:
+    np.array: a feature vector representing the bar
+    """
+    # simple representation of 
+    # [number of notes, average pitch, average velocity, bar duration]
+    n_notes = len(bar['notes'])
+    avg_pitch = np.mean([note.pitch for note in bar['notes']]) if n_notes > 0 else 0
+    avg_velocity = np.mean([note.velocity for note in bar['notes']]) if n_notes > 0 else 0
+    duration = bar['end'] - bar['start']
+    
+    return np.array([n_notes, avg_pitch, avg_velocity, duration])
+
+def cluster_bars(bars, n_clusters=5):
+    """
+    clusters bars using k-means algorithm
+    
+    args:
+    bars (list): list of bars
+    n_clusters (int): number of clusters to form
+    
+    returns:
+    list: cluster labels for each bar
+    """
+    # convert bars to feature vectors
+    feature_vectors = np.array([convert_bar_to_feature_vector(bar) for bar in bars])
+    
+    # normalize features
+    scaler = StandardScaler()
+    feature_vectors_normalized = scaler.fit_transform(feature_vectors)
+    
+    # perform clustering
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    cluster_labels = kmeans.fit_predict(feature_vectors_normalized)
+    
+    return cluster_labels
+
+def find_repeating_patterns(segmented_tracks, n_clusters=5):
+    """
+    finds repeating patterns in segmented tracks
+    
+    args:
+    segmented_tracks (dict): dictionary of segmented tracks
+    n_clusters (int): number of clusters to form for each track
+    
+    returns:
+    dict: dictionary of repeating patterns for each track
+    """
+    patterns_by_track = {}
+    
+    for track_idx, bars in segmented_tracks.items():
+        cluster_labels = cluster_bars(bars, n_clusters)
+        
+        # find the most common cluster (the most repeating pattern)
+        most_common_cluster = np.argmax(np.bincount(cluster_labels))
+        
+        # get all bars that belong to the most common cluster
+        repeating_pattern = [bar for bar, label in zip(bars, cluster_labels) if label == most_common_cluster]
+        
+        patterns_by_track[track_idx] = repeating_pattern
+    
+    return patterns_by_track
+
 if __name__ == "__main__":
 
+    midi_file = "testing_tools/test_scripts/take_on_me/track1.mid"
     #mido_obj = mid_parser.MidiFile("take_on_me.mid")
     #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me/track1.mid")
     #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
@@ -152,8 +225,24 @@ if __name__ == "__main__":
     #     for i, segment in enumerate(track):
     #         print(f'Segment {i+1}: {segment}', end="\n")
             
-    midi_file = "take_on_me.mid"
     segmented_tracks = segment_midi_to_bars(midi_file)
 
-    for track_idx, bars in segmented_tracks.items():
-        print(f"track {track_idx}: {len(bars)} bars")
+    # usage for segmenting tracks into bars
+    # for track_idx, bars in segmented_tracks.items():
+    #     print(f"track {track_idx}: {len(bars)} bars")
+    #     for i, bar in enumerate(bars[:10]):  # This will iterate over the first 10 bars
+    #         print(f"  bar {i}: start={bar['start']}, end={bar['end']}, notes={len(bar['notes'])}")
+    #     if len(bars) > 10:
+    #         print("  ... and so on")  
+        
+    # usage for finding patterns
+    segmented_tracks = segment_midi_to_bars(midi_file)
+    repeating_patterns = find_repeating_patterns(segmented_tracks)
+
+    for track_idx, patterns in repeating_patterns.items():
+        print(f"track {track_idx}: {len(patterns)} repeating patterns")
+        for i, pattern in enumerate(patterns[:10]):  # show first 5 patterns
+            print(f"  pattern {i}: start={pattern['start']}, end={pattern['end']}, notes={len(pattern['notes'])}")
+        if len(patterns) > 10:
+            print("  ...")
+            
