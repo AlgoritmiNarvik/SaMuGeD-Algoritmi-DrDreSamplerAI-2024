@@ -94,21 +94,23 @@ def detect_patterns(mido_obj: str | object) -> list:
 
 def segment_midi_to_bars(midi_file):
     """
-    segments a MIDI file into bars for each track
+    Segments a MIDI file into bars for each track
     
-    args:
+    Args:
     midi_file (str): path to the MIDI file
     
-    returns:
+    Returns:
     dict: a dictionary where keys are track numbers and values are lists of bars
+    dict: a dictionary where keys are track numbers and values are lists of bar timings
     """
     try:
         midi_obj = mid_parser.MidiFile(midi_file)
     except:
-        print(f'unable to open {midi_file}')
-        return None
+        print(f'Unable to open {midi_file}')
+        return None, None
 
     segments_by_track = {}
+    timings_by_track = {}
 
     for track_idx, instrument in enumerate(midi_obj.instruments):
         notes = instrument.notes
@@ -117,18 +119,14 @@ def segment_midi_to_bars(midi_file):
         if not sorted_notes:
             continue  # skip empty tracks
         
-        # find time boundaries of the track
         track_start = sorted_notes[0].start
         track_end = max(note.end for note in sorted_notes)
         
-        # get time signature information
-        # assume time signature doesn't change
-        # (which is a weak point, this should be upgraded in the future)
         time_sig = midi_obj.time_signature_changes[0]  # assume time signature doesn't change
         ticks_per_bar = time_sig.numerator * midi_obj.ticks_per_beat * 4 // time_sig.denominator
         
-        # segment into bars
         bars = []
+        timings = []
         current_bar_start = track_start - (track_start % ticks_per_bar)
         while current_bar_start < track_end:
             bar_end = min(current_bar_start + ticks_per_bar, track_end)
@@ -140,12 +138,14 @@ def segment_midi_to_bars(midi_file):
                     'end': bar_end,
                     'notes': bar_notes
                 })
+                timings.append((current_bar_start, bar_end))
             
             current_bar_start += ticks_per_bar
 
         segments_by_track[track_idx] = bars
+        timings_by_track[track_idx] = timings
 
-    return segments_by_track
+    return segments_by_track, timings_by_track
 
 def get_max_notes(bars):
     """
@@ -238,62 +238,102 @@ def cluster_bars(bars, n_clusters=5): # n_clusters=5 for now, experimenting
     
     return cluster_labels
 
-def find_repeating_patterns(segmented_tracks, similarity_threshold=0.1):
+def find_repeating_patterns(segmented_tracks, timings_by_track, min_sample_length=1, similarity_threshold=0.1):
     """
     Finds repeating patterns in segmented tracks, grouped by similarity.
     
-    This function identifies and groups similar bars within each track, effectively
-    finding repeating musical patterns. It uses a similarity-based approach rather than
-    clustering, allowing for detection of all repeating patterns regardless of their number.
-    
-    The function now adapts to the complexity of each track by using a track-specific
-    maximum number of notes for feature vector creation.
-    
-    Important to note:
-    - The first beat in each group becomes the "representative" of that group.
-    - All subsequent bars are compared to this representative, not to all bars in the group.
-    - This can lead to some "chain reaction" in grouping: 
-    tacts that are not very similar to each other may end up in the same group if they are similar to the representative.
-    
-    Algorithm:
-    1. For each track:
-        a. Determine the maximum number of notes in any bar of the track.
-        b. Iterate through all bars in the track.
-        c. For each bar, compare it with the representative bar of each existing pattern group.
-        d. If the bar is similar to an existing pattern (based on the similarity threshold),
-           add it to that pattern group.
-        e. If the bar doesn't match any existing pattern, create a new pattern group with this bar.
-    2. Sort pattern groups by the number of repetitions (group size) in descending order.
-    
     Args:
     segmented_tracks (dict): Dictionary of segmented tracks, where each track is a list of bars.
-    similarity_threshold (float): Threshold for considering bars similar. Lower values result
-                                  in stricter matching, higher values allow more variation.
+    timings_by_track (dict): Dictionary of bar timings for each track.
+    min_sample_length (int): Minimum number of bars for a pattern.
+    similarity_threshold (float): Threshold for considering bars similar.
     
     Returns:
     dict: Dictionary where keys are track indices and values are lists of pattern groups.
-          Each pattern group is a list of similar bars, sorted by frequency of occurrence.
     """
     patterns_by_track = {}
     
     for track_idx, bars in segmented_tracks.items():
         max_notes = get_max_notes(bars)
         patterns = defaultdict(list)
-        for i, bar in enumerate(bars):
+        
+        for i in range(len(bars) - min_sample_length + 1):
+            sample = bars[i:i+min_sample_length]
             found_match = False
-            for pattern_id, pattern_bars in patterns.items():
-                if are_bars_similar(bar, pattern_bars[0], similarity_threshold, max_notes):
-                    patterns[pattern_id].append(bar)
+            
+            for pattern_id, pattern_samples in patterns.items():
+                if all(are_bars_similar(sample[j], pattern_samples[0][j], similarity_threshold, max_notes) 
+                       for j in range(min_sample_length)):
+                    patterns[pattern_id].append(sample)
                     found_match = True
                     break
+            
             if not found_match:
-                patterns[len(patterns)] = [bar]
+                patterns[len(patterns)] = [sample]
         
         # sort patterns by number of repetitions
         sorted_patterns = sorted(patterns.values(), key=len, reverse=True)
         patterns_by_track[track_idx] = sorted_patterns
     
     return patterns_by_track
+
+def extract_pattern(midi_file, track_idx, pattern, timings):
+    """
+    Extract a pattern from the original MIDI file.
+    
+    Args:
+    midi_file (str): Path to the original MIDI file.
+    track_idx (int): Index of the track containing the pattern.
+    pattern (list): List of bars representing the pattern.
+    timings (list): List of (start, end) tuples for each bar in the track.
+    
+    Returns:
+    MidiFile: A new MIDI file containing only the extracted pattern.
+    """
+    midi_obj = mid_parser.MidiFile(midi_file)
+    new_midi = MidiFile()
+    new_midi.ticks_per_beat = midi_obj.ticks_per_beat
+
+    # Copy time signature and tempo information
+    new_midi.time_signature_changes = midi_obj.time_signature_changes
+    new_midi.tempo_changes = midi_obj.tempo_changes
+
+    # Create a new instrument for the pattern
+    new_instrument = Instrument(program=midi_obj.instruments[track_idx].program,
+                                is_drum=midi_obj.instruments[track_idx].is_drum,
+                                name=f"Pattern from Track {track_idx}")
+
+    # Extract notes for the pattern
+    if not pattern:
+        print(f"Warning: Empty pattern for track {track_idx}")
+        return new_midi
+
+    # Debug information
+    print(f"Pattern start: {pattern[0]['start']}")
+    print(f"Timings length: {len(timings)}")
+    print(f"First few timings: {timings[:5]}")
+
+    # Find the correct start time
+    start_time = None
+    for i, (bar_start, bar_end) in enumerate(timings):
+        if bar_start == pattern[0]['start']:
+            start_time = bar_start
+            break
+    
+    if start_time is None:
+        print(f"Warning: Could not find start time for pattern in track {track_idx}")
+        start_time = pattern[0]['start']
+
+    for bar in pattern:
+        for note in bar['notes']:
+            new_note = Note(velocity=note.velocity,
+                            pitch=note.pitch,
+                            start=note.start - start_time,
+                            end=note.end - start_time)
+            new_instrument.notes.append(new_note)
+
+    new_midi.instruments.append(new_instrument)
+    return new_midi
 
 def save_pattern_as_midi(pattern, filename):
     """
@@ -327,7 +367,6 @@ def save_pattern_as_midi(pattern, filename):
 
 if __name__ == "__main__":
 
-    midi_file = "testing_tools/test_scripts/take_on_me/track1.mid"
     #mido_obj = mid_parser.MidiFile("take_on_me.mid")
     #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me/track1.mid")
     #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
@@ -350,23 +389,40 @@ if __name__ == "__main__":
     #     if len(bars) > 10:
     #         print("  ... and so on")  
         
-    # usage for finding patterns
-    segmented_tracks = segment_midi_to_bars(midi_file)
-    repeating_patterns = find_repeating_patterns(segmented_tracks)
-
-    # directory for saving pattern MIDI files
+    # usage for finding patterns, kinda whole process
+    midi_file = "testing_tools/test_scripts/take_on_me/track1.mid"
     output_dir = "testing_tools/test_scripts/pattern_output"
     os.makedirs(output_dir, exist_ok=True)
     
+    min_sample_length = int(input("Enter the minimum sample length in bars (1-4): "))
+    
+    if min_sample_length < 1 or min_sample_length > 4:
+        print("Invalid sample length. Using default value of 1.")
+        min_sample_length = 1
+
+    segmented_tracks, timings_by_track = segment_midi_to_bars(midi_file)
+    if segmented_tracks is None:
+        print("Failed to process MIDI file.")
+        exit(1)
+
+    # Debug information
+    for track_idx, track_timings in timings_by_track.items():
+        print(f"Track {track_idx} timings: {len(track_timings)} bars")
+        print(f"First few timings: {track_timings[:5]}")
+
+    repeating_patterns = find_repeating_patterns(segmented_tracks, timings_by_track, min_sample_length)
+    
     for track_idx, patterns in repeating_patterns.items():
-        print(f"track {track_idx}:")
+        print(f"Track {track_idx}:")
         for i, pattern_group in enumerate(patterns):
-            print(f"  pattern group {i}: {len(pattern_group)} repetitions")
-            print(f"    representative: start={pattern_group[0]['start']}, end={pattern_group[0]['end']}, notes={len(pattern_group[0]['notes'])}")
-            print(f"    span: from bar {pattern_group[0]['start']} to {pattern_group[-1]['end']}")
+            print(f"  Pattern group {i}: {len(pattern_group)} repetitions")
+            print(f"    Representative: start={pattern_group[0][0]['start']}, end={pattern_group[0][-1]['end']}, notes={sum(len(bar['notes']) for bar in pattern_group[0])}")
             
             filename = f"{output_dir}/track{track_idx}_pattern{i:02d}_rep{len(pattern_group):03d}.mid"
-            save_pattern_as_midi(pattern_group, filename)
-            print(f"    saved as: {filename}")
+            try:
+                pattern_midi = extract_pattern(midi_file, track_idx, pattern_group[0], timings_by_track[track_idx])
+                pattern_midi.dump(filename)
+                print(f"    Saved as: {filename}")
+            except Exception as e:
+                print(f"    Error saving pattern: {str(e)}")
         print()
-            
