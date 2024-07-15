@@ -218,6 +218,7 @@ def are_bars_similar(bar1, bar2, threshold=0.1, max_notes=None):
 
 def cluster_bars(bars, n_clusters=5): # n_clusters=5 for now, experimenting
     """
+    DEPRECATED
     clusters bars using k-means algorithm
     
     args:
@@ -341,8 +342,6 @@ if __name__ == "__main__":
     #     for i, segment in enumerate(track):
     #         print(f'Segment {i+1}: {segment}', end="\n")
             
-    segmented_tracks = segment_midi_to_bars(midi_file)
-
     # usage for segmenting tracks into bars
     # for track_idx, bars in segmented_tracks.items():
     #     print(f"track {track_idx}: {len(bars)} bars")
