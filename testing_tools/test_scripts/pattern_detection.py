@@ -365,22 +365,8 @@ def save_pattern_as_midi(pattern, filename):
     midi.instruments.append(instrument)
     midi.dump(filename)
 
-if __name__ == "__main__":
+def almaz():
 
-    #mido_obj = mid_parser.MidiFile("take_on_me.mid")
-    #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me/track1.mid")
-    #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
-    #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
-
-    # tracks = detect_patterns("testing_tools/test_scripts/take_on_me.mid")
-    # for x, track in enumerate(tracks):
-    #     if x == 0:
-    #         print(f'Drum track')
-    #     else:
-    #         print(f'Track {x}')
-    #     for i, segment in enumerate(track):
-    #         print(f'Segment {i+1}: {segment}', end="\n")
-            
     # usage for segmenting tracks into bars
     # for track_idx, bars in segmented_tracks.items():
     #     print(f"track {track_idx}: {len(bars)} bars")
@@ -390,6 +376,7 @@ if __name__ == "__main__":
     #         print("  ... and so on")  
         
     # usage for finding patterns, kinda whole process
+
     midi_file = "testing_tools/test_scripts/take_on_me/track1.mid"
     output_dir = "testing_tools/test_scripts/pattern_output"
     os.makedirs(output_dir, exist_ok=True)
@@ -426,3 +413,27 @@ if __name__ == "__main__":
             except Exception as e:
                 print(f"    Error saving pattern: {str(e)}")
         print()
+
+
+
+def asle():
+    
+    #mido_obj = mid_parser.MidiFile("take_on_me.mid")
+    #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me/track1.mid")
+    #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
+    #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
+
+    # tracks = detect_patterns("testing_tools/test_scripts/take_on_me.mid")
+    # for x, track in enumerate(tracks):
+    #     if x == 0:
+    #         print(f'Drum track')
+    #     else:
+    #         print(f'Track {x}')
+    #     for i, segment in enumerate(track):
+    #         print(f'Segment {i+1}: {segment}', end="\n")
+    pass
+
+if __name__ == "__main__":
+    
+    almaz()
+    #asle()
