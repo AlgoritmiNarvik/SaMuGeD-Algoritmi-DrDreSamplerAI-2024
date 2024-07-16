@@ -405,7 +405,7 @@ def almaz():
             print(f"  Pattern group {i}: {len(pattern_group)} repetitions")
             print(f"    Representative: start={pattern_group[0][0]['start']}, end={pattern_group[0][-1]['end']}, notes={sum(len(bar['notes']) for bar in pattern_group[0])}")
             
-            filename = f"{output_dir}/track{track_idx}_pattern{i:02d}_rep{len(pattern_group):03d}.mid"
+            filename = f"{output_dir}/track{track_idx}_pattern{i:03d}_repeated{len(pattern_group):03d}.mid"
             try:
                 pattern_midi = extract_pattern(midi_file, track_idx, pattern_group[0], timings_by_track[track_idx])
                 pattern_midi.dump(filename)
