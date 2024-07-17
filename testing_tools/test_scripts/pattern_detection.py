@@ -257,7 +257,7 @@ def find_repeating_patterns(segmented_tracks, timings_by_track, min_sample_lengt
         max_notes = get_max_notes(bars)
         patterns = defaultdict(list)
         
-        for i in range(len(bars) - min_sample_length + 1):
+        for i in range(len(bars) - min_sample_length + 1): #TODO: check if it is ok logic or not
             sample = bars[i:i+min_sample_length]
             found_match = False
             
