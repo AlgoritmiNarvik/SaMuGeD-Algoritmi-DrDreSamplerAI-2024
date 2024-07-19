@@ -36,6 +36,8 @@ def detect_patterns(mido_obj: str | object) -> list:
     tracks = [] #This list will contain a list for each track, each list containing segments
 
     for ins_nr, instrument in enumerate(mido_obj.instruments):
+        if instrument.is_drum == True:
+            continue
         notes = instrument.notes
         sorted_notes = sorted(notes, key=lambda x: x.start)
         first_note_start = np.inf
@@ -365,6 +367,20 @@ def save_pattern_as_midi(pattern, filename):
     midi.instruments.append(instrument)
     midi.dump(filename)
 
+def compare_notes(segment, note_number, compare_note_number, duration_difference=10) -> bool:
+    """Returns True if the notes have the same pitch and within specified duration difference"""
+    try:
+        if segment[note_number].pitch == segment[compare_note_number].pitch:
+            note_duration = segment[note_number].end - segment[note_number].start
+            compare_note_duration = segment[compare_note_number].end - segment[compare_note_number].start
+            if abs(note_duration - compare_note_duration) <= duration_difference:
+                
+                return True
+    except:
+        pass
+
+    return False
+
 def almaz():
 
     # usage for segmenting tracks into bars
@@ -414,8 +430,6 @@ def almaz():
                 print(f"    Error saving pattern: {str(e)}")
         print()
 
-
-
 def asle():
     
     #mido_obj = mid_parser.MidiFile("take_on_me.mid")
@@ -431,9 +445,170 @@ def asle():
     #         print(f'Track {x}')
     #     for i, segment in enumerate(track):
     #         print(f'Segment {i+1}: {segment}', end="\n")
-    pass
+    tracks = detect_patterns("testing_tools/test_scripts/take_on_me.mid")
+    """ for x, track in enumerate(tracks):
+        if x == 0:
+            continue
+            print(f'Drum track')
+        else:
+            print(f'Track {x}')
+        for i, segment in enumerate(track):
+            if i == 2:
+                break
+            print(f'Segment {i+1}: {segment}', end="\n")
+        if x == 1:
+            break """
+    """ 
+    samples = []
+    for nr, track in enumerate(tracks):
+        track_temp = []
+        for segment in track:
+            segment_temp = []
+            pattern_width = 0
+            for note_number in range(len(segment)):
+                for compare_note_number in range(note_number+pattern_width, len(segment)):
+                    if segment[note_number] == segment[compare_note_number]:
+                        continue
+                    if pattern_width != 0:
+                        if (compare_note_number - note_number) != pattern_width:
+                            first_note_start = np.inf
+                            last_note_end = 0
+                            for note in segment_temp:
+                                first_note_start = (note.start if note.start < first_note_start else first_note_start)
+                                last_note_end = (note.end if note.end > last_note_end else last_note_end)
+                            if last_note_end - first_note_start > 384:
+                                track_temp.append(segment_temp)    
+                            segment_temp = []
+                            pattern_width = 0
+
+                    if compare_notes(segment=segment, note_number=note_number, compare_note_number=compare_note_number, duration_difference=5):
+                        segment_temp.append(segment[note_number])
+                        pattern_width = compare_note_number - note_number
+                        break
+                
+                #if len(segment_temp) > 0:
+                #    track_temp.append(segment_temp)
+                #    segment_temp = []
+        if len(track_temp) > 0:
+            samples.append(track_temp) """
+
+
+    #Todo
+    #For each track
+        #For each segment
+            #For each note
+                #Iterate through notes comparing pitch and duration(+/- some small amount)
+                #When a match is found, check if the following notes also match
+                #If notes match for 1 bar or more, save as a sample
+
+            #remove duplicate samples, keep only unique
+
+    #if match is found, save the width
+    #move both pointers and repeat
+    #if match is not found reset first pointer, save pattern into a temp list if it is long enough
+    #finally keep the longest unique patterns in that segment
+
+    """ samples = []
+    for track in tracks:
+        track_temp = []
+        end = False
+        current = 0
+        while not end:
+            segment_temp = []
+            pattern_width = 0
+            for note_number in range(current, len(segment)):
+                for compare_note_number in range(note_number+pattern_width, len(segment)):
+                    if segment[note_number] == segment[compare_note_number]:
+                        continue
+                    if pattern_width != 0:
+                        if (compare_note_number - note_number) != pattern_width:
+                            first_note_start = np.inf
+                            last_note_end = 0
+                            for note in segment_temp:
+                                first_note_start = (note.start if note.start < first_note_start else first_note_start)
+                                last_note_end = (note.end if note.end > last_note_end else last_note_end)
+                            if last_note_end - first_note_start > 384:
+                                track_temp.append(segment_temp)    
+                            segment_temp = []
+                            pattern_width = 0
+
+                    if compare_notes(segment=segment, note_number=note_number, compare_note_number=compare_note_number, duration_difference=5):
+                        segment_temp.append(segment[note_number])
+                        pattern_width = compare_note_number - note_number
+                        break
+            end = True """
+
+    list_of_all_patterns = []
+    for track in tracks:
+        list_of_patterns_in_segments = []
+        for segment_number, segment in enumerate(track):
+            current_pattern = []
+            active_pattern = False
+            note_number = 0
+            pattern_end = 0
+            previous_compare_match = 0
+            old_note_number = 0
+            list_of_patterns_in_current_segment = []
+            compare_note_number = note_number + 1
+            while note_number < len(segment) - 1:
+                if compare_note_number != previous_compare_match:
+                    if compare_notes(segment=segment, note_number=note_number, compare_note_number=compare_note_number): # if notes are the same, save note to pattern
+                        if not active_pattern: #If this is the start of a new pattern
+                            old_note_number = note_number # save start of pattern so we can go back when current pattern ends
+                            previous_compare_match = compare_note_number
+                            active_pattern = True
+                            pattern_end = segment[compare_note_number].start
+                            current_pattern.append(segment[note_number])
+                            note_number += 1
+
+                        elif segment[note_number].start == pattern_end: #If it is not a new pattern we want to check if the current pattern is repeating
+                            #reset
+                            note_number = old_note_number
+                            compare_note_number = previous_compare_match
+                            active_pattern = False
+                            if len(current_pattern) > 2:
+                                list_of_patterns_in_current_segment.append(current_pattern)
+                            current_pattern = []
+                            
+                        else: #If the pattern is still going save the note
+                            #save
+                            current_pattern.append(segment[note_number])
+                            note_number += 1
+
+                        compare_note_number += 1
+                    else: 
+                        if active_pattern:#If there was a pattern it has ended, reset
+                            note_number = old_note_number
+                            compare_note_number = previous_compare_match
+                            active_pattern = False
+                            if len(current_pattern) > 2:
+                                list_of_patterns_in_current_segment.append(current_pattern)
+                            current_pattern = []
+                            
+                        if compare_note_number >= len(segment):
+                            note_number += 1
+                            compare_note_number = note_number
+                        compare_note_number += 1 #increment until a match is found
+                else: 
+                    if active_pattern:#If there was a pattern it has ended, reset
+                        note_number = old_note_number
+                        compare_note_number = previous_compare_match
+                        active_pattern = False
+                        if len(current_pattern) > 2:
+                            list_of_patterns_in_current_segment.append(current_pattern)
+                        
+                    if compare_note_number >= len(segment):
+                        note_number += 1
+                        compare_note_number = note_number
+                    compare_note_number += 1 #increment until a match is found
+
+            list_of_patterns_in_segments.append(list_of_patterns_in_current_segment)
+        list_of_all_patterns.append(list_of_patterns_in_segments)
+
+    print(f'{list_of_all_patterns=}')
+
 
 if __name__ == "__main__":
     
-    almaz()
-    #asle()
+    #almaz()
+    asle()
