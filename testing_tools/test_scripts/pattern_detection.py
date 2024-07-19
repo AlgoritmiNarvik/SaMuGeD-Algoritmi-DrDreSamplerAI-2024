@@ -539,7 +539,9 @@ def asle():
             end = True """
 
     list_of_all_patterns = []
-    for track in tracks:
+    for track_number, track in enumerate(tracks):
+        if track_number > 0:
+            break
         list_of_patterns_in_segments = []
         for segment_number, segment in enumerate(track):
             current_pattern = []
@@ -563,11 +565,17 @@ def asle():
 
                         elif segment[note_number].start == pattern_end: #If it is not a new pattern we want to check if the current pattern is repeating
                             #reset
-                            note_number = old_note_number
-                            compare_note_number = previous_compare_match
+                            
                             active_pattern = False
-                            if len(current_pattern) > 2:
+                            if len(current_pattern) > 2: #TODO add onebar minimum duration check
                                 list_of_patterns_in_current_segment.append(current_pattern)
+                                note_number = note_number #+ (compare_note_number - note_number)
+                                compare_note_number = note_number
+                                old_note_number = note_number
+                                previous_compare_match = compare_note_number
+                            else:
+                                note_number = old_note_number
+                                compare_note_number = previous_compare_match
                             current_pattern = []
                             
                         else: #If the pattern is still going save the note
@@ -581,8 +589,8 @@ def asle():
                             note_number = old_note_number
                             compare_note_number = previous_compare_match
                             active_pattern = False
-                            if len(current_pattern) > 2:
-                                list_of_patterns_in_current_segment.append(current_pattern)
+                            #if len(current_pattern) > 2:
+                            #    list_of_patterns_in_current_segment.append(current_pattern)
                             current_pattern = []
                             
                         if compare_note_number >= len(segment):
@@ -594,18 +602,41 @@ def asle():
                         note_number = old_note_number
                         compare_note_number = previous_compare_match
                         active_pattern = False
-                        if len(current_pattern) > 2:
-                            list_of_patterns_in_current_segment.append(current_pattern)
+                        #if len(current_pattern) > 2:
+                        #    list_of_patterns_in_current_segment.append(current_pattern)
                         
                     if compare_note_number >= len(segment):
                         note_number += 1
                         compare_note_number = note_number
                     compare_note_number += 1 #increment until a match is found
 
-            list_of_patterns_in_segments.append(list_of_patterns_in_current_segment)
+            if list_of_patterns_in_current_segment:
+                list_of_patterns_in_segments.append(list_of_patterns_in_current_segment)
+            else:
+                list_of_patterns_in_segments.append([segment])
         list_of_all_patterns.append(list_of_patterns_in_segments)
 
+    mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
+    # create a mid file for track i
+    obj = mid_parser.MidiFile()
+    obj.ticks_per_beat = mido_obj.ticks_per_beat
+    obj.max_tick = mido_obj.max_tick
+    obj.tempo_changes = mido_obj.tempo_changes
+    obj.time_signature_changes = mido_obj.time_signature_changes
+    obj.key_signature_changes = mido_obj.key_signature_changes
+    obj.lyrics = mido_obj.lyrics
+    obj.markers = mido_obj.markers
+
+    obj.instruments.append(mido_obj.instruments[1])
     print(f'{list_of_all_patterns=}')
+    for track in list_of_all_patterns:
+        for segment in track:
+            for pattern in segment:
+                print(len(pattern))
+                new_instrument = Instrument(program=mido_obj.instruments[1].program, notes=pattern)
+                obj.instruments.append(new_instrument)
+
+    obj.dump("testing_tools/test_scripts/pattern_output/asle_test.mid")
 
 
 if __name__ == "__main__":
