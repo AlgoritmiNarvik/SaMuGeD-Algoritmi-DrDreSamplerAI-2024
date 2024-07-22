@@ -545,6 +545,7 @@ def asle():
         list_of_patterns_in_segments = []
         for segment_number, segment in enumerate(track):
             current_pattern = []
+            not_pattern = []
             active_pattern = False
             note_number = 0
             pattern_end = 0
@@ -552,24 +553,28 @@ def asle():
             old_note_number = 0
             list_of_patterns_in_current_segment = []
             compare_note_number = note_number + 1
-            while note_number < len(segment) - 1:
+            while note_number < len(segment):
                 if compare_note_number != previous_compare_match:
                     if compare_notes(segment=segment, note_number=note_number, compare_note_number=compare_note_number): # if notes are the same, save note to pattern
                         if not active_pattern: #If this is the start of a new pattern
-                            old_note_number = note_number # save start of pattern so we can go back when current pattern ends
-                            previous_compare_match = compare_note_number
-                            active_pattern = True
-                            pattern_end = segment[compare_note_number].start
-                            current_pattern.append(segment[note_number])
-                            note_number += 1
+                            if segment[compare_note_number].end - segment[note_number].start >= 384:
+                                pattern_end = segment[compare_note_number].start
+                                old_note_number = note_number # save start of pattern so we can go back when current pattern ends
+                                previous_compare_match = compare_note_number
+                                active_pattern = True
+                                current_pattern.append(segment[note_number])
+                                note_number += 1
 
                         elif segment[note_number].start == pattern_end: #If it is not a new pattern we want to check if the current pattern is repeating
                             #reset
                             
                             active_pattern = False
-                            if len(current_pattern) > 2: #TODO add onebar minimum duration check
+                            if len(current_pattern) > 2: #TODO Use sf_segmenter for boundaries to help with boundaries of patterns
+                                if not_pattern:
+                                    list_of_patterns_in_current_segment.append(not_pattern)
+                                    not_pattern = []    
                                 list_of_patterns_in_current_segment.append(current_pattern)
-                                note_number = note_number #+ (compare_note_number - note_number)
+                                note_number = note_number + len(current_pattern)
                                 compare_note_number = note_number
                                 old_note_number = note_number
                                 previous_compare_match = compare_note_number
@@ -594,6 +599,7 @@ def asle():
                             current_pattern = []
                             
                         if compare_note_number >= len(segment):
+                            not_pattern.append(segment[note_number])
                             note_number += 1
                             compare_note_number = note_number
                         compare_note_number += 1 #increment until a match is found
@@ -610,7 +616,10 @@ def asle():
                         compare_note_number = note_number
                     compare_note_number += 1 #increment until a match is found
 
-            if list_of_patterns_in_current_segment:
+            if not_pattern:
+                list_of_patterns_in_current_segment.append(not_pattern)
+                not_pattern = []   
+            if list_of_patterns_in_current_segment: #remove duplicates
                 list_of_patterns_in_segments.append(list_of_patterns_in_current_segment)
             else:
                 list_of_patterns_in_segments.append([segment])
