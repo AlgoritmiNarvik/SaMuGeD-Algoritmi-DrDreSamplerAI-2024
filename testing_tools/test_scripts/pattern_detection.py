@@ -20,7 +20,7 @@ def detect_patterns(mido_obj: str | object) -> list:
     #1:01:00 is the first(0th) tick in flstudio
     #x:16:24 first number is bar, starting with 1st bar. each bar is divided into steps, every 16 steps is one bar. Each step is divided into 24 ticks.
     #The very start of the track is 1:01:00, which in ticks is 400?
-    #1 bar duration = 384 ticks
+    #1 bar duration = 384 ticks (for 4/4 time signature, 2nd number is how many beats are in each bar)
 
     if isinstance(mido_obj, mid_parser.MidiFile):
         mido_obj = mido_obj
@@ -32,6 +32,10 @@ def detect_patterns(mido_obj: str | object) -> list:
     else:
         print(f'Input not a path or instance of MidiFile class')
         return None
+    
+    ticks_per_beat = mido_obj.ticks_per_beat
+    time_signature = mido_obj.time_signature_changes
+    ticks_per_bar = ticks_per_beat * time_signature[0].denominator
 
     tracks = [] #This list will contain a list for each track, each list containing segments
 
@@ -74,7 +78,7 @@ def detect_patterns(mido_obj: str | object) -> list:
             for note in notes_to_remove[::-1]: #Remove played notes from list of notes to reduce code execution time
                 sorted_notes.remove(note)
 
-            if ticks_since_last_note == 384: #save segment when 1 bar has passed since end of last note
+            if ticks_since_last_note == ticks_per_bar: #save segment when 1 bar has passed since end of last note
                 segments.append(temp)
                 temp = []
 
@@ -432,67 +436,8 @@ def almaz():
 
 def asle():
     
-    #mido_obj = mid_parser.MidiFile("take_on_me.mid")
-    #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me/track1.mid")
-    #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
-    #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
-
-    # tracks = detect_patterns("testing_tools/test_scripts/take_on_me.mid")
-    # for x, track in enumerate(tracks):
-    #     if x == 0:
-    #         print(f'Drum track')
-    #     else:
-    #         print(f'Track {x}')
-    #     for i, segment in enumerate(track):
-    #         print(f'Segment {i+1}: {segment}', end="\n")
     tracks = detect_patterns("testing_tools/test_scripts/take_on_me.mid")
-    """ for x, track in enumerate(tracks):
-        if x == 0:
-            continue
-            print(f'Drum track')
-        else:
-            print(f'Track {x}')
-        for i, segment in enumerate(track):
-            if i == 2:
-                break
-            print(f'Segment {i+1}: {segment}', end="\n")
-        if x == 1:
-            break """
-    """ 
-    samples = []
-    for nr, track in enumerate(tracks):
-        track_temp = []
-        for segment in track:
-            segment_temp = []
-            pattern_width = 0
-            for note_number in range(len(segment)):
-                for compare_note_number in range(note_number+pattern_width, len(segment)):
-                    if segment[note_number] == segment[compare_note_number]:
-                        continue
-                    if pattern_width != 0:
-                        if (compare_note_number - note_number) != pattern_width:
-                            first_note_start = np.inf
-                            last_note_end = 0
-                            for note in segment_temp:
-                                first_note_start = (note.start if note.start < first_note_start else first_note_start)
-                                last_note_end = (note.end if note.end > last_note_end else last_note_end)
-                            if last_note_end - first_note_start > 384:
-                                track_temp.append(segment_temp)    
-                            segment_temp = []
-                            pattern_width = 0
-
-                    if compare_notes(segment=segment, note_number=note_number, compare_note_number=compare_note_number, duration_difference=5):
-                        segment_temp.append(segment[note_number])
-                        pattern_width = compare_note_number - note_number
-                        break
-                
-                #if len(segment_temp) > 0:
-                #    track_temp.append(segment_temp)
-                #    segment_temp = []
-        if len(track_temp) > 0:
-            samples.append(track_temp) """
-
-
+    
     #Todo
     #For each track
         #For each segment
@@ -508,35 +453,12 @@ def asle():
     #if match is not found reset first pointer, save pattern into a temp list if it is long enough
     #finally keep the longest unique patterns in that segment
 
-    """ samples = []
-    for track in tracks:
-        track_temp = []
-        end = False
-        current = 0
-        while not end:
-            segment_temp = []
-            pattern_width = 0
-            for note_number in range(current, len(segment)):
-                for compare_note_number in range(note_number+pattern_width, len(segment)):
-                    if segment[note_number] == segment[compare_note_number]:
-                        continue
-                    if pattern_width != 0:
-                        if (compare_note_number - note_number) != pattern_width:
-                            first_note_start = np.inf
-                            last_note_end = 0
-                            for note in segment_temp:
-                                first_note_start = (note.start if note.start < first_note_start else first_note_start)
-                                last_note_end = (note.end if note.end > last_note_end else last_note_end)
-                            if last_note_end - first_note_start > 384:
-                                track_temp.append(segment_temp)    
-                            segment_temp = []
-                            pattern_width = 0
+    
+    mid_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
 
-                    if compare_notes(segment=segment, note_number=note_number, compare_note_number=compare_note_number, duration_difference=5):
-                        segment_temp.append(segment[note_number])
-                        pattern_width = compare_note_number - note_number
-                        break
-            end = True """
+    ticks_per_beat = mid_obj.ticks_per_beat
+    time_signature = mid_obj.time_signature_changes
+    ticks_per_bar = ticks_per_beat * time_signature[0].denominator #This needs to be changed for music that has time signature changes
 
     list_of_all_patterns = []
     for track_number, track in enumerate(tracks):
@@ -557,7 +479,7 @@ def asle():
                 if compare_note_number != previous_compare_match:
                     if compare_notes(segment=segment, note_number=note_number, compare_note_number=compare_note_number): # if notes are the same, save note to pattern
                         if not active_pattern: #If this is the start of a new pattern
-                            if segment[compare_note_number].end - segment[note_number].start >= 384:
+                            if segment[compare_note_number].end - segment[note_number].start >= ticks_per_bar:
                                 pattern_end = segment[compare_note_number].start
                                 old_note_number = note_number # save start of pattern so we can go back when current pattern ends
                                 previous_compare_match = compare_note_number
@@ -651,4 +573,8 @@ def asle():
 if __name__ == "__main__":
     
     #almaz()
-    asle()
+    #asle()
+    cok = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
+    print(f'{cok.time_signature_changes=}')
+    print(f'{cok.ticks_per_beat=}')
+    print(f'{cok.key_signature_changes=}')
