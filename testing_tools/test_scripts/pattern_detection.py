@@ -573,8 +573,5 @@ def asle():
 if __name__ == "__main__":
     
     #almaz()
-    #asle()
-    cok = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
-    print(f'{cok.time_signature_changes=}')
-    print(f'{cok.ticks_per_beat=}')
-    print(f'{cok.key_signature_changes=}')
+    asle()
+    
