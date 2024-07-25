@@ -2,6 +2,9 @@ import numpy as np
 import os
 from collections import Counter, defaultdict
 
+import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
+
 from miditoolkit.midi.parser import MidiFile
 from miditoolkit.midi.containers import Instrument, Note
 from miditoolkit.midi import parser as mid_parser
@@ -385,6 +388,43 @@ def compare_notes(segment, note_number, compare_note_number, duration_difference
 
     return False
 
+def visualize_track_with_patterns(midi_obj, track_idx, patterns, timings):
+    # Получаем ноты трека
+    notes = midi_obj.instruments[track_idx].notes
+    
+    # Создаем фигуру и оси
+    fig, ax = plt.subplots(figsize=(20, 5))
+    
+    # Отображаем ноты как горизонтальные линии
+    for note in notes:
+        ax.plot([note.start, note.end], [note.pitch, note.pitch], linewidth=2)
+    
+    # Добавляем границы паттернов и аннотации
+    for i, pattern_group in enumerate(patterns):
+        for pattern in pattern_group:
+            start = pattern[0]['start']
+            end = pattern[-1]['end']
+            ax.axvline(x=start, color='r', linestyle='--', alpha=0.5)
+            ax.axvline(x=end, color='r', linestyle='--', alpha=0.5)
+            ax.annotate(f"Pattern {i} (x{len(pattern_group)})", 
+                        xy=(start, ax.get_ylim()[1]), 
+                        xytext=(0, 10), 
+                        textcoords='offset points',
+                        rotation=90,
+                        va='bottom')
+    
+    # Настройка осей
+    ax.set_xlabel('Time (ticks)')
+    ax.set_ylabel('Pitch')
+    ax.set_title(f'Track {track_idx} with Patterns')
+    
+    # Добавляем возможность прокрутки для длинных треков
+    plt.subplots_adjust(bottom=0.2)
+    ax.set_xlim(0, max(note.end for note in notes))
+    
+    # Показываем график
+    plt.show()
+
 def almaz():
 
     # usage for segmenting tracks into bars
@@ -433,6 +473,28 @@ def almaz():
             except Exception as e:
                 print(f"    Error saving pattern: {str(e)}")
         print()
+
+def almaz_visualize():
+    midi_file = "testing_tools/test_scripts/take_on_me/track1.mid"
+    
+    min_sample_length = int(input("Enter the minimum sample length in bars (1-4): "))
+    
+    if min_sample_length < 1 or min_sample_length > 4:
+        print("Invalid sample length. Using default value of 1.")
+        min_sample_length = 1
+
+    segmented_tracks, timings_by_track = segment_midi_to_bars(midi_file)
+    if segmented_tracks is None:
+        print("Failed to process MIDI file.")
+        exit(1)
+
+    midi_obj = mid_parser.MidiFile(midi_file)
+    repeating_patterns = find_repeating_patterns(segmented_tracks, timings_by_track, min_sample_length)
+    
+    for track_idx, patterns in repeating_patterns.items():
+        print(f"Visualizing Track {track_idx}")
+        visualize_track_with_patterns(midi_obj, track_idx, patterns, timings_by_track[track_idx])
+
 
 def asle():
     
@@ -573,5 +635,6 @@ def asle():
 if __name__ == "__main__":
     
     #almaz()
-    asle()
+    #asle()
+    almaz_visualize()
     
