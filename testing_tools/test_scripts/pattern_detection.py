@@ -11,7 +11,9 @@ from miditoolkit.midi import parser as mid_parser
 
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from scipy.stats import skew, kurtosis
 from scipy.spatial.distance import euclidean
+from scipy.spatial.distance import cdist
 
 def detect_patterns(mido_obj: str | object) -> list:
     """
@@ -433,7 +435,7 @@ def almaz():
                 print(f"    Error saving pattern: {str(e)}")
         print()
 
-def find_repeating_patterns(segmented_tracks, timings_by_track, min_sample_length=1, similarity_threshold=0.1):
+def find_repeating_patterns_DEPR(segmented_tracks, timings_by_track, min_sample_length=1, similarity_threshold=0.1):
     """
     Finds repeating patterns in segmented tracks.
 
@@ -540,20 +542,93 @@ def visualize_track_with_patterns(midi_obj, track_idx, patterns, timings):
     
     plt.tight_layout()
     plt.show()
+  
+def extract_bar_features(bar):
+    """Extract more features from a bar."""
+    notes = bar['notes']
+    if not notes:
+        return np.zeros(10)  # Return zero vector for empty bars
     
+    pitches = [note.pitch for note in notes]
+    velocities = [note.velocity for note in notes]
+    durations = [note.end - note.start for note in notes]
+    start_times = [note.start - bar['start'] for note in notes]
+    
+    features = [
+        len(notes),  # Number of notes
+        np.mean(pitches),  # Mean pitch
+        np.std(pitches) if len(pitches) > 1 else 0,  # Pitch variety
+        np.mean(velocities),  # Mean velocity
+        np.std(velocities) if len(velocities) > 1 else 0,  # Velocity variety
+        np.mean(durations),  # Mean note duration
+        np.std(durations) if len(durations) > 1 else 0,  # Duration variety
+        skew(start_times) if len(start_times) > 2 else 0,  # Skewness of note start times
+        kurtosis(start_times) if len(start_times) > 3 else 0,  # Kurtosis of note start times
+        len(set(pitches)) / len(pitches) if pitches else 0  # Pitch uniqueness ratio
+    ]
+    return np.array(features)
+
+def compute_similarity(sample1, sample2):
+    """Compute similarity between two samples using their features."""
+    features1 = np.array([extract_bar_features(bar) for bar in sample1])
+    features2 = np.array([extract_bar_features(bar) for bar in sample2])
+    
+    # If the samples have different lengths, pad the shorter one with zeros
+    if features1.shape[0] < features2.shape[0]:
+        features1 = np.pad(features1, ((0, features2.shape[0] - features1.shape[0]), (0, 0)))
+    elif features2.shape[0] < features1.shape[0]:
+        features2 = np.pad(features2, ((0, features1.shape[0] - features2.shape[0]), (0, 0)))
+    
+    # Flatten the features
+    features1 = features1.flatten()
+    features2 = features2.flatten()
+    
+    return 1 / (1 + np.linalg.norm(features1 - features2))
+
+def find_repeating_patterns(segmented_tracks, timings_by_track, pattern_length=4, similarity_threshold=0.3):
+    """Find repeating patterns with fixed pattern length."""
+    patterns_by_track = {}
+    
+    for track_idx, bars in segmented_tracks.items():
+        patterns = []
+        
+        for i in range(len(bars) - pattern_length + 1):
+            sample = bars[i:i+pattern_length]
+            
+            # Check if this sample is similar to any existing pattern
+            if patterns:
+                similarities = [compute_similarity(sample, group[0]) for group in patterns]
+                max_similarity_idx = np.argmax(similarities)
+                if similarities[max_similarity_idx] > similarity_threshold:
+                    patterns[max_similarity_idx].append(sample)
+                    continue
+            
+            patterns.append([sample])
+        
+        # Filter out patterns that don't repeat
+        patterns = [group for group in patterns if len(group) > 1]
+        
+        # Sort patterns by number of repetitions
+        patterns.sort(key=len, reverse=True)
+        
+        patterns_by_track[track_idx] = patterns
+        
+        print(f"Track {track_idx}: Found {len(patterns)} pattern groups")
+        for i, pattern_group in enumerate(patterns):
+            print(f"  Pattern group {i}: {len(pattern_group)} repetitions, length: {pattern_length} bars")
+            print(f"    Start ticks: {[p[0]['start'] for p in pattern_group]}")
+            print(f"    End ticks: {[p[-1]['end'] for p in pattern_group]}")
+    
+    return patterns_by_track
+
 def almaz_visualize():
-    """
-    Main function for visualizing patterns in a MIDI file.
-    Prompts the user for minimum sample length, processes the MIDI file,
-    and visualizes the found patterns.
-    """
     midi_file = "testing_tools/test_scripts/take_on_me/track1.mid"
     
-    min_sample_length = int(input("Enter the minimum sample length in bars (1-4): "))
+    pattern_length = int(input("Enter the fixed pattern length in bars (1-8): "))
     
-    if min_sample_length < 1 or min_sample_length > 4:
-        print("Invalid sample length. Using default value of 1.")
-        min_sample_length = 1
+    if pattern_length < 1 or pattern_length > 8:
+        print("Invalid pattern length. Using default value of 4.")
+        pattern_length = 4
 
     segmented_tracks, timings_by_track = segment_midi_to_bars(midi_file)
     if segmented_tracks is None:
@@ -561,7 +636,7 @@ def almaz_visualize():
         exit(1)
 
     midi_obj = mid_parser.MidiFile(midi_file)
-    repeating_patterns = find_repeating_patterns(segmented_tracks, timings_by_track, min_sample_length)
+    repeating_patterns = find_repeating_patterns(segmented_tracks, timings_by_track, pattern_length)
     
     for track_idx, patterns in repeating_patterns.items():
         print(f"\nVisualizing Track {track_idx}")
@@ -573,7 +648,7 @@ def almaz_visualize():
                   f"length={len(rep)} bars, notes={sum(len(bar['notes']) for bar in rep)}")
         
         visualize_track_with_patterns(midi_obj, track_idx, patterns, timings_by_track[track_idx])
-      
+             
 def asle():
     
     tracks = detect_patterns("testing_tools/test_scripts/take_on_me.mid")
