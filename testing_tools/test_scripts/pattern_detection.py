@@ -247,33 +247,6 @@ def cluster_bars(bars, n_clusters=5): # n_clusters=5 for now, experimenting
     
     return cluster_labels
 
-def find_repeating_patterns(segmented_tracks, timings_by_track, min_sample_length=1, similarity_threshold=0.1):
-    patterns_by_track = {}
-    
-    for track_idx, bars in segmented_tracks.items():
-        max_notes = get_max_notes(bars)
-        patterns = defaultdict(list)
-        
-        for i in range(len(bars) - min_sample_length + 1):
-            sample = bars[i:i+min_sample_length]
-            found_match = False
-            
-            for pattern_id, pattern_samples in patterns.items():
-                if all(are_bars_similar(sample[j], pattern_samples[0][j], similarity_threshold, max_notes) 
-                       for j in range(min_sample_length)):
-                    patterns[pattern_id].append(sample)
-                    found_match = True
-                    break
-            
-            if not found_match:
-                patterns[len(patterns)] = [sample]
-        
-        # sort patterns by number of repetitions
-        sorted_patterns = sorted(patterns.values(), key=len, reverse=True)
-        patterns_by_track[track_idx] = sorted_patterns
-    
-    return patterns_by_track
-
 def extract_pattern(midi_file, track_idx, pattern, timings):
     """
     Extract a pattern from the original MIDI file.
@@ -332,9 +305,44 @@ def extract_pattern(midi_file, track_idx, pattern, timings):
     new_midi.instruments.append(new_instrument)
     return new_midi
 
-def save_pattern_as_midi(pattern, filename):
+def save_pattern_as_midi(pattern, filename, original_midi=None, instrument_program=0):
     """
-    FOUND ISSUES HERE
+    Save a pattern (list of bars) as a MIDI file.
+    
+    Args:
+    pattern (list): List of bar dictionaries representing the pattern
+    filename (str): Name of the file to save the pattern to
+    original_midi (MidiFile): Original MIDI file to copy metadata from (optional)
+    instrument_program (int): MIDI program number for the instrument (default: 0)
+    """
+    try:
+        midi = MidiFile()
+        if original_midi:
+            midi.ticks_per_beat = original_midi.ticks_per_beat
+            midi.time_signature_changes = original_midi.time_signature_changes
+            midi.tempo_changes = original_midi.tempo_changes
+
+        instrument = Instrument(program=instrument_program, is_drum=False, name="Pattern")
+        
+        pattern_start = pattern[0]['start']
+        for bar in pattern:
+            for note in bar['notes']:
+                new_start = note.start - pattern_start
+                new_end = note.end - pattern_start
+                if new_end <= new_start:
+                    new_end = new_start + 1
+                new_note = Note(velocity=note.velocity, pitch=note.pitch, start=new_start, end=new_end)
+                instrument.notes.append(new_note)
+        
+        midi.instruments.append(instrument)
+        midi.dump(filename)
+        print(f"Pattern successfully saved to {filename}")
+    except Exception as e:
+        print(f"Error saving pattern to MIDI: {str(e)}")
+
+def save_pattern_as_midi_DEPR(pattern, filename):
+    """
+    DEPR FOUND ISSUES HERE
     Save a pattern (list of bars) as a MIDI file.
     
     Args:
@@ -425,56 +433,120 @@ def almaz():
                 print(f"    Error saving pattern: {str(e)}")
         print()
 
+def find_repeating_patterns(segmented_tracks, timings_by_track, min_sample_length=1, similarity_threshold=0.1):
+    """
+    Finds repeating patterns in segmented tracks.
+
+    Args:
+    segmented_tracks (dict): Dictionary of segmented tracks.
+    timings_by_track (dict): Dictionary of timings for each track.
+    min_sample_length (int): Minimum length of a sample in bars.
+    similarity_threshold (float): Threshold for bar similarity comparison.
+
+    Returns:
+    dict: Dictionary where keys are track indices and values are lists of pattern groups.
+    """
+    patterns_by_track = {}
+    
+    for track_idx, bars in segmented_tracks.items():
+        max_notes = get_max_notes(bars)
+        patterns = defaultdict(list)
+        
+        for i in range(len(bars) - min_sample_length + 1):
+            sample = bars[i:i+min_sample_length]
+            sample_hash = hash(tuple(bar['start'] for bar in sample))
+            
+            if sample_hash in patterns:
+                patterns[sample_hash].append(sample)
+            else:
+                for pattern_hash, pattern_samples in patterns.items():
+                    if all(are_bars_similar(sample[j], pattern_samples[0][j], similarity_threshold, max_notes) 
+                           for j in range(min_sample_length)):
+                        patterns[pattern_hash].append(sample)
+                        break
+                else:
+                    patterns[sample_hash] = [sample]
+        
+        # filter patterns, keeping only those that repeat more than once
+        filtered_patterns = [pattern for pattern in patterns.values() if len(pattern) > 1]
+        
+        # sort patterns by number of repetitions
+        sorted_patterns = sorted(filtered_patterns, key=len, reverse=True)
+        patterns_by_track[track_idx] = sorted_patterns
+        
+        print(f"Track {track_idx}: Found {len(sorted_patterns)} pattern groups")
+        for i, pattern_group in enumerate(sorted_patterns):
+            print(f"  Pattern group {i}: {len(pattern_group)} repetitions, length: {min_sample_length} bars")
+            print(f"    Start ticks: {[p[0]['start'] for p in pattern_group]}")
+            print(f"    End ticks: {[p[-1]['end'] for p in pattern_group]}")
+    
+    return patterns_by_track
+
 def visualize_track_with_patterns(midi_obj, track_idx, patterns, timings):
-    # Получаем ноты трека
+    """
+    Visualizes a track with found patterns.
+
+    Args:
+    midi_obj (MidiFile): MIDI file object.
+    track_idx (int): Index of the track to visualize.
+    patterns (list): List of pattern groups.
+    timings (list): List of timings for the track.
+    """
     notes = midi_obj.instruments[track_idx].notes
     
-    # Создаем фигуру и оси
-    fig, ax = plt.subplots(figsize=(20, 5))
+    fig, ax = plt.subplots(figsize=(20, 10))
     
-    # Отображаем ноты как горизонтальные линии
     for note in notes:
         ax.plot([note.start, note.end], [note.pitch, note.pitch], linewidth=2, color='blue', alpha=0.5)
     
-    # Создаем цветовую палитру для паттернов
     colors = plt.cm.rainbow(np.linspace(0, 1, len(patterns)))
     
-    # Добавляем области паттернов и аннотации
     for i, (pattern_group, color) in enumerate(zip(patterns, colors)):
-        for pattern in pattern_group:
+        pattern_name = f"P{i+1}"
+        for j, pattern in enumerate(pattern_group):
             start = pattern[0]['start']
             end = pattern[-1]['end']
             ax.axvspan(start, end, facecolor=color, alpha=0.2)
-        
-        # Добавляем аннотацию только для первого появления паттерна
-        first_pattern = pattern_group[0]
-        ax.annotate(f"P{i+1}", 
-                    xy=(first_pattern[0]['start'], ax.get_ylim()[1]), 
-                    xytext=(0, 10), 
-                    textcoords='offset points',
-                    rotation=90,
-                    va='bottom',
-                    color=color)
+            
+            ax.annotate(f"{pattern_name}", 
+                        xy=(start, ax.get_ylim()[1]), 
+                        xytext=(0, 10), 
+                        textcoords='offset points',
+                        rotation=90,
+                        va='bottom',
+                        color=color,
+                        fontweight='bold')
+            
+            # Add vertical lines for start and end with labels
+            ax.axvline(x=start, color=color, linestyle='--', alpha=0.7, linewidth=1)
+            ax.axvline(x=end, color=color, linestyle='--', alpha=0.7, linewidth=1)
+            
+            # Add labels for start and end
+            ax.text(start, ax.get_ylim()[0], f'{pattern_name} start', rotation=90, 
+                    va='bottom', ha='right', color=color, fontsize=8)
+            ax.text(end, ax.get_ylim()[0], f'{pattern_name} end', rotation=90, 
+                    va='bottom', ha='right', color=color, fontsize=8)
     
-    # Настройка осей
     ax.set_xlabel('Time (ticks)')
     ax.set_ylabel('Pitch')
     ax.set_title(f'Track {track_idx} with Patterns')
     
-    # Добавляем возможность прокрутки для длинных треков
     plt.subplots_adjust(bottom=0.2)
     ax.set_xlim(0, max(note.end for note in notes))
     
-    # Добавляем легенду
     legend_elements = [plt.Line2D([0], [0], color=color, lw=4, label=f'P{i+1} (x{len(pattern_group)})') 
                        for i, (pattern_group, color) in enumerate(zip(patterns, colors))]
-    ax.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=5)
+    ax.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=3)
     
-    # Показываем график
     plt.tight_layout()
     plt.show()
     
 def almaz_visualize():
+    """
+    Main function for visualizing patterns in a MIDI file.
+    Prompts the user for minimum sample length, processes the MIDI file,
+    and visualizes the found patterns.
+    """
     midi_file = "testing_tools/test_scripts/take_on_me/track1.mid"
     
     min_sample_length = int(input("Enter the minimum sample length in bars (1-4): "))
@@ -492,13 +564,16 @@ def almaz_visualize():
     repeating_patterns = find_repeating_patterns(segmented_tracks, timings_by_track, min_sample_length)
     
     for track_idx, patterns in repeating_patterns.items():
-        print(f"Track {track_idx}:")
+        print(f"\nVisualizing Track {track_idx}")
+        print(f"Number of pattern groups: {len(patterns)}")
         for i, pattern_group in enumerate(patterns):
             print(f"  Pattern group {i}: {len(pattern_group)} repetitions")
-            print(f"    Representative: start={pattern_group[0][0]['start']}, end={pattern_group[0][-1]['end']}, notes={sum(len(bar['notes']) for bar in pattern_group[0])}")
+            rep = pattern_group[0]
+            print(f"    Representative: start={rep[0]['start']}, end={rep[-1]['end']}, "
+                  f"length={len(rep)} bars, notes={sum(len(bar['notes']) for bar in rep)}")
         
         visualize_track_with_patterns(midi_obj, track_idx, patterns, timings_by_track[track_idx])
-    
+      
 def asle():
     
     tracks = detect_patterns("testing_tools/test_scripts/take_on_me.mid")
@@ -633,7 +708,6 @@ def asle():
                 obj.instruments.append(new_instrument)
 
     obj.dump("testing_tools/test_scripts/pattern_output/asle_test.mid")
-
 
 if __name__ == "__main__":
     
