@@ -81,7 +81,7 @@ def compute_similarity(seq1, seq2):
     rhythm_similarity = SequenceMatcher(None, rhythm1, rhythm2).ratio()
     
     # Compute overall similarity
-    weights = [0.69, 0.1, 0.01, 0.2]  # Assign weights to different similarity aspects
+    weights = [0.4, 0.2, 0.2, 0.2]  # Assign weights to different similarity aspects
     similarity_scores = [pitch_similarity, duration_similarity, interval_similarity, rhythm_similarity]
     overall_similarity = sum(weight * score for weight, score in zip(weights, similarity_scores))
     
@@ -166,11 +166,16 @@ def find_repeating_patterns_sia(preprocessed_data, notes, ticks_per_bar, min_pat
         
         clustered_patterns = defaultdict(list)
         for pattern, label in zip(frequent_patterns.keys(), clustering.labels_):
-            clustered_patterns[label].extend(frequent_patterns[pattern])
+            clustered_patterns[label].extend([(pattern, start) for start in frequent_patterns[pattern]])
     else:
         clustered_patterns = {}
     
     return clustered_patterns
+
+def compute_pattern_features(pattern):
+    # Implement feature computation for clustering
+    # This is a placeholder implementation
+    return np.array([len(pattern)] + [len(bar) for bar in pattern])
 
 def compute_pattern_features(pattern, max_length=100):
     pitch_contour = [note[0] for bar in pattern for note in bar]
@@ -186,18 +191,9 @@ def classify_segments(preprocessed_data, repeating_patterns, melodic_phrases, ti
     classifications = []
     pattern_boundaries = []
     
-    for pattern_idx, (pattern, occurrences) in enumerate(repeating_patterns.items()):
-        # Debugging information to check the structure of pattern
-        print(f"Pattern {pattern_idx}: {pattern}")
-        
-        if isinstance(pattern, tuple) and all(isinstance(bar, tuple) for bar in pattern):
-            pattern_length = len(pattern)
-        else:
-            print(f"Unexpected pattern structure: {pattern}")
-            continue  # Skip this pattern if the structure is unexpected
-        
-        for start in occurrences:
-            end = start + pattern_length - 1
+    for pattern_idx, (label, occurrences) in enumerate(repeating_patterns.items()):
+        for pattern, start in occurrences:
+            end = start + len(pattern) - 1
             if end >= len(preprocessed_data):
                 continue  # Skip if end index goes out of bounds
             
@@ -205,8 +201,8 @@ def classify_segments(preprocessed_data, repeating_patterns, melodic_phrases, ti
                 'type': 'Repeating Pattern',
                 'start': preprocessed_data[start]['start'],
                 'end': preprocessed_data[end]['end'],
-                'length': pattern_length,
-                'description': f'Repeating pattern {pattern_idx + 1} of {pattern_length} bars',
+                'length': len(pattern),
+                'description': f'Repeating pattern {pattern_idx + 1} of {len(pattern)} bars',
                 'pattern_id': pattern_idx
             })
             pattern_boundaries.append({
@@ -240,33 +236,145 @@ def classify_segments(preprocessed_data, repeating_patterns, melodic_phrases, ti
                 'length': (bar['end'] - bar['start']) // ticks_per_bar,
                 'description': 'Empty bar segment'
             })
+        elif not any(c['start'] <= bar['start'] < c['end'] for c in classifications):
+            classifications.append({
+                'type': 'Other',
+                'start': bar['start'],
+                'end': bar['end'],
+                'length': 1,
+                'description': 'Unclassified segment'
+            })
     
     return sorted(classifications, key=lambda x: x['start']), sorted(pattern_boundaries, key=lambda x: x['position'])
 
-def visualize_track_segmentation(notes, classifications, pattern_boundaries, ticks_per_bar):
+def visualize_raw_notes(notes, ticks_per_bar):
+    """
+    Visualizes the raw MIDI notes and bar boundaries.
+
+    Args:
+        notes (list): List of MIDI note objects.
+        ticks_per_bar (int): Number of ticks per bar.
+    """
     fig, ax = plt.subplots(figsize=(20, 10))
     
     for note in notes:
         ax.plot([note.start, note.end], [note.pitch, note.pitch], linewidth=4, color='blue', alpha=0.5)
     
-    colors = {'Melodic Phrase': 'green', 'Repeating Pattern': 'orange', 'Empty': 'gray'}
-    
-    for segment in classifications:
-        start_tick = segment['start']
-        end_tick = segment['end']
-        segment_type = segment['type']
-        color = colors[segment_type]
-        ax.add_patch(Rectangle((start_tick, ax.get_ylim()[0]), end_tick - start_tick, ax.get_ylim()[1] - ax.get_ylim()[0], facecolor=color, alpha=0.3))
-    
-    for boundary in pattern_boundaries:
-        ax.axvline(x=boundary['position'], color='red', linestyle='--', alpha=0.7)
-    
     ax.set_xlabel('Time (ticks)')
     ax.set_ylabel('Pitch')
-    ax.set_title('Track Segmentation')
+    ax.set_title('Raw Note Data')
+    
+    max_time = max(note.end for note in notes)
+    for bar in range(0, int(max_time), ticks_per_bar):
+        ax.axvline(x=bar, color='gray', linestyle=':', alpha=0.5)
     
     plt.tight_layout()
     plt.show()
+
+def visualize_repeating_patterns(notes, repeating_patterns, ticks_per_bar):
+    """
+    Visualizes the repeating patterns in a MIDI track.
+
+    Args:
+        notes (list): List of MIDI note objects.
+        repeating_patterns (dict): Dictionary of repeating patterns and their occurrences.
+        ticks_per_bar (int): Number of ticks per bar.
+    """
+    fig, ax = plt.subplots(figsize=(20, 10))
+    
+    for note in notes:
+        ax.plot([note.start, note.end], [note.pitch, note.pitch], linewidth=4, color='blue', alpha=0.5)
+    
+    pattern_colors = plt.cm.Set2(np.linspace(0, 1, len(repeating_patterns)))
+    
+    for idx, (pattern, occurrences) in enumerate(repeating_patterns.items()):
+        color = pattern_colors[idx]
+        if isinstance(pattern, tuple):
+            pattern_length = len(pattern)  # Ensure pattern length is calculated correctly
+            for start in occurrences:
+                end = start + pattern_length * ticks_per_bar  # Corrected end calculation
+                ax.axvspan(start * ticks_per_bar, end, facecolor=color, alpha=0.3)
+                ax.text(start * ticks_per_bar, ax.get_ylim()[1], f'P{idx+1}', rotation=90, va='top', ha='right', fontsize=8)
+    
+    ax.set_xlabel('Time (ticks)')
+    ax.set_ylabel('Pitch')
+    ax.set_title('Repeating Patterns')
+    
+    plt.tight_layout()
+    plt.show()
+
+def visualize_melodic_phrases(notes, melodic_phrases, ticks_per_bar):
+    """
+    Visualizes the melodic phrases in a MIDI track.
+
+    Args:
+        notes (list): List of MIDI note objects.
+        melodic_phrases (list): List of melodic phrases.
+        ticks_per_bar (int): Number of ticks per bar.
+    """
+    fig, ax = plt.subplots(figsize=(20, 10))
+    
+    for note in notes:
+        ax.plot([note.start, note.end], [note.pitch, note.pitch], linewidth=4, color='blue', alpha=0.5)
+    
+    for idx, phrase in enumerate(melodic_phrases):
+        start = phrase[0] * ticks_per_bar
+        end = (phrase[-1] + 1) * ticks_per_bar
+        ax.axvspan(start, end, facecolor='lightgreen', alpha=0.3)
+        ax.text(start, ax.get_ylim()[1], f'M{idx+1}', rotation=90, va='top', ha='right', fontsize=8)
+        ax.axvline(x=start, color='green', linestyle='--', alpha=0.7)
+        ax.axvline(x=end, color='green', linestyle='--', alpha=0.7)
+    
+    ax.set_xlabel('Time (ticks)')
+    ax.set_ylabel('Pitch')
+    ax.set_title('Melodic Phrases')
+    
+    plt.tight_layout()
+    plt.show()
+
+def visualize_final_segmentation(notes, classifications, ticks_per_bar):
+    """
+    Visualizes the final segmentation of a MIDI track.
+
+    Args:
+        notes (list): List of MIDI note objects.
+        classifications (list): List of segment classifications.
+        ticks_per_bar (int): Number of ticks per bar.
+    """
+    fig, ax = plt.subplots(figsize=(20, 10))
+    
+    for note in notes:
+        ax.plot([note.start, note.end], [note.pitch, note.pitch], linewidth=4, color='blue', alpha=0.5)
+    
+    texts = []
+    positions = []
+    for segment in classifications:
+        ax.axvline(x=segment['start'], color='red', linestyle='--', alpha=0.7)
+        texts.append(f"{segment['type']}\n{segment['length']} bars")
+        positions.append((segment['start'], ax.get_ylim()[1]))
+    
+    ax.axvline(x=classifications[-1]['end'], color='red', linestyle='--', alpha=0.7)
+    
+    smart_text_placement(ax, texts, positions)
+    
+    ax.set_xlabel('Time (ticks)')
+    ax.set_ylabel('Pitch')
+    ax.set_title('Final Segmentation')
+    
+    plt.tight_layout()
+    plt.show()
+
+def smart_text_placement(ax, texts, positions):
+    """
+    Places text annotations smartly on the plot.
+
+    Args:
+        ax (matplotlib.axes.Axes): The axes to place text on.
+        texts (list): List of text strings.
+        positions (list): List of positions for the texts.
+    """
+    for text, (x, y) in zip(texts, positions):
+        ax.text(x, y, text, rotation=90, va='top', ha='right', fontsize=8, bbox=dict(facecolor='white', alpha=0.6))
 
 def analyze_midi_track(midi_file):
     midi_obj = MidiFile(midi_file)
@@ -292,13 +400,19 @@ def analyze_midi_track(midi_file):
         
         preprocessed_data = preprocess_midi_track(notes, ticks_per_bar)
         
+        visualize_raw_notes(notes, ticks_per_bar)
+        
         melodic_phrases = segment_melodic_phrases_advanced(preprocessed_data, notes, ticks_per_bar)
         
         repeating_patterns = find_repeating_patterns_sia(preprocessed_data, notes, ticks_per_bar)
         
+        visualize_repeating_patterns(notes, repeating_patterns, ticks_per_bar)
+        
+        visualize_melodic_phrases(notes, melodic_phrases, ticks_per_bar)
+        
         classifications, pattern_boundaries = classify_segments(preprocessed_data, repeating_patterns, melodic_phrases, ticks_per_bar)
         
-        visualize_track_segmentation(notes, classifications, pattern_boundaries, ticks_per_bar)
+        visualize_final_segmentation(notes, classifications, ticks_per_bar)
         
         results.append({
             'track_idx': track_idx,
