@@ -49,18 +49,24 @@ def preprocess_midi_track(notes, ticks_per_bar):
     end_time = notes[-1].end if notes else 0
     
     preprocessed_data = []
+    empty_segment_start = None
     
     for bar_start in range(start_time, end_time, ticks_per_bar):
         bar_end = bar_start + ticks_per_bar
         
         if is_bar_empty(notes, bar_start, bar_end):
-            preprocessed_data.append({
-                'start': bar_start,
-                'end': bar_end,
-                'type': 'empty',
-                'notes': []
-            })
+            if empty_segment_start is None:
+                empty_segment_start = bar_start
         else:
+            if empty_segment_start is not None:
+                preprocessed_data.append({
+                    'start': empty_segment_start,
+                    'end': bar_start,
+                    'type': 'empty',
+                    'notes': []
+                })
+                empty_segment_start = None
+            
             note_sequence = extract_note_sequence(notes, bar_start, bar_end)
             preprocessed_data.append({
                 'start': bar_start,
@@ -68,6 +74,14 @@ def preprocess_midi_track(notes, ticks_per_bar):
                 'type': 'non_empty',
                 'notes': note_sequence
             })
+    
+    if empty_segment_start is not None:
+        preprocessed_data.append({
+            'start': empty_segment_start,
+            'end': end_time,
+            'type': 'empty',
+            'notes': []
+        })
     
     return preprocessed_data
 
@@ -93,14 +107,13 @@ def compute_similarity(seq1, seq2):
     matches = sum(p1 == p2 for p1, p2 in zip(pitches1, pitches2))
     return matches / max(len(pitches1), len(pitches2))
 
-def find_repeating_patterns(preprocessed_data, min_length=2, max_length=8, similarity_threshold=0.8):
+def find_repeating_patterns(preprocessed_data, pattern_length, similarity_threshold=0.1):
     """
     Find repeating patterns in preprocessed data.
 
     Args:
         preprocessed_data (list): Preprocessed bar data.
-        min_length (int): Minimum pattern length in bars.
-        max_length (int): Maximum pattern length in bars.
+        pattern_length (int): Pattern length in bars.
         similarity_threshold (float): Threshold for considering patterns similar.
 
     Returns:
@@ -110,24 +123,23 @@ def find_repeating_patterns(preprocessed_data, min_length=2, max_length=8, simil
     n = len(preprocessed_data)
     used_indices = set()
     
-    for length in range(max_length, min_length - 1, -1):
-        for i in range(n - length + 1):
-            if i in used_indices:
-                continue
-            pattern = tuple(tuple(bar['notes']) for bar in preprocessed_data[i:i+length] if bar['type'] == 'non_empty')
-            if pattern:
-                occurrences = [i]
-                for j in range(i + 1, n - length + 1):
-                    if j in used_indices:
-                        continue
-                    compare = tuple(tuple(bar['notes']) for bar in preprocessed_data[j:j+length] if bar['type'] == 'non_empty')
-                    if len(pattern) == len(compare):
-                        if all(compute_similarity(p, c) >= similarity_threshold for p, c in zip(pattern, compare)):
-                            occurrences.append(j)
-                
-                if len(occurrences) > 1:
-                    patterns[pattern] = occurrences
-                    used_indices.update(range(occ, occ+length) for occ in occurrences)
+    for i in range(n - pattern_length + 1):
+        if i in used_indices:
+            continue
+        pattern = tuple(tuple(bar['notes']) for bar in preprocessed_data[i:i+pattern_length] if bar['type'] == 'non_empty')
+        if pattern:
+            occurrences = [i]
+            for j in range(i + 1, n - pattern_length + 1):
+                if j in used_indices:
+                    continue
+                compare = tuple(tuple(bar['notes']) for bar in preprocessed_data[j:j+pattern_length] if bar['type'] == 'non_empty')
+                if len(pattern) == len(compare):
+                    if all(compute_similarity(p, c) >= similarity_threshold for p, c in zip(pattern, compare)):
+                        occurrences.append(j)
+            
+            if len(occurrences) > 1:
+                patterns[pattern] = occurrences
+                used_indices.update(range(occ, occ+pattern_length) for occ in occurrences)
     
     return {k: v for k, v in patterns.items() if len(v) > 1}
 
@@ -166,7 +178,7 @@ def segment_melodic_phrases(preprocessed_data, repeating_indices):
     
     return phrases
 
-def classify_segments(preprocessed_data, repeating_patterns, melodic_phrases):
+def classify_segments(preprocessed_data, repeating_patterns, melodic_phrases, ticks_per_bar):
     """
     Classify segments based on their musical characteristics.
 
@@ -174,6 +186,7 @@ def classify_segments(preprocessed_data, repeating_patterns, melodic_phrases):
         preprocessed_data (list): Preprocessed bar data.
         repeating_patterns (dict): Repeating patterns and their occurrences.
         melodic_phrases (list): List of melodic phrase segments.
+        ticks_per_bar (int): Number of ticks per bar.
 
     Returns:
         list: Segment classifications.
@@ -223,8 +236,8 @@ def classify_segments(preprocessed_data, repeating_patterns, melodic_phrases):
                 'type': 'Empty',
                 'start': bar['start'],
                 'end': bar['end'],
-                'length': 1,
-                'description': 'Empty bar'
+                'length': (bar['end'] - bar['start']) // ticks_per_bar,
+                'description': 'Empty bar segment'
             })
     
     return sorted(classifications, key=lambda x: x['start']), sorted(pattern_boundaries, key=lambda x: x['position'])
@@ -431,14 +444,13 @@ def visualize_final_segmentation(notes, classifications, ticks_per_bar):
     plt.tight_layout()
     plt.show()
 
-def analyze_midi_track(midi_file, min_pattern_length=2, max_pattern_length=8):
+def analyze_midi_track(midi_file, pattern_length):
     """
     Analyzes a MIDI track for patterns and segments.
 
     Args:
         midi_file (str): Path to the MIDI file.
-        min_pattern_length (int): Minimum pattern length in bars.
-        max_pattern_length (int): Maximum pattern length in bars.
+        pattern_length (int): Length of patterns in bars.
 
     Returns:
         list: Analysis results for each track.
@@ -466,12 +478,12 @@ def analyze_midi_track(midi_file, min_pattern_length=2, max_pattern_length=8):
         
         preprocessed_data = preprocess_midi_track(notes, ticks_per_bar)
         
-        repeating_patterns = find_repeating_patterns(preprocessed_data, min_pattern_length, max_pattern_length)
+        repeating_patterns = find_repeating_patterns(preprocessed_data, pattern_length)
         repeating_indices = set(sum([occ for occ in repeating_patterns.values()], []))
         
         melodic_phrases = segment_melodic_phrases(preprocessed_data, repeating_indices)
         
-        classifications, pattern_boundaries = classify_segments(preprocessed_data, repeating_patterns, melodic_phrases)
+        classifications, pattern_boundaries = classify_segments(preprocessed_data, repeating_patterns, melodic_phrases, ticks_per_bar)
         
         visualize_raw_notes(notes, ticks_per_bar)
         visualize_repeating_patterns(notes, repeating_patterns, ticks_per_bar)
@@ -491,7 +503,7 @@ def analyze_midi_track(midi_file, min_pattern_length=2, max_pattern_length=8):
 
 # Usage
 midi_file = "testing_tools/test_scripts/take_on_me/track1.mid"
-analysis_results = analyze_midi_track(midi_file, min_pattern_length=1, max_pattern_length=2)
+analysis_results = analyze_midi_track(midi_file, pattern_length=4)
 
 for result in analysis_results:
     print(f"Track {result['track_idx']}:")
