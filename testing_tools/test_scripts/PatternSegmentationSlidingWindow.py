@@ -1,11 +1,14 @@
-import music21
-from mido import MidiFile, MidiTrack, Message, MetaMessage
+from music21 import converter, note
+import matplotlib.pyplot as plt
+import numpy as np
 
-def find_repeating_motifs(score_path, min_length=4, max_length=10):
-    score = music21.converter.parse(score_path)
+def read_midi_file(file_path):
+    score = converter.parse(file_path)
     melody = score.parts[0].flat.notesAndRests
     pitch_sequence = [n.pitch.midi for n in melody if n.isNote]
-    
+    return pitch_sequence
+
+def find_repeating_motifs(pitch_sequence, min_length=4, max_length=20):
     motifs = {}
     for length in range(min_length, max_length + 1):
         for i in range(len(pitch_sequence) - length + 1):
@@ -15,61 +18,46 @@ def find_repeating_motifs(score_path, min_length=4, max_length=10):
             else:
                 motifs[motif] = [i]
     
-    repeating_motifs = {m: pos for m, pos in motifs.items() if len(pos) > 4}
+    repeating_motifs = {m: pos for m, pos in motifs.items() if len(pos) > 1}
     return repeating_motifs
 
-def extract_note_info(midi_file):
-    note_info = []
-    current_time = 0
-    for msg in midi_file.tracks[0]:
-        current_time += msg.time
-        if msg.type == 'note_on' and msg.velocity > 0:
-            note_info.append({'note': msg.note, 'start': current_time, 'velocity': msg.velocity})
-        elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
-            for note in reversed(note_info):
-                if note['note'] == msg.note and 'end' not in note:
-                    note['end'] = current_time
-                    break
-    return note_info
-
-def save_motifs_to_midi(original_midi_path, repeating_motifs, output_path):
-    original_midi = MidiFile(original_midi_path)
-    note_info = extract_note_info(original_midi)
+def segment_track(pitch_sequence, repeating_motifs):
+    segments = []
+    used_indices = set()
     
-    new_midi = MidiFile(type=original_midi.type, ticks_per_beat=original_midi.ticks_per_beat)
+    sorted_motifs = sorted(repeating_motifs.items(), key=lambda x: (len(x[0]), len(x[1])), reverse=True)
     
-    # Copy all original tracks
-    for track in original_midi.tracks:
-        new_midi.tracks.append(track)
-    
-    for motif, positions in repeating_motifs.items():
-        motif_track = MidiTrack()
-        new_midi.tracks.append(motif_track)
-        motif_track.append(MetaMessage('track_name', name=f'Motif {motif}'))
-        
+    for motif, positions in sorted_motifs:
         for pos in positions:
-            if pos + len(motif) > len(note_info):
-                continue  # Skip if the motif goes beyond the available notes
-            
-            motif_start = note_info[pos]['start']
-            for i, pitch in enumerate(motif):
-                note = note_info[pos + i]
-                start_time = note['start'] - motif_start
-                duration = note['end'] - note['start']
-                
-                motif_track.append(Message('note_on', note=note['note'], velocity=note['velocity'], time=int(start_time)))
-                motif_track.append(Message('note_off', note=note['note'], velocity=0, time=int(duration)))
+            if all(i not in used_indices for i in range(pos, pos + len(motif))):
+                segments.append((pos, pos + len(motif)))
+                used_indices.update(range(pos, pos + len(motif)))
     
-    new_midi.save(output_path)
+    return sorted(segments)
 
-# Usage
-score_path = 'testing_tools/Manual_seg/take_on_me/track1.mid'
-output_path = 'testing_tools/test_scripts/pattern_output/track1_with_motifs.mid'
+def plot_piano_roll(pitch_sequence, segments):
+    max_pitch = max(pitch_sequence)
+    min_pitch = min(pitch_sequence)
+    
+    fig, ax = plt.subplots(figsize=(14, 6))
+    
+    for segment in segments:
+        start, end = segment
+        ax.add_patch(plt.Rectangle((start, min_pitch - 0.5), end - start, max_pitch - min_pitch + 1, color='lightblue', alpha=0.5))
+    
+    ax.plot(pitch_sequence, 'k', marker='o', markersize=4, linestyle='None')
+    
+    ax.set_xlim(0, len(pitch_sequence))
+    ax.set_ylim(min_pitch - 1, max_pitch + 1)
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Pitch')
+    
+    plt.title('Piano Roll with Segmented Motifs')
+    plt.show()
 
-repeating_motifs = find_repeating_motifs(score_path)
-
-for motif, positions in repeating_motifs.items():
-    print(f"Motif {motif} repeats at positions: {positions}")
-
-save_motifs_to_midi(score_path, repeating_motifs, output_path)
-print(f"MIDI file with motifs saved as {output_path}")
+# Используем путь к вашему MIDI-файлу
+file_path = 'testing_tools/Manual_seg/take_on_me/track1.mid'
+pitch_sequence = read_midi_file(file_path)
+repeating_motifs = find_repeating_motifs(pitch_sequence)
+segments = segment_track(pitch_sequence, repeating_motifs)
+plot_piano_roll(pitch_sequence, segments)
