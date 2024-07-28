@@ -59,7 +59,7 @@ distances = calculate_dtw_distances(note_array[:, [0, 1]])  # Use time and pitch
 print(f"Calculated distance matrix: \n{distances}")
 
 # Using KMeans for clustering
-kmeans = KMeans(n_clusters=85)  # You can adjust the number of clusters as needed
+kmeans = KMeans(n_clusters=5)  # You can adjust the number of clusters as needed
 clusters = kmeans.fit_predict(note_array)
 print(f"Clusters: {clusters}")
 print(f"Found {len(np.unique(clusters))} unique clusters.")
