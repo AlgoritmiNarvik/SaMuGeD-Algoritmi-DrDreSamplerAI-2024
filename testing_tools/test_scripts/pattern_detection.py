@@ -651,7 +651,7 @@ def almaz_visualize():
              
 def asle():
     
-    tracks = detect_patterns("testing_tools/test_scripts/take_on_me.mid")
+    tracks = detect_patterns("testing_tools\\i_am_trying_sf_segmenter_a_bit\\Something_in_the_Way.mid")
     
     #Todo
     #For each track
@@ -669,7 +669,7 @@ def asle():
     #finally keep the longest unique patterns in that segment
 
     
-    mid_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
+    mid_obj = mid_parser.MidiFile("testing_tools\\i_am_trying_sf_segmenter_a_bit\\Something_in_the_Way.mid")
 
     ticks_per_beat = mid_obj.ticks_per_beat
     time_signature = mid_obj.time_signature_changes
@@ -677,8 +677,8 @@ def asle():
 
     list_of_all_patterns = []
     for track_number, track in enumerate(tracks):
-        if track_number > 0:
-            break
+        #if track_number > 0:
+        #    break
         list_of_patterns_in_segments = []
         for segment_number, segment in enumerate(track):
             current_pattern = []
@@ -758,35 +758,39 @@ def asle():
                 not_pattern = []   
             if list_of_patterns_in_current_segment: #remove duplicates
                 list_of_patterns_in_segments.append(list_of_patterns_in_current_segment)
+                list_of_patterns_in_current_segment = []
             else:
                 list_of_patterns_in_segments.append([segment])
         list_of_all_patterns.append(list_of_patterns_in_segments)
+        list_of_patterns_in_segments = []
 
-    mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
-    # create a mid file for track i
-    obj = mid_parser.MidiFile()
-    obj.ticks_per_beat = mido_obj.ticks_per_beat
-    obj.max_tick = mido_obj.max_tick
-    obj.tempo_changes = mido_obj.tempo_changes
-    obj.time_signature_changes = mido_obj.time_signature_changes
-    obj.key_signature_changes = mido_obj.key_signature_changes
-    obj.lyrics = mido_obj.lyrics
-    obj.markers = mido_obj.markers
+        mido_obj = mid_parser.MidiFile("testing_tools\\i_am_trying_sf_segmenter_a_bit\\Something_in_the_Way.mid")
+        # create a mid file for track i
+        obj = mid_parser.MidiFile()
+        obj.ticks_per_beat = mido_obj.ticks_per_beat
+        obj.max_tick = mido_obj.max_tick
+        obj.tempo_changes = mido_obj.tempo_changes
+        obj.time_signature_changes = mido_obj.time_signature_changes
+        obj.key_signature_changes = mido_obj.key_signature_changes
+        obj.lyrics = mido_obj.lyrics
+        obj.markers = mido_obj.markers
 
-    obj.instruments.append(mido_obj.instruments[1])
-    print(f'{list_of_all_patterns=}')
-    for track in list_of_all_patterns:
-        for segment in track:
-            for pattern in segment:
-                print(len(pattern))
-                new_instrument = Instrument(program=mido_obj.instruments[1].program, notes=pattern)
-                obj.instruments.append(new_instrument)
+        obj.instruments.append(mido_obj.instruments[track_number])
+        print(f'{list_of_all_patterns=}')
+        for track in list_of_all_patterns:
+            for segment in track:
+                for pattern in segment:
+                    print(len(pattern))
+                    new_instrument = Instrument(program=mido_obj.instruments[track_number].program, notes=pattern)
+                    obj.instruments.append(new_instrument)
 
-    obj.dump("testing_tools/test_scripts/pattern_output/asle_test.mid")
+        obj.dump("testing_tools\\test_scripts\\pattern_output\\asle_something_in_the_way_" + str(track_number) + ".mid")
+
+        list_of_all_patterns = []
 
 if __name__ == "__main__":
     
     #almaz()
-    #asle()
-    almaz_visualize()
+    asle()
+    #almaz_visualize()
     
