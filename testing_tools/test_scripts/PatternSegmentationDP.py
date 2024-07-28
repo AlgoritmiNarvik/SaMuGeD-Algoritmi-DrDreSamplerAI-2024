@@ -2,8 +2,19 @@ import pretty_midi
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Function to load MIDI file and extract note information
 def load_midi(midi_file):
+    """
+    Load a MIDI file and extract note information.
+
+    This function uses the PrettyMIDI library to read a MIDI file and extract the start time, pitch, 
+    and duration of each note. The extracted information is stored in a NumPy array.
+
+    Args:
+    midi_file (str): Path to the MIDI file.
+
+    Returns:
+    np.ndarray: Array containing note start time, pitch, and duration.
+    """
     midi_data = pretty_midi.PrettyMIDI(midi_file)
     notes = []
 
@@ -15,8 +26,20 @@ def load_midi(midi_file):
     note_array = np.array(notes)
     return note_array
 
-# Function to calculate cost matrix for dynamic programming
 def calculate_cost_matrix(note_array):
+    """
+    Calculate the cost matrix for dynamic programming based on note differences.
+
+    This function computes a cost matrix where each entry represents the "cost" of transitioning 
+    from one note to another. The cost is calculated using the Euclidean distance in a 
+    three-dimensional space defined by the start time, pitch, and duration of the notes.
+
+    Args:
+    note_array (np.ndarray): Array of notes with each note represented by [start_time, pitch, duration].
+
+    Returns:
+    np.ndarray: Cost matrix where cost[i, j] is the cost of transitioning from note i to note j.
+    """
     n = len(note_array)
     cost = np.zeros((n, n))
 
@@ -30,8 +53,23 @@ def calculate_cost_matrix(note_array):
 
     return cost
 
-# Function to perform dynamic programming for segmentation
 def segment_notes(note_array, cost_matrix, max_segments=15):
+    """
+    Perform dynamic programming to segment notes.
+
+    This function segments the sequence of notes using dynamic programming. The goal is to partition 
+    the notes into segments that minimize the total transition cost. The dynamic programming approach 
+    finds the optimal segmentation by considering all possible segmentations and choosing the one with 
+    the lowest cost.
+
+    Args:
+    note_array (np.ndarray): Array of notes.
+    cost_matrix (np.ndarray): Cost matrix where cost[i, j] is the cost of transitioning from note i to note j.
+    max_segments (int): Maximum number of segments.
+
+    Returns:
+    list: Indices of segment boundaries.
+    """
     n = len(note_array)
     dp = np.zeros((n, max_segments))
     segmentation = np.zeros(n, dtype=int)
@@ -59,8 +97,17 @@ def segment_notes(note_array, cost_matrix, max_segments=15):
 
     return segments
 
-# Function to plot the piano roll with segments
 def plot_segments(note_array, segments):
+    """
+    Plot the piano roll with segments.
+
+    This function creates a visual representation of the segmented notes. Each segment is 
+    displayed in a different color on the piano roll, which shows the pitch of the notes over time.
+
+    Args:
+    note_array (np.ndarray): Array of notes.
+    segments (list): Indices of segment boundaries.
+    """
     plt.figure(figsize=(15, 7))
     colors = plt.cm.tab20(np.linspace(0, 1, len(segments) + 1))
 
@@ -82,18 +129,24 @@ def plot_segments(note_array, segments):
     plt.title('Piano Roll with Segments')
     plt.show()
 
-# Main script execution
-midi_file = 'testing_tools/Manual_seg/take_on_me/track1.mid'
-note_array = load_midi(midi_file)
-print(f"Loaded {len(note_array)} notes from the MIDI file.")
+def main():
+    """
+    Main function to execute the MIDI note segmentation and plotting.
 
-# Calculate cost matrix
-cost_matrix = calculate_cost_matrix(note_array)
-print(f"Calculated cost matrix: \n{cost_matrix}")
+    This function orchestrates the entire process of loading the MIDI file, calculating the cost matrix, 
+    segmenting the notes using dynamic programming, and plotting the results.
+    """
+    midi_file = 'testing_tools/Manual_seg/take_on_me/track1.mid'
+    note_array = load_midi(midi_file)
+    print(f"Loaded {len(note_array)} notes from the MIDI file.")
 
-# Perform dynamic programming for segmentation
-segments = segment_notes(note_array, cost_matrix, max_segments=5)
-print(f"Segments: {segments}")
+    cost_matrix = calculate_cost_matrix(note_array)
+    print(f"Calculated cost matrix: \n{cost_matrix}")
 
-# Plotting the results
-plot_segments(note_array, segments)
+    segments = segment_notes(note_array, cost_matrix, max_segments=5)
+    print(f"Segments: {segments}")
+
+    plot_segments(note_array, segments)
+
+if __name__ == "__main__":
+    main()
