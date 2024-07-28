@@ -80,7 +80,7 @@ def segment_track(pitch_sequence, repeating_motifs, max_silence_ticks=1000):
                         is_valid_segment = False
                         break
                 if is_valid_segment:
-                    segments.append((start_tick, end_tick, len(positions)))
+                    segments.append((start_tick, end_tick, len(positions), motif))
                     used_indices.update(range(pos, pos + len(motif)))
     
     return sorted(segments)
@@ -104,11 +104,41 @@ def plot_piano_roll_with_segments(pitch_sequence, segments):
         rect = plt.Rectangle((start, pitch - 0.4), end - start, 0.8, color='blue', alpha=0.6)
         ax.add_patch(rect)
     
-    # Plot the segments with different colors
-    colors = ['red', 'green', 'orange', 'purple', 'yellow']
-    for i, segment in enumerate(segments):
-        start, end, count = segment
-        color = colors[i % len(colors)]
+    # Define colors for motifs
+    colors = [
+        'red', 'green', 'orange', 'purple', 'yellow', 'pink', 'cyan', 'magenta',
+        'brown', 'lime', 'olive', 'navy', 'teal', 'maroon', 'violet', 'gold', 
+        'silver', 'gray', 'black', 'blue', 'indigo', 'coral', 'crimson', 'aqua',
+        'azure', 'beige', 'bisque', 'blanchedalmond', 'blueviolet', 'burlywood',
+        'cadetblue', 'chartreuse', 'chocolate', 'cornflowerblue', 'cornsilk', 
+        'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 
+        'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid',
+        'darkred', 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray',
+        'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 
+        'dodgerblue', 'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 
+        'gainsboro', 'ghostwhite', 'goldenrod', 'greenyellow', 'honeydew', 'hotpink',
+        'indianred', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 
+        'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow',
+        'lightgray', 'lightgreen', 'lightpink', 'lightsalmon', 'lightseagreen', 
+        'lightskyblue', 'lightslategray', 'lightsteelblue', 'lightyellow', 
+        'limegreen', 'linen', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 
+        'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen',
+        'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose',
+        'moccasin', 'navajowhite', 'oldlace', 'olivedrab', 'orangered', 'orchid',
+        'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred', 'papayawhip', 
+        'peachpuff', 'peru', 'plum', 'powderblue', 'rosybrown', 'royalblue', 
+        'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell', 'sienna', 
+        'skyblue', 'slateblue', 'slategray', 'snow', 'springgreen', 'steelblue', 
+        'tan', 'thistle', 'tomato', 'turquoise', 'wheat', 'whitesmoke', 'yellowgreen'
+    ]
+    motif_color_map = {}
+    
+    # Plot the segments with the same color for the same motifs
+    for segment in segments:
+        start, end, count, motif = segment
+        if motif not in motif_color_map:
+            motif_color_map[motif] = colors[len(motif_color_map) % len(colors)]
+        color = motif_color_map[motif]
         ax.add_patch(plt.Rectangle((start, min_pitch - 0.5), end - start, max_pitch - min_pitch + 1, color=color, alpha=0.3))
         ax.text((start + end) / 2, max_pitch + 1, f'Start: {start} ticks\nEnd: {end} ticks\nLength: {end - start} ticks\nRepetitions: {count}', 
                 ha='center', va='bottom', fontsize=7, color='darkblue')
@@ -132,13 +162,14 @@ def generate_report(segments):
     str: Formatted report of the segments.
     """
     report = "Segment Report:\n"
-    for i, (start, end, count) in enumerate(segments):
+    for i, (start, end, count, motif) in enumerate(segments):
         length = end - start
         report += f"Segment {i + 1}:\n"
         report += f"  Start: {start} ticks\n"
         report += f"  End: {end} ticks\n"
         report += f"  Length: {length} ticks\n"
         report += f"  Repetitions: {count}\n"
+        report += f"  Motif: {motif}\n"
         report += "-" * 20 + "\n"
     return report
 
