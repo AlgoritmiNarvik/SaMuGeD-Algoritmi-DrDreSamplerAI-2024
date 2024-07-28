@@ -51,16 +51,17 @@ def find_repeating_motifs(pitch_sequence, min_length=4, max_length=20):
     repeating_motifs = {m: pos for m, pos in motifs.items() if len(pos) > 1}
     return repeating_motifs
 
-def segment_track(pitch_sequence, repeating_motifs):
+def segment_track(pitch_sequence, repeating_motifs, max_silence_ticks=1000):
     """
     Segments the track based on the most repeating and longest motifs.
 
     Parameters:
     pitch_sequence (list): List of MIDI pitches and their start times.
     repeating_motifs (dict): Dictionary of repeating motifs and their positions.
+    max_silence_ticks (int): Maximum allowable silence between notes in a segment.
 
     Returns:
-    list: List of tuples representing the start and end positions of segments in original times.
+    list: List of tuples representing the start and end positions of segments in original times and count of repetitions.
     """
     segments = []
     used_indices = set()
@@ -72,8 +73,15 @@ def segment_track(pitch_sequence, repeating_motifs):
             if all(i not in used_indices for i in range(pos, pos + len(motif))):
                 start_tick = pitch_sequence[pos][1]
                 end_tick = pitch_sequence[pos + len(motif) - 1][2]  # End time of the last note
-                segments.append((start_tick, end_tick))
-                used_indices.update(range(pos, pos + len(motif)))
+                # Check for maximum silence
+                is_valid_segment = True
+                for i in range(pos, pos + len(motif) - 1):
+                    if pitch_sequence[i + 1][1] - pitch_sequence[i][2] > max_silence_ticks:
+                        is_valid_segment = False
+                        break
+                if is_valid_segment:
+                    segments.append((start_tick, end_tick, len(positions)))
+                    used_indices.update(range(pos, pos + len(motif)))
     
     return sorted(segments)
 
@@ -99,11 +107,11 @@ def plot_piano_roll_with_segments(pitch_sequence, segments):
     # Plot the segments with different colors
     colors = ['red', 'green', 'orange', 'purple', 'yellow']
     for i, segment in enumerate(segments):
-        start, end = segment
+        start, end, count = segment
         color = colors[i % len(colors)]
         ax.add_patch(plt.Rectangle((start, min_pitch - 0.5), end - start, max_pitch - min_pitch + 1, color=color, alpha=0.3))
-        ax.text((start + end) / 2, max_pitch + 1, f'Start: {start} ticks\nEnd: {end} ticks\nLength: {end - start} ticks', 
-                ha='center', va='bottom', fontsize=8, color=color)
+        ax.text((start + end) / 2, max_pitch + 1, f'Start: {start} ticks\nEnd: {end} ticks\nLength: {end - start} ticks\nRepetitions: {count}', 
+                ha='center', va='bottom', fontsize=7, color='darkblue')
     
     ax.set_xlim(0, max_tick)
     ax.set_ylim(min_pitch - 1, max_pitch + 2)
@@ -124,12 +132,13 @@ def generate_report(segments):
     str: Formatted report of the segments.
     """
     report = "Segment Report:\n"
-    for i, (start, end) in enumerate(segments):
+    for i, (start, end, count) in enumerate(segments):
         length = end - start
         report += f"Segment {i + 1}:\n"
         report += f"  Start: {start} ticks\n"
         report += f"  End: {end} ticks\n"
         report += f"  Length: {length} ticks\n"
+        report += f"  Repetitions: {count}\n"
         report += "-" * 20 + "\n"
     return report
 
