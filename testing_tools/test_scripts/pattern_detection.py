@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import sys
 from collections import Counter, defaultdict
 
 import matplotlib.pyplot as plt
@@ -47,6 +48,8 @@ def detect_patterns(mido_obj: str | object) -> list:
     for ins_nr, instrument in enumerate(mido_obj.instruments):
         if instrument.is_drum == True:
             continue
+        if ins_nr > 2: #just here for testing
+            break
         notes = instrument.notes
         sorted_notes = sorted(notes, key=lambda x: x.start)
         first_note_start = np.inf
@@ -372,7 +375,7 @@ def save_pattern_as_midi_DEPR(pattern, filename):
     midi.instruments.append(instrument)
     midi.dump(filename)
 
-def compare_notes(segment, note_number, compare_note_number, duration_difference=10) -> bool:
+def compare_notes(segment, note_number, compare_note_number, duration_difference=10) -> bool: #Add note offset check, pitch offset check
     """Returns True if the notes have the same pitch and within specified duration difference"""
     try:
         if segment[note_number].pitch == segment[compare_note_number].pitch:
@@ -435,249 +438,53 @@ def almaz():
                 print(f"    Error saving pattern: {str(e)}")
         print()
 
-def find_repeating_patterns_DEPR(segmented_tracks, timings_by_track, min_sample_length=1, similarity_threshold=0.1):
-    """
-    Finds repeating patterns in segmented tracks.
+def ticks_per_bar(ticks_per_beat, current_note_time, time_signatures) -> int:
 
-    Args:
-    segmented_tracks (dict): Dictionary of segmented tracks.
-    timings_by_track (dict): Dictionary of timings for each track.
-    min_sample_length (int): Minimum length of a sample in bars.
-    similarity_threshold (float): Threshold for bar similarity comparison.
+    for i in time_signatures:
+        if i.time > current_note_time:
+            break
+        ticks = ticks_per_beat * i.numerator
+    
+    return ticks
 
-    Returns:
-    dict: Dictionary where keys are track indices and values are lists of pattern groups.
-    """
-    patterns_by_track = {}
-    
-    for track_idx, bars in segmented_tracks.items():
-        max_notes = get_max_notes(bars)
-        patterns = defaultdict(list)
-        
-        for i in range(len(bars) - min_sample_length + 1):
-            sample = bars[i:i+min_sample_length]
-            sample_hash = hash(tuple(bar['start'] for bar in sample))
-            
-            if sample_hash in patterns:
-                patterns[sample_hash].append(sample)
-            else:
-                for pattern_hash, pattern_samples in patterns.items():
-                    if all(are_bars_similar(sample[j], pattern_samples[0][j], similarity_threshold, max_notes) 
-                           for j in range(min_sample_length)):
-                        patterns[pattern_hash].append(sample)
-                        break
-                else:
-                    patterns[sample_hash] = [sample]
-        
-        # filter patterns, keeping only those that repeat more than once
-        filtered_patterns = [pattern for pattern in patterns.values() if len(pattern) > 1]
-        
-        # sort patterns by number of repetitions
-        sorted_patterns = sorted(filtered_patterns, key=len, reverse=True)
-        patterns_by_track[track_idx] = sorted_patterns
-        
-        print(f"Track {track_idx}: Found {len(sorted_patterns)} pattern groups")
-        for i, pattern_group in enumerate(sorted_patterns):
-            print(f"  Pattern group {i}: {len(pattern_group)} repetitions, length: {min_sample_length} bars")
-            print(f"    Start ticks: {[p[0]['start'] for p in pattern_group]}")
-            print(f"    End ticks: {[p[-1]['end'] for p in pattern_group]}")
-    
-    return patterns_by_track
+def asle(INPUT_PATH):
+    INPUT_PATH = "testing_tools/test_scripts/take_on_me.mid"
 
-def visualize_track_with_patterns(midi_obj, track_idx, patterns, timings):
-    """
-    Visualizes a track with found patterns.
+    OS_TYPE = sys.platform
+    project_directory = os.path.dirname(os.path.realpath(__file__))
 
-    Args:
-    midi_obj (MidiFile): MIDI file object.
-    track_idx (int): Index of the track to visualize.
-    patterns (list): List of pattern groups.
-    timings (list): List of timings for the track.
-    """
-    notes = midi_obj.instruments[track_idx].notes
-    
-    fig, ax = plt.subplots(figsize=(20, 10))
-    
-    for note in notes:
-        ax.plot([note.start, note.end], [note.pitch, note.pitch], linewidth=2, color='blue', alpha=0.5)
-    
-    colors = plt.cm.rainbow(np.linspace(0, 1, len(patterns)))
-    
-    for i, (pattern_group, color) in enumerate(zip(patterns, colors)):
-        pattern_name = f"P{i+1}"
-        for j, pattern in enumerate(pattern_group):
-            start = pattern[0]['start']
-            end = pattern[-1]['end']
-            ax.axvspan(start, end, facecolor=color, alpha=0.2)
-            
-            ax.annotate(f"{pattern_name}", 
-                        xy=(start, ax.get_ylim()[1]), 
-                        xytext=(0, 10), 
-                        textcoords='offset points',
-                        rotation=90,
-                        va='bottom',
-                        color=color,
-                        fontweight='bold')
-            
-            # Add vertical lines for start and end with labels
-            ax.axvline(x=start, color=color, linestyle='--', alpha=0.7, linewidth=1)
-            ax.axvline(x=end, color=color, linestyle='--', alpha=0.7, linewidth=1)
-            
-            # Add labels for start and end
-            ax.text(start, ax.get_ylim()[0], f'{pattern_name} start', rotation=90, 
-                    va='bottom', ha='right', color=color, fontsize=8)
-            ax.text(end, ax.get_ylim()[0], f'{pattern_name} end', rotation=90, 
-                    va='bottom', ha='right', color=color, fontsize=8)
-    
-    ax.set_xlabel('Time (ticks)')
-    ax.set_ylabel('Pitch')
-    ax.set_title(f'Track {track_idx} with Patterns')
-    
-    plt.subplots_adjust(bottom=0.2)
-    ax.set_xlim(0, max(note.end for note in notes))
-    
-    legend_elements = [plt.Line2D([0], [0], color=color, lw=4, label=f'P{i+1} (x{len(pattern_group)})') 
-                       for i, (pattern_group, color) in enumerate(zip(patterns, colors))]
-    ax.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, -0.05), ncol=3)
-    
-    plt.tight_layout()
-    plt.show()
-  
-def extract_bar_features(bar):
-    """Extract more features from a bar."""
-    notes = bar['notes']
-    if not notes:
-        return np.zeros(10)  # Return zero vector for empty bars
-    
-    pitches = [note.pitch for note in notes]
-    velocities = [note.velocity for note in notes]
-    durations = [note.end - note.start for note in notes]
-    start_times = [note.start - bar['start'] for note in notes]
-    
-    features = [
-        len(notes),  # Number of notes
-        np.mean(pitches),  # Mean pitch
-        np.std(pitches) if len(pitches) > 1 else 0,  # Pitch variety
-        np.mean(velocities),  # Mean velocity
-        np.std(velocities) if len(velocities) > 1 else 0,  # Velocity variety
-        np.mean(durations),  # Mean note duration
-        np.std(durations) if len(durations) > 1 else 0,  # Duration variety
-        skew(start_times) if len(start_times) > 2 else 0,  # Skewness of note start times
-        kurtosis(start_times) if len(start_times) > 3 else 0,  # Kurtosis of note start times
-        len(set(pitches)) / len(pitches) if pitches else 0  # Pitch uniqueness ratio
-    ]
-    return np.array(features)
+    if OS_TYPE == "win32":
+        output_dir = project_directory + "\\output\\" + INPUT_PATH[:-4]
+        input_file_path = project_directory + "\\" + INPUT_PATH
+    else:
+        output_dir = project_directory + "/output"
+        input_file_path = project_directory + "/" + INPUT_PATH
 
-def compute_similarity(sample1, sample2):
-    """Compute similarity between two samples using their features."""
-    features1 = np.array([extract_bar_features(bar) for bar in sample1])
-    features2 = np.array([extract_bar_features(bar) for bar in sample2])
-    
-    # If the samples have different lengths, pad the shorter one with zeros
-    if features1.shape[0] < features2.shape[0]:
-        features1 = np.pad(features1, ((0, features2.shape[0] - features1.shape[0]), (0, 0)))
-    elif features2.shape[0] < features1.shape[0]:
-        features2 = np.pad(features2, ((0, features1.shape[0] - features2.shape[0]), (0, 0)))
-    
-    # Flatten the features
-    features1 = features1.flatten()
-    features2 = features2.flatten()
-    
-    return 1 / (1 + np.linalg.norm(features1 - features2))
 
-def find_repeating_patterns(segmented_tracks, timings_by_track, pattern_length=4, similarity_threshold=0.3):
-    """Find repeating patterns with fixed pattern length."""
-    patterns_by_track = {}
-    
-    for track_idx, bars in segmented_tracks.items():
-        patterns = []
-        
-        for i in range(len(bars) - pattern_length + 1):
-            sample = bars[i:i+pattern_length]
-            
-            # Check if this sample is similar to any existing pattern
-            if patterns:
-                similarities = [compute_similarity(sample, group[0]) for group in patterns]
-                max_similarity_idx = np.argmax(similarities)
-                if similarities[max_similarity_idx] > similarity_threshold:
-                    patterns[max_similarity_idx].append(sample)
-                    continue
-            
-            patterns.append([sample])
-        
-        # Filter out patterns that don't repeat
-        patterns = [group for group in patterns if len(group) > 1]
-        
-        # Sort patterns by number of repetitions
-        patterns.sort(key=len, reverse=True)
-        
-        patterns_by_track[track_idx] = patterns
-        
-        print(f"Track {track_idx}: Found {len(patterns)} pattern groups")
-        for i, pattern_group in enumerate(patterns):
-            print(f"  Pattern group {i}: {len(pattern_group)} repetitions, length: {pattern_length} bars")
-            print(f"    Start ticks: {[p[0]['start'] for p in pattern_group]}")
-            print(f"    End ticks: {[p[-1]['end'] for p in pattern_group]}")
-    
-    return patterns_by_track
+    if isinstance(INPUT_PATH, mid_parser.MidiFile):
+        mid_obj = INPUT_PATH
+    elif type(mid_obj) is str:
+        try:
+            mid_obj = mid_parser.MidiFile(INPUT_PATH)
+        except:
+            print(f'Unable to open {mid_obj}')
+    else:
+        print(f'Input not a path or instance of MidiFile class')
+        return None
 
-def almaz_visualize():
-    midi_file = "testing_tools/test_scripts/take_on_me/track1.mid"
+    tracks = detect_patterns(mid_obj)
     
-    pattern_length = int(input("Enter the fixed pattern length in bars (1-8): "))
     
-    if pattern_length < 1 or pattern_length > 8:
-        print("Invalid pattern length. Using default value of 4.")
-        pattern_length = 4
-
-    segmented_tracks, timings_by_track = segment_midi_to_bars(midi_file)
-    if segmented_tracks is None:
-        print("Failed to process MIDI file.")
-        exit(1)
-
-    midi_obj = mid_parser.MidiFile(midi_file)
-    repeating_patterns = find_repeating_patterns(segmented_tracks, timings_by_track, pattern_length)
     
-    for track_idx, patterns in repeating_patterns.items():
-        print(f"\nVisualizing Track {track_idx}")
-        print(f"Number of pattern groups: {len(patterns)}")
-        for i, pattern_group in enumerate(patterns):
-            print(f"  Pattern group {i}: {len(pattern_group)} repetitions")
-            rep = pattern_group[0]
-            print(f"    Representative: start={rep[0]['start']}, end={rep[-1]['end']}, "
-                  f"length={len(rep)} bars, notes={sum(len(bar['notes']) for bar in rep)}")
-        
-        visualize_track_with_patterns(midi_obj, track_idx, patterns, timings_by_track[track_idx])
-             
-def asle():
-    
-    tracks = detect_patterns("testing_tools\\i_am_trying_sf_segmenter_a_bit\\Something_in_the_Way.mid")
-    
-    #Todo
-    #For each track
-        #For each segment
-            #For each note
-                #Iterate through notes comparing pitch and duration(+/- some small amount)
-                #When a match is found, check if the following notes also match
-                #If notes match for 1 bar or more, save as a sample
-
-            #remove duplicate samples, keep only unique
-
-    #if match is found, save the width
-    #move both pointers and repeat
-    #if match is not found reset first pointer, save pattern into a temp list if it is long enough
-    #finally keep the longest unique patterns in that segment
-
-    
-    mid_obj = mid_parser.MidiFile("testing_tools\\i_am_trying_sf_segmenter_a_bit\\Something_in_the_Way.mid")
+    #tracks = detect_patterns("C:\\Users\\asle1\\Downloads\\Lakh MIDI Clean\\Tool\\Eulogy.mid")
+    #mid_obj = mid_parser.MidiFile("C:\\Users\\asle1\\Downloads\\Lakh MIDI Clean\\Tool\\Eulogy.mid")
 
     ticks_per_beat = mid_obj.ticks_per_beat
-    time_signature = mid_obj.time_signature_changes
-    ticks_per_bar = ticks_per_beat * time_signature[0].denominator #This needs to be changed for music that has time signature changes
+    time_signatures = mid_obj.time_signature_changes
 
     list_of_all_patterns = []
     for track_number, track in enumerate(tracks):
-        #if track_number > 0:
+        #if track_number > 0: here for testing
         #    break
         list_of_patterns_in_segments = []
         for segment_number, segment in enumerate(track):
@@ -694,7 +501,7 @@ def asle():
                 if compare_note_number != previous_compare_match:
                     if compare_notes(segment=segment, note_number=note_number, compare_note_number=compare_note_number): # if notes are the same, save note to pattern
                         if not active_pattern: #If this is the start of a new pattern
-                            if segment[compare_note_number].end - segment[note_number].start >= ticks_per_bar:
+                            if segment[compare_note_number].end - segment[note_number].start >= ticks_per_bar(ticks_per_beat, segment[note_number].start, time_signatures): #Sets the minimum length limit to 1 bar
                                 pattern_end = segment[compare_note_number].start
                                 old_note_number = note_number # save start of pattern so we can go back when current pattern ends
                                 previous_compare_match = compare_note_number
@@ -731,8 +538,6 @@ def asle():
                             note_number = old_note_number
                             compare_note_number = previous_compare_match
                             active_pattern = False
-                            #if len(current_pattern) > 2:
-                            #    list_of_patterns_in_current_segment.append(current_pattern)
                             current_pattern = []
                             
                         if compare_note_number >= len(segment):
@@ -745,8 +550,6 @@ def asle():
                         note_number = old_note_number
                         compare_note_number = previous_compare_match
                         active_pattern = False
-                        #if len(current_pattern) > 2:
-                        #    list_of_patterns_in_current_segment.append(current_pattern)
                         
                     if compare_note_number >= len(segment):
                         note_number += 1
@@ -756,35 +559,91 @@ def asle():
             if not_pattern:
                 list_of_patterns_in_current_segment.append(not_pattern)
                 not_pattern = []   
-            if list_of_patterns_in_current_segment: #remove duplicates
+            if list_of_patterns_in_current_segment: #if patterns were found, remove duplicates within segment first.
+                duplicates_to_remove = [False]*len(list_of_patterns_in_current_segment)
+                #print(f'{list_of_patterns_in_current_segment=}')
+                for i, pattern in enumerate(list_of_patterns_in_current_segment):
+                    for k, pattern2 in enumerate(list_of_patterns_in_current_segment):
+                        if k == i:
+                            continue
+                        
+                        if len(pattern) == len(pattern2):
+                            for x in range(len(pattern)):
+                                if pattern[x].pitch != pattern2[x].pitch:
+                                    break
+
+                            if duplicates_to_remove[i] or duplicates_to_remove[k]:
+                                break
+                            duplicates_to_remove[k]=True
+                #print(f'{duplicates_to_remove=}')
+
+                for x in range(len(duplicates_to_remove)-1,0,-1):
+                    if duplicates_to_remove[x]:
+                        list_of_patterns_in_current_segment.pop(x)
+
+                #check if patterns in current segment already exist in list patterns for the current track
+                duplicates_to_remove = [False]*len(list_of_patterns_in_current_segment)
+                for i, pattern in enumerate(list_of_patterns_in_current_segment):
+                    for pattern_list in list_of_patterns_in_segments:
+                        for k, pattern2 in enumerate(pattern_list):
+                            if len(pattern) == len(pattern2):
+                                for x in range(len(pattern)):
+                                    if pattern[x].pitch != pattern2[x].pitch:
+                                        break
+
+                                if duplicates_to_remove[i] or duplicates_to_remove[k]:
+                                    break
+                                duplicates_to_remove[k]=True
+
+                for x in range(len(duplicates_to_remove)-1,-1,-1):
+                    if duplicates_to_remove[x]:
+                        list_of_patterns_in_current_segment.pop(x)
+
                 list_of_patterns_in_segments.append(list_of_patterns_in_current_segment)
-                list_of_patterns_in_current_segment = []
-            else:
-                list_of_patterns_in_segments.append([segment])
+                #print(f'{list_of_patterns_in_segments=}')
+
+            else: #Segments might be short and already in pattern list. Might need to redo this 
+                segment_is_a_duplicate = False
+                for segment_group in list_of_patterns_in_segments:
+                    for k, pattern2 in enumerate(pattern_list):
+                        
+                        if len([segment]) == len(pattern2):
+                            for x in range(len([segment])):
+                                if [segment][x].pitch != pattern2[x].pitch:
+                                    break
+
+                            segment_is_a_duplicate=True
+
+                if segment_is_a_duplicate == False:
+                    list_of_patterns_in_segments.append([segment])
+
+
         list_of_all_patterns.append(list_of_patterns_in_segments)
         list_of_patterns_in_segments = []
 
-        mido_obj = mid_parser.MidiFile("testing_tools\\i_am_trying_sf_segmenter_a_bit\\Something_in_the_Way.mid")
+        #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
         # create a mid file for track i
         obj = mid_parser.MidiFile()
-        obj.ticks_per_beat = mido_obj.ticks_per_beat
-        obj.max_tick = mido_obj.max_tick
-        obj.tempo_changes = mido_obj.tempo_changes
-        obj.time_signature_changes = mido_obj.time_signature_changes
-        obj.key_signature_changes = mido_obj.key_signature_changes
-        obj.lyrics = mido_obj.lyrics
-        obj.markers = mido_obj.markers
+        obj.ticks_per_beat = mid_obj.ticks_per_beat
+        obj.max_tick = mid_obj.max_tick
+        obj.tempo_changes = mid_obj.tempo_changes
+        obj.time_signature_changes = mid_obj.time_signature_changes
+        obj.key_signature_changes = mid_obj.key_signature_changes
+        obj.lyrics = mid_obj.lyrics
+        obj.markers = mid_obj.markers
 
-        obj.instruments.append(mido_obj.instruments[track_number])
-        print(f'{list_of_all_patterns=}')
+        obj.instruments.append(mid_obj.instruments[track_number+1])
+        #print(f'{list_of_all_patterns=}')
         for track in list_of_all_patterns:
             for segment in track:
                 for pattern in segment:
                     print(len(pattern))
-                    new_instrument = Instrument(program=mido_obj.instruments[track_number].program, notes=pattern)
+                    new_instrument = Instrument(program=mid_obj.instruments[track_number+1].program, notes=pattern)
                     obj.instruments.append(new_instrument)
 
-        obj.dump("testing_tools\\test_scripts\\pattern_output\\asle_something_in_the_way_" + str(track_number) + ".mid")
+        obj.dump("testing_tools/test_scripts/pattern_output/asle_test_track_Eulogy" + str(track_number) + ".mid")
+
+        list_of_all_patterns = []
 
         list_of_all_patterns = []
 
