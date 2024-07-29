@@ -40,15 +40,18 @@ def find_repeating_motifs(pitch_sequence, min_length=4, max_length=20):
     """
     motifs = {}
     pitches_only = [pitch for pitch, _, _ in pitch_sequence]
+    motif_id = 0
+    
     for length in range(min_length, max_length + 1):
         for i in range(len(pitches_only) - length + 1):
             motif = tuple(pitches_only[i:i+length])
             if motif in motifs:
-                motifs[motif].append(i)
+                motifs[motif]['positions'].append(i)
             else:
-                motifs[motif] = [i]
+                motifs[motif] = {'id': motif_id, 'positions': [i]}
+                motif_id += 1
     
-    repeating_motifs = {m: pos for m, pos in motifs.items() if len(pos) > 1}
+    repeating_motifs = {m: v for m, v in motifs.items() if len(v['positions']) > 1}
     return repeating_motifs
 
 def segment_track(pitch_sequence, repeating_motifs, max_silence_ticks=1000):
@@ -66,9 +69,11 @@ def segment_track(pitch_sequence, repeating_motifs, max_silence_ticks=1000):
     segments = []
     used_indices = set()
     
-    sorted_motifs = sorted(repeating_motifs.items(), key=lambda x: (len(x[0]), len(x[1])), reverse=True)
+    sorted_motifs = sorted(repeating_motifs.items(), key=lambda x: (len(x[0]), len(x[1]['positions'])), reverse=True)
     
-    for motif, positions in sorted_motifs:
+    for motif, data in sorted_motifs:
+        motif_id = data['id']
+        positions = data['positions']
         for pos in positions:
             if all(i not in used_indices for i in range(pos, pos + len(motif))):
                 start_tick = pitch_sequence[pos][1]
@@ -80,7 +85,7 @@ def segment_track(pitch_sequence, repeating_motifs, max_silence_ticks=1000):
                         is_valid_segment = False
                         break
                 if is_valid_segment:
-                    segments.append((start_tick, end_tick, len(positions), motif))
+                    segments.append((start_tick, end_tick, len(positions), motif, motif_id))
                     used_indices.update(range(pos, pos + len(motif)))
     
     return sorted(segments)
@@ -134,13 +139,13 @@ def plot_piano_roll_with_segments(pitch_sequence, segments):
     motif_color_map = {}
     
     # Plot the segments with the same color for the same motifs
-    for segment in segments:
-        start, end, count, motif = segment
+    for idx, segment in enumerate(segments):
+        start, end, count, motif, motif_id = segment
         if motif not in motif_color_map:
             motif_color_map[motif] = colors[len(motif_color_map) % len(colors)]
         color = motif_color_map[motif]
         ax.add_patch(plt.Rectangle((start, min_pitch - 0.5), end - start, max_pitch - min_pitch + 1, color=color, alpha=0.3))
-        ax.text((start + end) / 2, max_pitch + 1, f'Start: {start} ticks\nEnd: {end} ticks\nLength: {end - start} ticks\nRepetitions: {count}', 
+        ax.text((start + end) / 2, max_pitch + 1, f'Start: {start} ticks\nEnd: {end} ticks\nLength: {end - start} ticks\n Motif ID: {motif_id}\nRepetitions: {count}', 
                 ha='center', va='bottom', fontsize=7, color='darkblue')
     
     ax.set_xlim(0, max_tick)
@@ -162,9 +167,10 @@ def generate_report(segments):
     str: Formatted report of the segments.
     """
     report = "Segment Report:\n"
-    for i, (start, end, count, motif) in enumerate(segments):
+    for i, (start, end, count, motif, motif_id) in enumerate(segments):
         length = end - start
         report += f"Segment {i + 1}:\n"
+        report += f"  Motif ID: {motif_id}\n"
         report += f"  Start: {start} ticks\n"
         report += f"  End: {end} ticks\n"
         report += f"  Length: {length} ticks\n"
@@ -172,7 +178,7 @@ def generate_report(segments):
         report += f"  Motif: {motif}\n"
         report += "-" * 20 + "\n"
     return report
-
+        
 def main(file_path):
     """
     Main function to read MIDI file, find repeating motifs, segment the track, plot the piano roll, and generate a report.
