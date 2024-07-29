@@ -189,4 +189,5 @@ def main(file_path):
 
 # Path to your MIDI file
 file_path = 'testing_tools/Manual_seg/take_on_me/track1.mid'
+#file_path = 'testing_tools/i_am_trying_sf_segmenter_a_bit/Something_in_the_Way.mid'
 main(file_path)
