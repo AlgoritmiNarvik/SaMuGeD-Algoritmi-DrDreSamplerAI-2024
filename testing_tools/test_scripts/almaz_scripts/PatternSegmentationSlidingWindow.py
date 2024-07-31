@@ -26,7 +26,7 @@ def read_midi_file(file_path):
                 
     return pitch_sequence
 
-def find_repeating_motifs(pitch_sequence, min_length=4, max_length=20):
+def find_repeating_motifs(pitch_sequence, min_length=4, max_length=2000000):
     """
     Finds repeating motifs in a pitch sequence.
 
