@@ -98,15 +98,15 @@ HTML_TEMPLATE = """
             <div class="section">
                 <h2>Configuration Settings</h2>
                 <label for="gaussianWindow">Gaussian Window Size (M_gaussian):</label>
-                <input type="number" id="gaussianWindow" value="10" min="1">
+                <input type="number" id="gaussianWindow" value="27" min="1">
                 <label for="embeddedDimensions">Embedded Dimensions (m_embedded):</label>
-                <input type="number" id="embeddedDimensions" value="2" min="1">
+                <input type="number" id="embeddedDimensions" value="3" min="1">
                 <label for="kNearest">K Nearest Neighbors (k_nearest):</label>
-                <input type="number" id="kNearest" value="0.02" step="0.01" min="0">
+                <input type="number" id="kNearest" value="0.04" step="0.01" min="0">
                 <label for="adaptiveWindow">Adaptive Window Size (Mp_adaptive):</label>
-                <input type="number" id="adaptiveWindow" value="10" min="1">
+                <input type="number" id="adaptiveWindow" value="28" min="1">
                 <label for="offsetThreshold">Offset Threshold (offset_thres):</label>
-                <input type="number" id="offsetThreshold" value="0.02" step="0.01" min="0">
+                <input type="number" id="offsetThreshold" value="0.05" step="0.01" min="0">
                 <label for="boundNormFeats">Boundary Normalization Features (bound_norm_feats):</label>
                 <select id="boundNormFeats">
                     <option value="Infinity" selected>Infinity (Default)</option>
@@ -315,14 +315,14 @@ def segment_midi():
         app.logger.debug(f"Temporary file saved at: {temp_path}")
 
         config = {
-            "M_gaussian": int(request.form.get('M_gaussian', 10)),
-            "m_embedded": int(request.form.get('m_embedded', 2)),
-            "k_nearest": float(request.form.get('k_nearest', 0.02)),
-            "Mp_adaptive": int(request.form.get('Mp_adaptive', 10)),
-            "offset_thres": float(request.form.get('offset_thres', 0.02)),
+            "M_gaussian": int(request.form.get('M_gaussian', 27)),
+            "m_embedded": int(request.form.get('m_embedded', 3)),
+            "k_nearest": float(request.form.get('k_nearest', 0.04)),
+            "Mp_adaptive": int(request.form.get('Mp_adaptive', 28)),
+            "offset_thres": float(request.form.get('offset_thres', 0.05)),
             "bound_norm_feats": request.form.get('bound_norm_feats', 'Infinity')
         }
-
+    
         if config['bound_norm_feats'] == 'Infinity':
             config['bound_norm_feats'] = np.inf
         elif config['bound_norm_feats'] == '-Infinity':
