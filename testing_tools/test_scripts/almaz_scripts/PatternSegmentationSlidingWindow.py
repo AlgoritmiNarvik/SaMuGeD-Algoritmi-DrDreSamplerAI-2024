@@ -194,6 +194,7 @@ def main(file_path):
     print(report)
 
 # Path to your MIDI file
-file_path = 'testing_tools/Manual_seg/take_on_me/track1.mid'
+#file_path = 'testing_tools/Manual_seg/take_on_me/track1.mid'
+file_path = 'C:\\Installerte program\\vscodeworkspaces\\SaMuGeD-Algoritmi-DrDreSamplerAI-2024\\testing_tools\\test_scripts\\pattern_output\\Beat_It4.mid'
 #file_path = 'testing_tools/i_am_trying_sf_segmenter_a_bit/Something_in_the_Way.mid'
 main(file_path)
