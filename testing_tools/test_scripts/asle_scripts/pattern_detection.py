@@ -48,8 +48,8 @@ def get_segments(mido_obj: str | object) -> list:
     for ins_nr, instrument in enumerate(mido_obj.instruments):
         if instrument.is_drum == True:
             continue
-        if ins_nr > 2: #just here for testing
-            break
+        #if ins_nr > 2: #just here for testing
+        #    break
         notes = instrument.notes
         sorted_notes = sorted(notes, key=lambda x: x.start)
         first_note_start = np.inf
@@ -131,13 +131,14 @@ def ticks_per_bar(ticks_per_beat, current_note_time, time_signatures) -> int:
     
     return ticks
 
-def asle(INPUT_PATH):
-    INPUT_PATH = "testing_tools/test_scripts/take_on_me.mid"
+def asle():
+    #INPUT_PATH = "testing_tools/test_scripts/take_on_me.mid"
+    INPUT_PATH = "C:\\Users\\Pc\\Downloads\\Lakh MIDI Clean\Michael_Jackson\\Beat_It.mid"
+    mid_obj = mid_parser.MidiFile(INPUT_PATH)
+    """ OS_TYPE = sys.platform
+    project_directory = os.path.dirname(os.path.realpath(__file__)) """
 
-    OS_TYPE = sys.platform
-    project_directory = os.path.dirname(os.path.realpath(__file__))
-
-    if OS_TYPE == "win32":
+    """ if OS_TYPE == "win32":
         output_dir = project_directory + "\\output\\" + INPUT_PATH[:-4]
         input_file_path = project_directory + "\\" + INPUT_PATH
     else:
@@ -154,7 +155,7 @@ def asle(INPUT_PATH):
             print(f'Unable to open {mid_obj}')
     else:
         print(f'Input not a path or instance of MidiFile class')
-        return None
+        return None """
 
     tracks = get_segments(mid_obj)
     
@@ -325,11 +326,10 @@ def asle(INPUT_PATH):
                     new_instrument = Instrument(program=mid_obj.instruments[track_number+1].program, notes=pattern)
                     obj.instruments.append(new_instrument)
 
-        obj.dump("testing_tools/test_scripts/pattern_output/asle_test_track_Eulogy" + str(track_number) + ".mid")
+        obj.dump("testing_tools/test_scripts/pattern_output/Beat_It" + str(track_number) + ".mid")
 
         list_of_all_patterns = []
 
-        list_of_all_patterns = []
 
 if __name__ == "__main__":
 
