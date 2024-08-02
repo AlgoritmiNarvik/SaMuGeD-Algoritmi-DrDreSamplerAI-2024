@@ -27,6 +27,7 @@ def read_midi_file(file_path):
     print(f"Read {len(tracks_notes)} tracks with notes from the MIDI file")
     return tracks_notes, midi_file
 
+# TODO: chords are not being processed properly, needs to be fixed
 def find_repeating_motifs(notes, min_length, max_length):
     motifs = {}
     pitches_only = [note[0] for note in notes]
@@ -47,6 +48,7 @@ def find_repeating_motifs(notes, min_length, max_length):
         print("Example motif:", next(iter(repeating_motifs)))
     return repeating_motifs
 
+# TODO: chords are not being processed properly, needs to be fixed
 def segment_track(notes, repeating_motifs, max_silence_ticks=1000):
     segments = []
     used_indices = set()
@@ -85,6 +87,8 @@ def segment_track(notes, repeating_motifs, max_silence_ticks=1000):
     return all_segments
 
 def save_patterns_to_midi(original_midi, notes, segments, output_file_path):
+    # TODO: the rest (between segments for example) should be grouped as one segment and be displayed as the same track
+
     output_midi = mido.MidiFile(type=original_midi.type, ticks_per_beat=original_midi.ticks_per_beat)
 
     # Copy metadata track if it exists
