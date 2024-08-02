@@ -6,6 +6,26 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
 def extract_midi_metadata(midi_file):
+    """
+    Extract metadata from a MIDI file.
+
+    Args:
+        midi_file (mido.MidiFile): The MIDI file object to extract metadata from.
+
+    Returns:
+        dict: A dictionary containing the following metadata:
+            - tempo_changes: List of tuples (time, tempo)
+            - time_signature_changes: List of tuples (time, (numerator, denominator))
+            - key_signature_changes: List of tuples (time, key)
+            - program_changes: List of tuples (time, program, channel)
+            - control_changes: List of tuples (time, control, value, channel)
+            - notes: List of tuples (time, note, velocity, channel, type)
+            - ticks_per_beat: Number of ticks per beat
+            - type: MIDI file type
+
+    Note:
+        Time is measured in ticks. Tempo is in microseconds per beat.
+    """
     metadata = defaultdict(list)
     current_tempo = 500000  # Default tempo (120 BPM)
     current_time_signature = (4, 4)  # Default time signature
@@ -45,6 +65,23 @@ def extract_midi_metadata(midi_file):
     return metadata
 
 def read_midi_file(file_path):
+    """
+    Read a MIDI file and extract note information.
+
+    Args:
+        file_path (str): Path to the MIDI file.
+
+    Returns:
+        tuple: A tuple containing two elements:
+            - tracks_notes (list): List of lists, where each inner list contains note information
+              for a track. Each note is represented as a tuple (pitch, start_time, duration, velocity).
+            - midi_file (mido.MidiFile): The original MIDI file object.
+
+    Note:
+        Times and durations are measured in ticks.
+        Pitch is represented as MIDI note number (0-127).
+        Velocity is in the range 0-127.
+    """
     midi_file = mido.MidiFile(file_path)
     tracks_notes = []
 
@@ -69,10 +106,36 @@ def read_midi_file(file_path):
     return tracks_notes, midi_file
 
 def extract_duration_sequences(durations, sequence_length=8):
+    """
+    Extract sequences of note durations from a list of durations.
+
+    Args:
+        durations (list): List of note durations.
+        sequence_length (int, optional): Length of each sequence. Defaults to 8.
+
+    Returns:
+        list: List of tuples, where each tuple is a sequence of durations.
+
+    Note:
+        Durations are typically in seconds or ticks, depending on the input.
+    """
     sequences = [tuple(durations[i:i+sequence_length]) for i in range(len(durations) - sequence_length + 1)]
     return sequences
 
 def optimal_cluster_number(X, max_clusters=10):
+    """
+    Determine the optimal number of clusters using silhouette score.
+
+    Args:
+        X (numpy.ndarray): Input data for clustering.
+        max_clusters (int, optional): Maximum number of clusters to consider. Defaults to 10.
+
+    Returns:
+        int: Optimal number of clusters.
+
+    Note:
+        This function uses K-means clustering and silhouette score to determine the optimal number of clusters.
+    """
     if len(X) < max_clusters:
         max_clusters = len(X)
     
@@ -87,6 +150,18 @@ def optimal_cluster_number(X, max_clusters=10):
     return optimal_clusters
 
 def cluster_duration_patterns(duration_sequences):
+    """
+    Cluster duration sequences using K-means clustering.
+
+    Args:
+        duration_sequences (list): List of duration sequences to cluster.
+
+    Returns:
+        numpy.ndarray: Array of cluster labels for each duration sequence.
+
+    Note:
+        This function determines the optimal number of clusters and then performs K-means clustering.
+    """
     X = np.array(duration_sequences)
     n_clusters = optimal_cluster_number(X)
     
@@ -97,6 +172,20 @@ def cluster_duration_patterns(duration_sequences):
     return cluster_labels
 
 def identify_rhythmic_boundaries(notes, cluster_labels, sequence_length=8):
+    """
+    Identify rhythmic boundaries based on changes in cluster labels.
+
+    Args:
+        notes (list): List of note information tuples (pitch, start_time, duration, velocity).
+        cluster_labels (numpy.ndarray): Array of cluster labels for each duration sequence.
+        sequence_length (int, optional): Length of each duration sequence. Defaults to 8.
+
+    Returns:
+        list: List of boundary times (in ticks) where rhythmic patterns change.
+
+    Note:
+        This function identifies points where the cluster label changes, indicating a potential rhythmic boundary.
+    """
     boundaries = []
     current_cluster = cluster_labels[0]
     for i, label in enumerate(cluster_labels[1:], 1):
@@ -106,6 +195,19 @@ def identify_rhythmic_boundaries(notes, cluster_labels, sequence_length=8):
     return boundaries
 
 def analyze_rhythmic_patterns(notes, metadata):
+    """
+    Analyze rhythmic patterns in a sequence of notes.
+
+    Args:
+        notes (list): List of note information tuples (pitch, start_time, duration, velocity).
+        metadata (dict): Dictionary containing MIDI metadata, including tempo and time signature information.
+
+    Returns:
+        list: List of filtered rhythmic boundary times (in ticks).
+
+    Note:
+        This function clusters duration patterns and identifies significant rhythmic boundaries.
+    """
     ticks_per_beat = metadata['ticks_per_beat']
     initial_tempo = metadata['tempo_changes'][0][1]
     initial_time_signature = metadata['time_signature_changes'][0][1]
@@ -127,6 +229,22 @@ def analyze_rhythmic_patterns(notes, metadata):
     return filtered_boundaries
 
 def find_repeating_motifs(notes, min_length, max_length):
+    """
+    Find repeating motifs in a sequence of notes.
+
+    Args:
+        notes (list): List of note information tuples (pitch, start_time, duration, velocity).
+        min_length (int): Minimum length of a motif to consider.
+        max_length (int): Maximum length of a motif to consider.
+
+    Returns:
+        dict: Dictionary of repeating motifs, where each key is a motif and each value is a dict containing:
+            - id: Unique identifier for the motif
+            - positions: List of starting positions (in ticks) where the motif occurs
+
+    Note:
+        This function identifies repeating patterns of notes, considering both pitch and rhythm.
+    """
     motifs = {}
     chord_sequence = []
     current_chord = []
@@ -161,6 +279,22 @@ def find_repeating_motifs(notes, min_length, max_length):
     return repeating_motifs
 
 def segment_track(notes, repeating_motifs, rhythmic_boundaries, max_silence_ticks=1000):
+    """
+    Segment a track based on repeating motifs and rhythmic boundaries.
+
+    Args:
+        notes (list): List of note information tuples (pitch, start_time, duration, velocity).
+        repeating_motifs (dict): Dictionary of repeating motifs found in the track.
+        rhythmic_boundaries (list): List of rhythmic boundary times.
+        max_silence_ticks (int, optional): Maximum duration of silence to consider when merging segments. Defaults to 1000.
+
+    Returns:
+        list: List of segment tuples (start_time, end_time, repetition_count, motif, motif_id).
+
+    Note:
+        This function combines information from repeating motifs and rhythmic boundaries to create meaningful segments.
+        Times are measured in ticks.
+    """
     segments = []
     used_indices = set()
     
@@ -196,6 +330,19 @@ def segment_track(notes, repeating_motifs, rhythmic_boundaries, max_silence_tick
     return merged_segments
 
 def merge_small_segments(segments, min_duration):
+    """
+    Merge small segments to create more meaningful larger segments.
+
+    Args:
+        segments (list): List of segment tuples (start_time, end_time, repetition_count, motif, motif_id).
+        min_duration (int): Minimum duration (in ticks) for a segment to be considered significant.
+
+    Returns:
+        list: List of merged segment tuples.
+
+    Note:
+        This function combines adjacent small segments that are not part of identified motifs.
+    """
     merged = []
     current_segment = None
     
@@ -221,6 +368,20 @@ def merge_small_segments(segments, min_duration):
     return merged
 
 def save_patterns_to_midi(original_midi, notes, segments, output_file_path, metadata):
+    """
+    Save identified patterns as a new MIDI file, including the original tracks.
+
+    Args:
+        original_midi (mido.MidiFile): The original MIDI file object.
+        notes (list): List of note information tuples (pitch, start_time, duration, velocity).
+        segments (list): List of segment tuples (start_time, end_time, repetition_count, motif, motif_id).
+        output_file_path (str): Path where the new MIDI file will be saved.
+        metadata (dict): Dictionary containing MIDI metadata.
+
+    Note:
+        This function creates a new MIDI file with the original tracks and additional tracks for each identified segment.
+        Each segment is represented as a separate track in the output MIDI file.
+    """
     output_midi = mido.MidiFile(type=original_midi.type, ticks_per_beat=original_midi.ticks_per_beat)
 
     # Copy all original tracks
@@ -276,6 +437,21 @@ def save_patterns_to_midi(original_midi, notes, segments, output_file_path, meta
     print(f"Original tracks and segments saved to {output_file_path}")
     
 def process_track(track_notes, track_index, original_midi, output_dir, input_filename, metadata):
+    """
+    Process a single track of a MIDI file to identify and save patterns.
+
+    Args:
+        track_notes (list): List of note information tuples for the track.
+        track_index (int): Index of the track being processed.
+        original_midi (mido.MidiFile): The original MIDI file object.
+        output_dir (str): Directory where output files will be saved.
+        input_filename (str): Name of the input MIDI file.
+        metadata (dict): Dictionary containing MIDI metadata.
+
+    Note:
+        This function analyzes a single track, identifies rhythmic patterns and repeating motifs,
+        segments the track, and saves the results as a new MIDI file.
+    """
     print(f"\nProcessing Track {track_index}")
     
     initial_tempo = metadata['tempo_changes'][0][1]
@@ -313,6 +489,16 @@ def process_track(track_notes, track_index, original_midi, output_dir, input_fil
         print("-" * 20)
     
 def main(file_path):
+    """
+    Main function to process a MIDI file and identify patterns in all tracks.
+
+    Args:
+        file_path (str): Path to the input MIDI file.
+
+    Note:
+        This function reads the MIDI file, extracts metadata, processes each track,
+        and saves the results as new MIDI files in the output directory.
+    """
     try:
         tracks_notes, original_midi = read_midi_file(file_path)
         
