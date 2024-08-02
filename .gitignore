@@ -7,3 +7,4 @@ test_scripts/plots
 testing tools/i_am_trying_midi_tools/midi_prøver_Almaz_midi_remix_OG.ipynb
 myenv/
 testing_tools/test_scripts/deletelater.py
+testing_tools/test_scripts/asle_scripts/__pycache__/
