@@ -2,7 +2,7 @@ appnope==0.1.4
 asttokens==2.4.1
 audioread==3.0.1
 blinker==1.8.2
-certifi==2024.6.2
+certifi==2024.7.4
 cffi==1.16.0
 chardet==5.2.0
 charset-normalizer==3.3.2
