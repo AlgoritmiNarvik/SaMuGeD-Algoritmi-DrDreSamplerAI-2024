@@ -341,7 +341,7 @@ def main():
     repeating_patterns = find_repeating_patterns(segmented_tracks, 
                                                  timings_by_track, 
                                                  min_sample_length, 
-                                                 similarity_threshold=0.5)
+                                                 similarity_threshold=0.9)
     
     for track_idx, patterns in repeating_patterns.items():
         print(f"Track {track_idx}:")
@@ -349,7 +349,7 @@ def main():
             print(f"  Pattern group {i}: {len(pattern_group)} repetitions")
             print(f"    Representative: start={pattern_group[0][0]['start']}, end={pattern_group[0][-1]['end']}, notes={sum(len(bar['notes']) for bar in pattern_group[0])}")
         
-        filename = f"{output_dir}/track{track_idx}_patterns.mid"
+        filename = f"{output_dir}/track{track_idx}_patterns_BarEuclidean.mid"
         try:
             patterns_midi = extract_all_patterns(midi_file, track_idx, patterns, timings_by_track[track_idx])
             patterns_midi.dump(filename)

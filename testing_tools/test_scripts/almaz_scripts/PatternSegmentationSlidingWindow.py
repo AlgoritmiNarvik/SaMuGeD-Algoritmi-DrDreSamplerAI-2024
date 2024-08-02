@@ -1,4 +1,5 @@
-from music21 import converter, note, chord, stream
+import os
+from music21 import converter, note, chord, stream, midi, meter, tempo, instrument
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -12,21 +13,23 @@ def read_midi_file(file_path):
     Returns:
     list: List of tuples containing MIDI pitches and their start and end ticks.
     """
-    score = converter.parse(file_path)
-    melody = score.parts[0].flat.notesAndRests
-    ticks_per_quarter = score.metronomeMarkBoundaries()[0][-1].secondsPerQuarter() * 480
+    midi_file = converter.parse(file_path)
     pitch_sequence = []
 
-    for n in melody:
-        if n.isNote:
-            pitch_sequence.append((n.pitch.midi, int(n.offset * ticks_per_quarter), int((n.offset + n.quarterLength) * ticks_per_quarter)))
-        elif n.isChord:
-            for pitch in n.pitches:
-                pitch_sequence.append((pitch.midi, int(n.offset * ticks_per_quarter), int((n.offset + n.quarterLength) * ticks_per_quarter)))
-                
+    for element in midi_file.flatten():
+        if isinstance(element, note.Note):
+            start_ticks = int(element.offset * 480)  # Assuming 480 ticks per quarter note
+            end_ticks = int((element.offset + element.duration.quarterLength) * 480)
+            pitch_sequence.append((element.pitch.midi, start_ticks, end_ticks))
+        elif isinstance(element, chord.Chord):
+            start_ticks = int(element.offset * 480)
+            end_ticks = int((element.offset + element.duration.quarterLength) * 480)
+            for pitch in element.pitches:
+                pitch_sequence.append((pitch.midi, start_ticks, end_ticks))
+
     return pitch_sequence
 
-def find_repeating_motifs(pitch_sequence, min_length=4, max_length=2000000):
+def find_repeating_motifs(pitch_sequence, min_length=4, max_length=30):
     """
     Finds repeating motifs in a pitch sequence.
 
@@ -64,7 +67,7 @@ def segment_track(pitch_sequence, repeating_motifs, max_silence_ticks=1000):
     max_silence_ticks (int): Maximum allowable silence between notes in a segment.
 
     Returns:
-    list: List of tuples representing the start and end positions of segments in original times and count of repetitions.
+    list: List of tuples representing the start and end positions of segments in original times and count of repetitions (we save all segments now).
     """
     segments = []
     used_indices = set()
@@ -88,7 +91,13 @@ def segment_track(pitch_sequence, repeating_motifs, max_silence_ticks=1000):
                     segments.append((start_tick, end_tick, len(positions), motif, motif_id))
                     used_indices.update(range(pos, pos + len(motif)))
     
-    return sorted(segments)
+    #this line commented for now since we need all segments from the original song
+    # return sorted(segments)
+    
+    # Add non-pattern segments
+    all_segments = sorted(segments + [(start, end, 1, (), -1) for start, end in zip([0] + [s[1] for s in segments], [s[0] for s in segments] + [pitch_sequence[-1][2]]) if start < end])
+    
+    return all_segments
 
 def plot_piano_roll_with_segments(pitch_sequence, segments):
     """
@@ -156,6 +165,45 @@ def plot_piano_roll_with_segments(pitch_sequence, segments):
     plt.title('Piano Roll with Segmented Motifs')
     plt.show()
 
+def save_patterns_to_midi(pitch_sequence, segments, original_file_path, output_file_path):
+    # Create a new score
+    output_score = stream.Score()
+
+    # Add the original track
+    original_part = stream.Part()
+    original_part.insert(0, instrument.Piano())
+    for pitch, start, end in pitch_sequence:
+        n = note.Note(pitch)
+        n.offset = start / 480  # Convert ticks to quarter notes (assuming 480 ticks per quarter note)
+        n.quarterLength = (end - start) / 480
+        original_part.append(n)
+    output_score.append(original_part)
+
+    # Add pattern tracks
+    for i, segment in enumerate(segments):
+        start, end, count, motif, motif_id = segment
+        part = stream.Part()
+        part.insert(0, instrument.Piano())  # You can change the instrument if needed
+
+        # Find notes within the segment
+        segment_notes = [note for note in pitch_sequence if start <= note[1] < end]
+
+        for pitch, note_start, note_end in segment_notes:
+            n = note.Note(pitch)
+            n.offset = (note_start - start) / 480
+            n.quarterLength = (note_end - note_start) / 480
+            part.append(n)
+
+        output_score.append(part)
+
+    # Write the MIDI file
+    mf = midi.translate.streamToMidiFile(output_score)
+    mf.open(output_file_path, 'wb')
+    mf.write()
+    mf.close()
+
+    print(f"Patterns saved to {output_file_path}")
+
 def generate_report(segments):
     """
     Generates a report of the found segments.
@@ -193,8 +241,20 @@ def main(file_path):
     report = generate_report(segments)
     print(report)
 
+    # Create the output directory if it doesn't exist
+    output_dir = os.path.join('testing_tools', 'test_scripts', 'pattern_output', 'PatternSegmentationSlidingWindow')
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Generate the output file name
+    input_filename = os.path.basename(file_path)
+    output_filename = f"{os.path.splitext(input_filename)[0]}_patterns_SlidingWindow.mid"
+    output_file_path = os.path.join(output_dir, output_filename)
+
+    # Save patterns to MIDI file
+    save_patterns_to_midi(pitch_sequence, segments, file_path, output_file_path)
+
 # Path to your MIDI file
-#file_path = 'testing_tools/Manual_seg/take_on_me/track1.mid'
-file_path = 'C:\\Installerte program\\vscodeworkspaces\\SaMuGeD-Algoritmi-DrDreSamplerAI-2024\\testing_tools\\test_scripts\\pattern_output\\Beat_It4.mid'
+file_path = 'testing_tools/Manual_seg/take_on_me/track1.mid'
+#file_path = 'C:\\Installerte program\\vscodeworkspaces\\SaMuGeD-Algoritmi-DrDreSamplerAI-2024\\testing_tools\\test_scripts\\pattern_output\\Beat_It4.mid'
 #file_path = 'testing_tools/i_am_trying_sf_segmenter_a_bit/Something_in_the_Way.mid'
 main(file_path)
