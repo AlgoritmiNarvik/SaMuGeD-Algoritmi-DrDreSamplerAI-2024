@@ -248,21 +248,26 @@ def save_patterns_to_midi(original_midi, notes, segments, output_file_path, meta
         track.append(mido.Message('program_change', program=0, time=0))
 
         current_time = 0
-        for tick in range(0, max(note_events.keys()) + 1):
+        active_notes = set()
+
+        for tick in range(start_time, end_time + 1):
             if tick in note_events:
                 for event in note_events[tick]:
-                    if start_time <= tick < end_time:
-                        # Note is within segment, add it
-                        msg_type, note, velocity = event
-                        delta_time = tick - current_time
+                    msg_type, note, velocity = event
+                    delta_time = tick - current_time
+                    if msg_type == 'note_on' and tick < end_time:
                         track.append(mido.Message(msg_type, note=note, velocity=velocity, time=delta_time))
+                        active_notes.add(note)
                         current_time = tick
-                    elif tick >= end_time:
-                        # Add note-off messages for any notes still on at segment end
-                        if event[0] == 'note_on':
-                            delta_time = tick - current_time
-                            track.append(mido.Message('note_off', note=event[1], velocity=0, time=delta_time))
+                    elif msg_type == 'note_off' or tick == end_time:
+                        if note in active_notes:
+                            track.append(mido.Message('note_off', note=note, velocity=0, time=delta_time))
+                            active_notes.remove(note)
                             current_time = tick
+
+        # Ensure all notes are turned off at the end of the segment
+        for note in active_notes:
+            track.append(mido.Message('note_off', note=note, velocity=0, time=end_time - current_time))
 
         print(f"Added track for segment {i+1}: Start={start_time}, End={end_time}, Motif ID={motif_id}, Duration={end_time-start_time}")
 
