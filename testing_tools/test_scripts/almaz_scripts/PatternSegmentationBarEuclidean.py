@@ -338,7 +338,10 @@ def main():
         print("Failed to process MIDI file.")
         exit(1)
 
-    repeating_patterns = find_repeating_patterns(segmented_tracks, timings_by_track, min_sample_length)
+    repeating_patterns = find_repeating_patterns(segmented_tracks, 
+                                                 timings_by_track, 
+                                                 min_sample_length, 
+                                                 similarity_threshold=0.5)
     
     for track_idx, patterns in repeating_patterns.items():
         print(f"Track {track_idx}:")
