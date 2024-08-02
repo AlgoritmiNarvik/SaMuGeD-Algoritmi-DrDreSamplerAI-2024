@@ -5,27 +5,27 @@ from collections import defaultdict
 
 def read_midi_file(file_path):
     midi_file = mido.MidiFile(file_path)
-    notes = []
-    current_time = 0
-
+    tracks_notes = []
+    
     for track in midi_file.tracks:
-        track_notes = []
-        track_time = 0
+        notes = []
+        current_time = 0
         for msg in track:
-            track_time += msg.time
+            current_time += msg.time
             if msg.type == 'note_on' and msg.velocity > 0:
-                track_notes.append((msg.note, track_time, msg.velocity))
+                notes.append((msg.note, current_time, msg.velocity))
             elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
-                for i, note in enumerate(reversed(track_notes)):
+                for i, note in enumerate(reversed(notes)):
                     if note[0] == msg.note and len(note) == 3:
-                        duration = track_time - note[1]
-                        track_notes[-(i+1)] = (note[0], note[1], duration, note[2])
+                        duration = current_time - note[1]
+                        notes[-(i+1)] = (note[0], note[1], duration, note[2])
                         break
-        notes.extend([note for note in track_notes if len(note) == 4])
+        track_notes = [note for note in notes if len(note) == 4]
+        if track_notes:
+            tracks_notes.append(track_notes)
 
-    notes.sort(key=lambda x: x[1])  # Sort notes by start time
-    print(f"Read {len(notes)} notes from {len(midi_file.tracks)} tracks")
-    return notes, midi_file
+    print(f"Read {len(tracks_notes)} tracks with notes from the MIDI file")
+    return tracks_notes, midi_file
 
 def find_repeating_motifs(notes, min_length, max_length):
     motifs = {}
@@ -70,109 +70,126 @@ def segment_track(notes, repeating_motifs, max_silence_ticks=1000):
                     segments.append((start_tick, end_tick, len(positions), motif, motif_id))
                     used_indices.update(range(pos, pos + len(motif)))
     
-    # Add non-pattern segments
+    # Add non-motif segments
     all_times = sorted(set([0] + [note[1] for note in notes] + [note[1] + note[2] for note in notes]))
-    all_segments = sorted(segments + [(start, end, 1, (), -1) for start, end in zip(all_times, all_times[1:]) if not any(s <= start < end <= e for s, e, _, _, _ in segments)])
+    current_start = 0
+    for end in all_times[1:]:
+        if not any(s <= current_start < end <= e for s, e, _, _, _ in segments):
+            if end > current_start:  # Ensure we're not adding empty segments
+                segments.append((current_start, end, 1, (), -1))
+        current_start = end
     
-    print(f"Created {len(all_segments)} segments (including non-pattern segments)")
+    all_segments = sorted(segments, key=lambda x: x[0])
+    
+    print(f"Created {len(all_segments)} segments (including non-motif segments)")
     return all_segments
 
 def save_patterns_to_midi(original_midi, notes, segments, output_file_path):
     output_midi = mido.MidiFile(type=original_midi.type, ticks_per_beat=original_midi.ticks_per_beat)
 
-    # Copy all original tracks
-    for track in original_midi.tracks:
-        output_midi.tracks.append(track)
+    # Copy metadata track if it exists
+    if original_midi.tracks and not any(msg.type == 'note_on' for msg in original_midi.tracks[0]):
+        output_midi.tracks.append(original_midi.tracks[0])
 
-    # Add pattern tracks
-    for i, segment in enumerate(segments):
+    # Add the original track as the first track (exact copy)
+    output_midi.tracks.append(original_midi.tracks[-1])
+
+    # Sort segments by start time
+    sorted_segments = sorted(segments, key=lambda x: x[0])
+
+    # Add tracks for all non-empty segments
+    for i, segment in enumerate(sorted_segments):
         start_time, end_time, count, motif, motif_id = segment
         
-        # Skip segments with empty motifs
-        if not motif:
+        # Get notes for this segment
+        segment_notes = [n for n in notes if start_time <= n[1] < end_time]
+        
+        # Skip if there are no notes in this segment
+        if not segment_notes:
             continue
 
-        print(f"Processing segment {i+1}: Start={start_time}, End={end_time}")
         track = mido.MidiTrack()
         
-        # Add program change (you can change the instrument if needed)
-        track.append(mido.Message('program_change', program=0, time=0))
+        # Add program change (use the program from the original track if available)
+        original_program = next((msg.program for msg in original_midi.tracks[-1] if msg.type == 'program_change'), 0)
+        track.append(mido.Message('program_change', program=original_program, time=0))
 
-        # Add silence before the pattern
-        if start_time > 0:
-            track.append(mido.Message('note_on', note=0, velocity=0, time=start_time))
+        # Add silence before the segment
+        track.append(mido.Message('note_on', note=0, velocity=0, time=int(start_time)))
 
         current_time = start_time
-        for note in notes:
-            if start_time <= note[1] < end_time:
-                # Note on
-                delta_time = max(0, note[1] - current_time)
-                track.append(mido.Message('note_on', note=note[0], velocity=note[3], time=int(delta_time)))
-                
-                # Note off
-                track.append(mido.Message('note_off', note=note[0], velocity=note[3], time=int(note[2])))
-                
-                current_time = note[1] + note[2]
+        for note in sorted(segment_notes, key=lambda x: x[1]):
+            delta_on = max(0, note[1] - current_time)
+            track.append(mido.Message('note_on', note=note[0], velocity=note[3], time=int(delta_on)))
+            track.append(mido.Message('note_off', note=note[0], velocity=0, time=int(note[2])))
+            current_time = note[1] + note[2]
 
-        # Add silence after the pattern
-        if current_time < end_time:
-            track.append(mido.Message('note_on', note=0, velocity=0, time=max(0, end_time - current_time)))
+        # Add silence after the segment to fill the rest of the track
+        if current_time < original_midi.length:
+            track.append(mido.Message('note_on', note=0, velocity=0, time=int(original_midi.length - current_time)))
 
         output_midi.tracks.append(track)
         
-        print(f"Added {len(track)} messages to track {i+1}")
+        if motif:
+            print(f"Added track for motif segment {i+1}: Start={start_time}, End={end_time}, Motif={motif}")
+        else:
+            print(f"Added track for non-motif segment {i+1}: Start={start_time}, End={end_time}")
 
     # Save the MIDI file
     output_midi.save(output_file_path)
-    print(f"Patterns saved to {output_file_path}")
-     
+    print(f"Original track and all non-empty segments saved to {output_file_path}")
+                  
+def process_track(track_notes, track_index, original_midi, output_dir, input_filename):
+    print(f"\nProcessing Track {track_index}")
+    repeating_motifs = find_repeating_motifs(track_notes, min_length=4, max_length=30)
+    segments = segment_track(track_notes, repeating_motifs, max_silence_ticks=1000)
+
+    if len(segments) == 0:
+        print("Warning: No segments found for this track.")
+        return
+
+    # Generate the output file name for this track
+    output_filename = f"{os.path.splitext(input_filename)[0]}_track{track_index}_patterns_SlidingWindow.mid"
+    output_file_path = os.path.join(output_dir, output_filename)
+
+    # Save patterns to MIDI file
+    save_patterns_to_midi(original_midi, track_notes, segments, output_file_path)
+
+    # Print report for this track
+    print(f"Segment Report for Track {track_index}:")
+    for i, (start_time, end_time, count, motif, motif_id) in enumerate(segments):
+        if motif:  # Only print segments with non-empty motifs
+            print(f"Segment {i + 1}:")
+            print(f"  Start: {start_time} ticks")
+            print(f"  End: {end_time} ticks")
+            print(f"  Length: {end_time - start_time} ticks")
+            print(f"  Motif ID: {motif_id}")
+            print(f"  Repetitions: {count}")
+            print(f"  Motif: {motif}")
+            print("-" * 20)
+            
 def main(file_path):
     try:
-        notes, original_midi = read_midi_file(file_path)
-        print(f"Read {len(notes)} notes from the MIDI file")
+        tracks_notes, original_midi = read_midi_file(file_path)
         
-        if len(notes) == 0:
+        if not tracks_notes:
             print("Error: No notes found in the MIDI file. Please check the file format and content.")
             return
-
-        repeating_motifs = find_repeating_motifs(notes, min_length=4, max_length=30000)
-        segments = segment_track(notes, repeating_motifs, max_silence_ticks=1000)
-
-        if len(segments) == 0:
-            print("Warning: No segments found. Adjusting parameters...")
-            # repeating_motifs = find_repeating_motifs(notes, min_length=4, max_length=20)
-            # segments = segment_track(notes, repeating_motifs, max_silence_ticks=2000)
 
         # Create the output directory if it doesn't exist
         output_dir = os.path.join('testing_tools', 'test_scripts', 'pattern_output', 'PatternSegmentationSlidingWindow')
         os.makedirs(output_dir, exist_ok=True)
 
-        # Generate the output file name
+        # Process each track
         input_filename = os.path.basename(file_path)
-        output_filename = f"{os.path.splitext(input_filename)[0]}_patterns_SlidingWindow.mid"
-        output_file_path = os.path.join(output_dir, output_filename)
-
-        # Save patterns to MIDI file
-        save_patterns_to_midi(original_midi, notes, segments, output_file_path)
-
-        # Print report
-        print("Segment Report:")
-        for i, (start_time, end_time, count, motif, motif_id) in enumerate(segments):
-            if motif:  # Only print segments with non-empty motifs
-                print(f"Segment {i + 1}:")
-                print(f"  Start: {start_time} ticks")
-                print(f"  End: {end_time} ticks")
-                print(f"  Length: {end_time - start_time} ticks")
-                print(f"  Motif ID: {motif_id}")
-                print(f"  Repetitions: {count}")
-                print(f"  Motif: {motif}")
-                print("-" * 20)
+        for i, track_notes in enumerate(tracks_notes):
+            process_track(track_notes, i, original_midi, output_dir, input_filename)
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         import traceback
         traceback.print_exc()
-        
+
 # Path to your MIDI file
 file_path = 'testing_tools/Manual_seg/take_on_me/track1.mid'
 main(file_path)
