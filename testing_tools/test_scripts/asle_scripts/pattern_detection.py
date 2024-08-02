@@ -16,36 +16,34 @@ from scipy.stats import skew, kurtosis
 from scipy.spatial.distance import euclidean
 from scipy.spatial.distance import cdist
 
-def get_segments(mido_obj: str | object) -> list:
+def get_segments(mid_obj: str | object) -> list:
     """
     Takes path to a midifile or a class instance of miditoolkit.midi.parser.MidiFile
 
     Returns a list of tracks, each track is a list of segments, each segment containing notes.
     """
-    #find end of last note, that is the end of the song or time window to look at
+
     #1:01:00 is the first(0th) tick in flstudio
     #x:16:24 first number is bar, starting with 1st bar. each bar is divided into steps, every 16 steps is one bar. Each step is divided into 24 ticks.
-    #The very start of the track is 1:01:00, which in ticks is 400?
     #1 bar duration = 384 ticks (for 4/4 time signature, 2nd number is how many beats are in each bar)
 
-    if isinstance(mido_obj, mid_parser.MidiFile):
-        mido_obj = mido_obj
-    elif type(mido_obj) is str:
+    if isinstance(mid_obj, mid_parser.MidiFile):
+        mid_obj = mid_obj
+    elif type(mid_obj) is str:
         try:
-            mido_obj = mid_parser.MidiFile(mido_obj)
+            mid_obj = mid_parser.MidiFile(mid_obj)
         except:
-            print(f'Unable to open {mido_obj}')
+            print(f'Unable to open {mid_obj}')
     else:
         print(f'Input not a path or instance of MidiFile class')
         return None
     
-    ticks_per_beat = mido_obj.ticks_per_beat
-    time_signature = mido_obj.time_signature_changes
-    ticks_per_bar = ticks_per_beat * time_signature[0].denominator
+    ticks_per_beat = mid_obj.ticks_per_beat
+    time_signatures = mid_obj.time_signature_changes
 
     tracks = [] #This list will contain a list for each track, each list containing segments
 
-    for ins_nr, instrument in enumerate(mido_obj.instruments):
+    for ins_nr, instrument in enumerate(mid_obj.instruments):
         if instrument.is_drum == True:
             continue
         #if ins_nr > 2: #just here for testing
@@ -67,16 +65,16 @@ def get_segments(mido_obj: str | object) -> list:
         segments = [] #The list where segments/samples will be saved
         temp = [] #Temporary list that keeps track of notes in the current segment
         notes_to_remove = [] #Empty set to keep track of note indecies in the list of notes
-        #k = 0 #Counter used to keep track of bars
-        for i in range(0, last_note_end):
+
+        for tick in range(0, last_note_end):
             notes_to_remove = [] #Empty set to keep track of note indecies in the list of notes
             if note_playing == False: #Increment silence counter if no note is playing
                 ticks_since_last_note += 1
-            elif i >= note_playing_end: #Check if the playing note has ended
+            elif tick >= note_playing_end: #Check if the playing note has ended
                 note_playing = False
                 note_playing_end = 0
             for x, note in enumerate(sorted_notes): #Iterate through notes to see if they are currently playing
-                if i == note.start:
+                if tick == note.start:
                     temp.append(note)
                     note_playing = True
                     note_playing_end = note.end if note.end > note_playing_end else note_playing_end
@@ -86,16 +84,9 @@ def get_segments(mido_obj: str | object) -> list:
             for note in notes_to_remove[::-1]: #Remove played notes from list of notes to reduce code execution time
                 sorted_notes.remove(note)
 
-            if ticks_since_last_note == ticks_per_bar: #save segment when 1 bar has passed since end of last note
+            if ticks_since_last_note == ticks_per_bar(ticks_per_beat, tick, time_signatures): #save segment when 1 bar has passed since end of last note
                 segments.append(temp)
                 temp = []
-
-            """ k+=0
-            if ((k % 384) == 0) and (note_playing == False):
-                k=0
-                segments.append(temp)
-                temp = []
-            """
 
         if len(temp) > 0:
             segments.append(temp)
@@ -103,7 +94,6 @@ def get_segments(mido_obj: str | object) -> list:
 
         tracks.append(segments)
 
-    
     return tracks
 
 
@@ -114,7 +104,6 @@ def compare_notes(segment, note_number, compare_note_number, duration_difference
             note_duration = segment[note_number].end - segment[note_number].start
             compare_note_duration = segment[compare_note_number].end - segment[compare_note_number].start
             if abs(note_duration - compare_note_duration) <= duration_difference:
-                
                 return True
     except:
         pass
@@ -124,6 +113,9 @@ def compare_notes(segment, note_number, compare_note_number, duration_difference
 
 def ticks_per_bar(ticks_per_beat, current_note_time, time_signatures) -> int:
 
+    if len(time_signatures) == 0: #If there is no timesignatures in the midi we assume 4 beats per bar
+        return 384
+
     for i in time_signatures:
         if i.time > current_note_time:
             break
@@ -131,38 +123,26 @@ def ticks_per_bar(ticks_per_beat, current_note_time, time_signatures) -> int:
     
     return ticks
 
-def asle():
+def asle(INPUT_PATH, OUTPUT_DIR):
+    print(f'Processing {INPUT_PATH} ...')
     #INPUT_PATH = "testing_tools/test_scripts/take_on_me.mid"
-    INPUT_PATH = "C:\\Users\\Pc\\Downloads\\Lakh MIDI Clean\Michael_Jackson\\Beat_It.mid"
-    mid_obj = mid_parser.MidiFile(INPUT_PATH)
-    """ OS_TYPE = sys.platform
-    project_directory = os.path.dirname(os.path.realpath(__file__)) """
-
-    """ if OS_TYPE == "win32":
-        output_dir = project_directory + "\\output\\" + INPUT_PATH[:-4]
-        input_file_path = project_directory + "\\" + INPUT_PATH
-    else:
-        output_dir = project_directory + "/output"
-        input_file_path = project_directory + "/" + INPUT_PATH
-
+    #INPUT_PATH = "C:\\Users\\Pc\\Downloads\\Lakh MIDI Clean\\Michael_Jackson\\Beat_It.mid"
+    #mid_obj = mid_parser.MidiFile(INPUT_PATH)
 
     if isinstance(INPUT_PATH, mid_parser.MidiFile):
         mid_obj = INPUT_PATH
-    elif type(mid_obj) is str:
+    elif type(INPUT_PATH) is str:
         try:
             mid_obj = mid_parser.MidiFile(INPUT_PATH)
-        except:
-            print(f'Unable to open {mid_obj}')
+        except Exception as e:
+            print(f'Unable to open {INPUT_PATH}')
+            print(f'Exception: {e=}')
+            return None
     else:
         print(f'Input not a path or instance of MidiFile class')
-        return None """
+        return None
 
     tracks = get_segments(mid_obj)
-    
-    
-    
-    #tracks = detect_patterns("C:\\Users\\asle1\\Downloads\\Lakh MIDI Clean\\Tool\\Eulogy.mid")
-    #mid_obj = mid_parser.MidiFile("C:\\Users\\asle1\\Downloads\\Lakh MIDI Clean\\Tool\\Eulogy.mid")
 
     ticks_per_beat = mid_obj.ticks_per_beat
     time_signatures = mid_obj.time_signature_changes
@@ -196,7 +176,6 @@ def asle():
 
                         elif segment[note_number].start == pattern_end: #If it is not a new pattern we want to check if the current pattern is repeating
                             #reset
-                            
                             active_pattern = False
                             if len(current_pattern) > 2: #TODO Use sf_segmenter for boundaries to help with boundaries of patterns
                                 if not_pattern:
@@ -246,7 +225,6 @@ def asle():
                 not_pattern = []   
             if list_of_patterns_in_current_segment: #if patterns were found, remove duplicates within segment first.
                 duplicates_to_remove = [False]*len(list_of_patterns_in_current_segment)
-                #print(f'{list_of_patterns_in_current_segment=}')
                 for i, pattern in enumerate(list_of_patterns_in_current_segment):
                     for k, pattern2 in enumerate(list_of_patterns_in_current_segment):
                         if k == i:
@@ -256,11 +234,12 @@ def asle():
                             for x in range(len(pattern)):
                                 if pattern[x].pitch != pattern2[x].pitch:
                                     break
-
-                            if duplicates_to_remove[i] or duplicates_to_remove[k]:
-                                break
-                            duplicates_to_remove[k]=True
-                #print(f'{duplicates_to_remove=}')
+                            try:
+                                if duplicates_to_remove[i] or duplicates_to_remove[k]:
+                                    break
+                                duplicates_to_remove[k]=True
+                            except IndexError:
+                                pass
 
                 for x in range(len(duplicates_to_remove)-1,0,-1):
                     if duplicates_to_remove[x]:
@@ -275,17 +254,18 @@ def asle():
                                 for x in range(len(pattern)):
                                     if pattern[x].pitch != pattern2[x].pitch:
                                         break
-
-                                if duplicates_to_remove[i] or duplicates_to_remove[k]:
-                                    break
-                                duplicates_to_remove[k]=True
+                                try:
+                                    if duplicates_to_remove[i] or duplicates_to_remove[k]:
+                                        break
+                                    duplicates_to_remove[k]=True
+                                except IndexError:
+                                    pass
 
                 for x in range(len(duplicates_to_remove)-1,-1,-1):
                     if duplicates_to_remove[x]:
                         list_of_patterns_in_current_segment.pop(x)
 
                 list_of_patterns_in_segments.append(list_of_patterns_in_current_segment)
-                #print(f'{list_of_patterns_in_segments=}')
 
             else: #Segments might be short and already in pattern list. Might need to redo this 
                 segment_is_a_duplicate = False
@@ -306,8 +286,6 @@ def asle():
         list_of_all_patterns.append(list_of_patterns_in_segments)
         list_of_patterns_in_segments = []
 
-        #mido_obj = mid_parser.MidiFile("testing_tools/test_scripts/take_on_me.mid")
-        # create a mid file for track i
         obj = mid_parser.MidiFile()
         obj.ticks_per_beat = mid_obj.ticks_per_beat
         obj.max_tick = mid_obj.max_tick
@@ -317,19 +295,24 @@ def asle():
         obj.lyrics = mid_obj.lyrics
         obj.markers = mid_obj.markers
 
-        obj.instruments.append(mid_obj.instruments[track_number+1])
-        #print(f'{list_of_all_patterns=}')
+        obj.instruments.append(mid_obj.instruments[track_number]) #add the original track as the first track in the new file
+
         for track in list_of_all_patterns:
             for segment in track:
+                name_number = 1
                 for pattern in segment:
                     print(len(pattern))
-                    new_instrument = Instrument(program=mid_obj.instruments[track_number+1].program, notes=pattern)
+                    new_name=mid_obj.instruments[track_number].name
+                    new_name = "pattern" + " " +str(name_number)
+                    new_instrument = Instrument(program=mid_obj.instruments[track_number].program, name=new_name, notes=pattern)
                     obj.instruments.append(new_instrument)
+                    name_number += 1
 
-        obj.dump("testing_tools/test_scripts/pattern_output/Beat_It" + str(track_number) + ".mid")
+        obj.dump(OUTPUT_DIR + "/track" + str(track_number) + ".mid")
 
         list_of_all_patterns = []
 
+    print(f'Finished processing {INPUT_PATH}')
 
 if __name__ == "__main__":
 
