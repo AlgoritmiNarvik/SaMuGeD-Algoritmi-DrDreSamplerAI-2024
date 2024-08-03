@@ -575,7 +575,7 @@ def process_track(track_notes, track_index, original_midi, output_dir, input_fil
     
     rhythmic_boundaries = analyze_rhythmic_patterns(track_notes, metadata)
     
-    repeating_motifs = find_repeating_motifs(track_notes, min_length=4, max_length=30000)
+    repeating_motifs = find_repeating_motifs(track_notes, min_length=4, max_length=100)
     
     # Calculate ticks_per_bar
     ticks_per_beat = metadata['ticks_per_beat']
@@ -653,8 +653,8 @@ def main(file_path):
         traceback.print_exc()
 
 # Path to your MIDI file
-file_path = 'testing_tools/Manual_seg/take_on_me/track1.mid'
+#file_path = 'testing_tools/Manual_seg/take_on_me/track1.mid'
 #file_path = 'testing_tools/test_scripts/pattern_output/something_in_the_way/asle_something_in_the_way.mid'
 #file_path = 'testing_tools/test_scripts/take_on_me_midi/take_on_me.mid'
-#file_path = 'archived/i_am_trying_sf_segmenter_a_bit/Something_in_the_Way.mid'
+file_path = 'archived/i_am_trying_sf_segmenter_a_bit/Something_in_the_Way.mid'
 main(file_path)
