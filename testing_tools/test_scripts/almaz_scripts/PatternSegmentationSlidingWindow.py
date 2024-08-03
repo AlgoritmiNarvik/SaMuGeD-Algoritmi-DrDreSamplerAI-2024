@@ -167,7 +167,7 @@ def process_track(track_notes, track_index, original_midi, output_dir, input_fil
     # Save patterns to MIDI file
     save_patterns_to_midi(original_midi, track_notes, segments, output_file_path)
 
-"""     # Print report for this track
+    # Print report for this track
     print(f"Segment Report for Track {track_index}:")
     for i, (start_time, end_time, count, motif, motif_id) in enumerate(segments):
         if motif:  # Only print segments with non-empty motifs
@@ -178,7 +178,7 @@ def process_track(track_notes, track_index, original_midi, output_dir, input_fil
             print(f"  Motif ID: {motif_id}")
             print(f"  Repetitions: {count}")
             print(f"  Motif: {motif}")
-            print("-" * 20) """
+            print("-" * 20)
 
 def main(file_path):
     try:
