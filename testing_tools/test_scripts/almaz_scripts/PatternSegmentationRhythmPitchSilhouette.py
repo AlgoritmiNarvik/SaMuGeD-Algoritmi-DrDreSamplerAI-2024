@@ -105,7 +105,7 @@ def read_midi_file(file_path):
     print(f"Read {len(tracks_notes)} tracks with notes from the MIDI file")
     return tracks_notes, midi_file
 
-def extract_duration_sequences(durations, sequence_length=8):
+def extract_duration_sequences(durations, sequence_length=4):
     """
     Extract sequences of note durations from a list of durations.
 
@@ -122,29 +122,37 @@ def extract_duration_sequences(durations, sequence_length=8):
     sequences = [tuple(durations[i:i+sequence_length]) for i in range(len(durations) - sequence_length + 1)]
     return sequences
 
-def optimal_cluster_number(X, max_clusters=10):
+def optimal_cluster_number(X, max_clusters=64):
     """
     Determine the optimal number of clusters using silhouette score.
 
     Args:
         X (numpy.ndarray): Input data for clustering.
-        max_clusters (int, optional): Maximum number of clusters to consider. Defaults to 10.
+        max_clusters (int, optional): Maximum number of clusters to consider. Defaults to 64.
 
     Returns:
-        int: Optimal number of clusters.
+        int: Optimal number of clusters. Returns 1 if there's not enough data for clustering.
 
     Note:
         This function uses K-means clustering and silhouette score to determine the optimal number of clusters.
+        It handles cases where there's insufficient data for meaningful clustering.
     """
+    if len(X) < 2:
+        return 1  # Not enough data for clustering
+    
     if len(X) < max_clusters:
         max_clusters = len(X)
     
     silhouette_scores = []
     for n_clusters in range(2, max_clusters + 1):
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-        cluster_labels = kmeans.fit_predict(X)
-        silhouette_avg = silhouette_score(X, cluster_labels)
-        silhouette_scores.append(silhouette_avg)
+        if len(X) > n_clusters:
+            kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+            cluster_labels = kmeans.fit_predict(X)
+            silhouette_avg = silhouette_score(X, cluster_labels)
+            silhouette_scores.append(silhouette_avg)
+    
+    if not silhouette_scores:
+        return 1  # Not enough data for meaningful clustering
     
     optimal_clusters = silhouette_scores.index(max(silhouette_scores)) + 2
     return optimal_clusters
@@ -171,7 +179,7 @@ def cluster_duration_patterns(duration_sequences):
     print(f"Optimal number of clusters: {n_clusters}")
     return cluster_labels
 
-def identify_rhythmic_boundaries(notes, cluster_labels, sequence_length=8):
+def identify_rhythmic_boundaries(notes, cluster_labels, sequence_length=16):
     """
     Identify rhythmic boundaries based on changes in cluster labels.
 
@@ -215,7 +223,7 @@ def analyze_rhythmic_patterns(notes, metadata):
     beat_duration = 60 / (initial_tempo / 1000000)  # Convert tempo to seconds per beat
     
     durations = [note[2] / ticks_per_beat * beat_duration for note in notes]
-    duration_sequences = extract_duration_sequences(durations, sequence_length=32)  # Increase sequence length
+    duration_sequences = extract_duration_sequences(durations, sequence_length=50)  # Increase sequence length?
     cluster_labels = cluster_duration_patterns(duration_sequences)
     boundaries = identify_rhythmic_boundaries(notes, cluster_labels, sequence_length=32)
     
@@ -228,14 +236,15 @@ def analyze_rhythmic_patterns(notes, metadata):
     
     return filtered_boundaries
 
-def find_repeating_motifs(notes, min_length, max_length):
+def find_repeating_motifs(notes, min_length=8, max_length=128, quantize_duration=30):
     """
     Find repeating motifs in a sequence of notes.
 
     Args:
         notes (list): List of note information tuples (pitch, start_time, duration, velocity).
-        min_length (int): Minimum length of a motif to consider.
-        max_length (int): Maximum length of a motif to consider.
+        min_length (int): Minimum length of a motif to consider. Defaults to 8.
+        max_length (int): Maximum length of a motif to consider. Defaults to 128.
+        quantize_duration (int): Duration (in ticks) to quantize note timings. Defaults to 30.
 
     Returns:
         dict: Dictionary of repeating motifs, where each key is a motif and each value is a dict containing:
@@ -244,6 +253,7 @@ def find_repeating_motifs(notes, min_length, max_length):
 
     Note:
         This function identifies repeating patterns of notes, considering both pitch and rhythm.
+        It quantizes note durations to allow for slight timing variations in pattern matching.
     """
     motifs = {}
     chord_sequence = []
@@ -253,32 +263,30 @@ def find_repeating_motifs(notes, min_length, max_length):
     for note in sorted(notes, key=lambda x: x[1]):
         if note[1] != current_time:
             if current_chord:
-                chord_sequence.append((tuple(sorted(current_chord)), note[1] - current_time))
-            current_chord = [(note[0], note[2])]
+                chord_sequence.append((tuple(sorted(current_chord)), round((note[1] - current_time) / quantize_duration) * quantize_duration))
+            current_chord = [(note[0], round(note[2] / quantize_duration) * quantize_duration)]
             current_time = note[1]
         else:
-            current_chord.append((note[0], note[2]))
+            current_chord.append((note[0], round(note[2] / quantize_duration) * quantize_duration))
     
     if current_chord:
         chord_sequence.append((tuple(sorted(current_chord)), 0))
     
-    motif_id = 0
     for length in range(min_length, min(max_length, len(chord_sequence)) + 1):
         for i in range(len(chord_sequence) - length + 1):
             motif = tuple(chord_sequence[i:i+length])
             if motif in motifs:
                 motifs[motif]['positions'].append(i)
             else:
-                motifs[motif] = {'id': motif_id, 'positions': [i]}
-                motif_id += 1
+                motifs[motif] = {'id': len(motifs), 'positions': [i]}
     
     repeating_motifs = {m: v for m, v in motifs.items() if len(v['positions']) > 1}
     print(f"Found {len(repeating_motifs)} repeating motifs")
-    if len(repeating_motifs) > 0:
+    if repeating_motifs:
         print("Example motif:", next(iter(repeating_motifs)))
     return repeating_motifs
 
-def segment_track(notes, repeating_motifs, rhythmic_boundaries, max_silence_ticks=1000):
+def segment_track(notes, repeating_motifs, rhythmic_boundaries, max_silence_ticks=384):
     """
     Segment a track based on repeating motifs and rhythmic boundaries.
 
@@ -323,7 +331,7 @@ def segment_track(notes, repeating_motifs, rhythmic_boundaries, max_silence_tick
     all_segments = sorted(segments + non_motif_segments)
     
     # Merge small segments
-    min_segment_duration = max_silence_ticks / 2  # Adjust this value as needed
+    min_segment_duration = max_silence_ticks / 4  # Adjust this value as needed
     merged_segments = merge_small_segments(all_segments, min_segment_duration)
     
     print(f"Created {len(merged_segments)} segments after merging")
@@ -381,12 +389,17 @@ def save_patterns_to_midi(original_midi, notes, segments, output_file_path, meta
     Note:
         This function creates a new MIDI file with the original tracks and additional tracks for each identified segment.
         Each segment is represented as a separate track in the output MIDI file.
+        It handles both Type 0 and Type 1 MIDI files, converting Type 0 to Type 1 if necessary.
     """
-    output_midi = mido.MidiFile(type=original_midi.type, ticks_per_beat=original_midi.ticks_per_beat)
-
-    # Copy all original tracks
-    for track in original_midi.tracks:
-        output_midi.tracks.append(track)
+    if original_midi.type == 0:
+        output_midi = mido.MidiFile(type=1, ticks_per_beat=original_midi.ticks_per_beat)
+        # Convert the single track from type 0 to type 1
+        output_midi.tracks.append(original_midi.tracks[0])
+    else:
+        output_midi = mido.MidiFile(type=original_midi.type, ticks_per_beat=original_midi.ticks_per_beat)
+        # Copy all original tracks
+        for track in original_midi.tracks:
+            output_midi.tracks.append(track)
 
     # Create a dictionary to store note events
     note_events = defaultdict(list)
@@ -448,9 +461,12 @@ def process_track(track_notes, track_index, original_midi, output_dir, input_fil
         input_filename (str): Name of the input MIDI file.
         metadata (dict): Dictionary containing MIDI metadata.
 
+    Returns:
+        list: List of identified segments for the track.
+
     Note:
         This function analyzes a single track, identifies rhythmic patterns and repeating motifs,
-        segments the track, and saves the results as a new MIDI file.
+        segments the track, saves the results as a new MIDI file, and returns the identified segments.
     """
     print(f"\nProcessing Track {track_index}")
     
@@ -462,13 +478,14 @@ def process_track(track_notes, track_index, original_midi, output_dir, input_fil
     
     rhythmic_boundaries = analyze_rhythmic_patterns(track_notes, metadata)
     
-    repeating_motifs = find_repeating_motifs(track_notes, min_length=4, max_length=30000)
+    repeating_motifs = find_repeating_motifs(track_notes, min_length=8, max_length=128, quantize_duration=30)
     
-    segments = segment_track(track_notes, repeating_motifs, rhythmic_boundaries, max_silence_ticks=1000)
+    segments = segment_track(track_notes, repeating_motifs, rhythmic_boundaries, 
+                             max_silence_ticks=384) # 384 is 1 bar if time sign 4/4
 
     if len(segments) == 0:
         print("Warning: No segments found for this track.")
-        return
+        return []
 
     output_filename = f"{os.path.splitext(input_filename)[0]}_track{track_index}_patterns_SlidingWindow.mid"
     output_file_path = os.path.join(output_dir, output_filename)
@@ -477,7 +494,7 @@ def process_track(track_notes, track_index, original_midi, output_dir, input_fil
 
     print(f"Segment Report for Track {track_index}:")
     for i, (start_time, end_time, count, motif, motif_id) in enumerate(segments):
-        if i >= 10:
+        if i >= 21:
             break  # Stop after printing 10 segments
         print(f"Segment {i + 1}:")
         print(f"  Start: {start_time} ticks")
@@ -488,6 +505,8 @@ def process_track(track_notes, track_index, original_midi, output_dir, input_fil
         print(f"  Motif: {motif}")
         print("-" * 20)
     
+    return segments
+    
 def main(file_path):
     """
     Main function to process a MIDI file and identify patterns in all tracks.
@@ -497,7 +516,8 @@ def main(file_path):
 
     Note:
         This function reads the MIDI file, extracts metadata, processes each track,
-        and saves the results as new MIDI files in the output directory.
+        saves the results as new MIDI files in the output directory, and creates a combined
+        MIDI file with patterns from all tracks.
     """
     try:
         tracks_notes, original_midi = read_midi_file(file_path)
@@ -526,8 +546,18 @@ def main(file_path):
         os.makedirs(output_dir, exist_ok=True)
 
         input_filename = os.path.basename(file_path)
+        all_segments = []
         for i, track_notes in enumerate(tracks_notes):
-            process_track(track_notes, i, original_midi, output_dir, input_filename, metadata)
+            track_segments = process_track(track_notes, i, original_midi, output_dir, input_filename, metadata)
+            if track_segments:
+                all_segments.extend(track_segments)
+        
+        # Save combined segments
+        if all_segments:
+            combined_output_filename = f"{os.path.splitext(input_filename)[0]}_combined_patterns.mid"
+            combined_output_path = os.path.join(output_dir, combined_output_filename)
+            save_patterns_to_midi(original_midi, [note for track in tracks_notes for note in track], all_segments, combined_output_path, metadata)
+            print(f"Combined patterns saved to {combined_output_path}")
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
@@ -535,5 +565,8 @@ def main(file_path):
         traceback.print_exc()
 
 # Path to your MIDI file
-file_path = 'testing_tools/Manual_seg/take_on_me/track1.mid'
+#file_path = 'testing_tools/Manual_seg/take_on_me/track1.mid'
+#file_path = 'testing_tools/test_scripts/pattern_output/something_in_the_way/asle_something_in_the_way.mid'
+#file_path = 'testing_tools/test_scripts/take_on_me_midi/take_on_me.mid'
+file_path = 'archived/i_am_trying_sf_segmenter_a_bit/Something_in_the_Way.mid'
 main(file_path)
