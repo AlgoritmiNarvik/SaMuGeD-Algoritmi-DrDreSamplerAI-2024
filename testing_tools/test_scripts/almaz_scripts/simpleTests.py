@@ -196,7 +196,8 @@ def extract_segments_from_file(midi_file, boundaries_file, track_num):
         return []
 
 # Usage
-midi_file = 'archived/i_am_trying_sf_segmenter_a_bit/Something_in_the_Way.mid'
+# midi_file = 'archived/i_am_trying_sf_segmenter_a_bit/Something_in_the_Way.mid'
+midi_file = 'testing_tools/Manual_seg/take_on_me/track1.mid'
 output_file = 'boundaries.json'
 
 # Analyze the MIDI file and save boundaries

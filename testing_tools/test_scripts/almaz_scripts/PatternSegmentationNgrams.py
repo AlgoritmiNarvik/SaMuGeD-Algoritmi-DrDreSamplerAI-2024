@@ -31,63 +31,80 @@ def parse_midi_file(midi_file):
     
     return tracks, time_signature, ticks_per_beat
 
-def n_grams(sequence, n):
-    """Generate n-grams from a sequence."""
-    return list(zip(*[sequence[i:] for i in range(n)]))
+def calculate_bar_length(time_signature, ticks_per_beat):
+    numerator, denominator = time_signature
+    return numerator * ticks_per_beat * 4 // denominator
 
-def find_longest_patterns(sequence, min_count=2):
-    """Find the longest repeated patterns in a sequence."""
-    max_len = len(sequence)
-    longest_patterns = []
-    
-    for n in range(1, max_len):
-        ngrams = n_grams(sequence, n)
-        counter = Counter(ngrams)
-        for pattern, count in counter.items():
-            if count >= min_count:
-                longest_patterns.append((pattern, count))
-    
-    longest_patterns.sort(key=lambda x: (-len(x[0]), -x[1]))
-    
-    return longest_patterns
+def find_ngrams(sequence, n):
+    ngrams = [tuple(sequence[i:i+n]) for i in range(len(sequence)-n+1)]
+    return ngrams
 
-def segment_by_durations(track, min_count=2):
-    """Segment the track based on repeated duration patterns."""
-    durations = [note[2] for note in track]
-    duration_patterns = find_longest_patterns(durations, min_count=min_count)
+def find_frequent_patterns(sequence, ngram_size, min_occurrences):
+    ngrams = find_ngrams(sequence, ngram_size)
+    ngram_counts = Counter(ngrams)
+    frequent_patterns = [ngram for ngram, count in ngram_counts.items() if count >= min_occurrences]
+    return frequent_patterns
+
+def segment_track(track, duration_patterns, pitch_patterns, bar_length, min_bars, max_bars, silent_regions):
+    boundaries = set()
     
+    # Add boundaries based on strongest patterns
+    all_patterns = duration_patterns + pitch_patterns
+    for pattern in all_patterns[:20]:  # Use top 20 patterns
+        for i, (note, start_time, duration, velocity) in enumerate(track):
+            segment = track[i:i+len(pattern)]
+            segment_durations = tuple(note[2] for note in segment)
+            segment_pitches = tuple(note[0] for note in segment)
+            if segment_durations == pattern or segment_pitches == pattern:
+                if not any(s_start <= start_time < s_end for s_start, s_end in silent_regions):
+                    boundaries.add(start_time)
+                    boundaries.add(start_time + sum(d[2] for d in segment))
+    
+    # Add additional boundaries to satisfy min/max bar constraints
+    boundaries = sorted(list(boundaries))
+    filtered_boundaries = [boundaries[0]]
+    for boundary in boundaries[1:]:
+        if boundary - filtered_boundaries[-1] > max_bars * bar_length:
+            # Add intermediate boundaries
+            current = filtered_boundaries[-1]
+            while current + max_bars * bar_length < boundary:
+                current += max_bars * bar_length
+                filtered_boundaries.append(current)
+        if boundary - filtered_boundaries[-1] >= min_bars * bar_length:
+            filtered_boundaries.append(boundary)
+    
+    return filtered_boundaries
+
+def detect_silence(track, silence_threshold):
+    silent_regions = []
+    start = None
+    for i, note in enumerate(track):
+        if note[3] < silence_threshold:  # Using velocity as a proxy for silence
+            if start is None:
+                start = note[1]
+        elif start is not None:
+            silent_regions.append((start, note[1]))
+            start = None
+    return silent_regions
+
+def save_boundaries(boundaries, filename):
+    with open(filename, 'w') as f:
+        json.dump(boundaries, f)
+
+def load_boundaries(filename):
+    with open(filename, 'r') as f:
+        return json.load(f)
+
+def extract_segments(track, boundaries):
     segments = []
-    used_indexes = set()
-    boundaries = []
-    
-    for pattern, count in duration_patterns:
-        pattern_length = len(pattern)
-        indexes = [i for i in range(len(durations) - pattern_length + 1) 
-                   if tuple(durations[i:i+pattern_length]) == pattern]
-        for index in indexes:
-            if index not in used_indexes:
-                segments.append(track[index:index+pattern_length])
-                used_indexes.update(range(index, index+pattern_length))
-                boundaries.append(track[index][1])  # Start time of segment
-    
-    boundaries.sort()
-    return segments, boundaries
+    for i in range(len(boundaries) - 1):
+        start = boundaries[i]
+        end = boundaries[i+1]
+        segment = [note for note in track if start <= note[1] < end]
+        segments.append(segment)
+    return segments
 
-def analyze_segments(segments, min_count=2):
-    """Analyze note patterns within each segment."""
-    segment_reports = []
-    
-    for segment in segments:
-        pitches = [note[0] for note in segment]
-        pitch_patterns = find_longest_patterns(pitches, min_count=min_count)
-        segment_reports.append({
-            'segment': segment,
-            'pitch_patterns': pitch_patterns
-        })
-    
-    return segment_reports
-
-def visualize_segmentation(track, boundaries, ticks_per_beat):
+def visualize_segmentation(track, boundaries, bar_length, min_bars, max_bars):
     plt.figure(figsize=(15, 10))
     
     # Plot pitches
@@ -111,52 +128,91 @@ def visualize_segmentation(track, boundaries, ticks_per_beat):
             end = boundaries[i+1]
             color = 'lightblue' if i % 2 == 0 else 'lightgreen'
             ax.axvspan(start, end, alpha=0.3, color=color)
-            ax.text((start + end) / 2, ymax, f'Segment {i+1}', 
+            ax.text((start + end) / 2, ymax, f'{i+1}', 
                     horizontalalignment='center', verticalalignment='top')
         
         # Add bar lines
         max_time = max(note[1] for note in track)
-        bar_length = ticks_per_beat * 4  # Assume 4/4 time signature
         for bar in range(0, int(max_time), int(bar_length)):
             ax.axvline(x=bar, color='gray', linestyle=':', alpha=0.5, linewidth=0.5)
     
-    plt.suptitle('Segmentation Visualization')
+    plt.suptitle(f'Segmentation (Min: {min_bars} bars, Max: {max_bars} bars)')
     plt.tight_layout()
     plt.show()
-
-def save_report(reports, filename):
-    """Save the analysis report to a JSON file."""
-    with open(filename, 'w') as f:
-        json.dump(reports, f, indent=4)
-
-def analyze_midi_file(midi_file, report_file):
-    tracks, time_signature, ticks_per_beat = parse_midi_file(midi_file)
     
-    all_reports = {}
+def analyze_midi_file(midi_file, output_file, min_bars, max_bars, ngram_size, min_occurrences, silence_threshold):
+    tracks, time_signature, ticks_per_beat = parse_midi_file(midi_file)
+    bar_length = calculate_bar_length(time_signature, ticks_per_beat)
+    
+    all_track_boundaries = {}
     
     for track_num, track in tracks.items():
         print(f"Analyzing track {track_num}")
         
-        # Segment by durations
-        segments, boundaries = segment_by_durations(track)
-        print(f"Found {len(segments)} rhythmic segments in track {track_num}")
+        # Analyze durations
+        durations = [note[2] for note in track]
+        duration_patterns = find_frequent_patterns(durations, ngram_size, min_occurrences)
+        print(f"Found {len(duration_patterns)} duration patterns")
         
-        # Visualize segmentation
-        visualize_segmentation(track, boundaries, ticks_per_beat)
+        # Analyze pitches
+        pitches = [note[0] for note in track]
+        pitch_patterns = find_frequent_patterns(pitches, ngram_size, min_occurrences)
+        print(f"Found {len(pitch_patterns)} pitch patterns")
         
-        # Analyze note patterns within each segment
-        reports = analyze_segments(segments)
-        all_reports[track_num] = reports
+        # Detect silent regions
+        silent_regions = detect_silence(track, silence_threshold)
+
+        # Pass silent regions to the segment_track function
+        boundaries = segment_track(track, duration_patterns, pitch_patterns, bar_length, min_bars, max_bars, silent_regions)
         
-        for i, report in enumerate(reports):
-            print(f"Segment {i+1} has {len(report['pitch_patterns'])} pitch patterns")
+        all_track_boundaries[track_num] = boundaries
+        
+        print(f"Found {len(boundaries)-1} segments in track {track_num}")
+        visualize_segmentation(track, boundaries, bar_length, min_bars, max_bars)
     
-    save_report(all_reports, report_file)
-    print(f"Saved analysis report to {report_file}")
+    save_boundaries(all_track_boundaries, output_file)
+    print(f"Saved boundaries to {output_file}")
+        
+def extract_segments_from_file(midi_file, boundaries_file, track_num):
+    tracks, _, _ = parse_midi_file(midi_file)
+    boundaries = load_boundaries(boundaries_file)
+    
+    if str(track_num) in boundaries:
+        track = tracks[track_num]
+        track_boundaries = boundaries[str(track_num)]
+        segments = extract_segments(track, track_boundaries)
+        
+        print(f"Extracted {len(segments)} segments from track {track_num}")
+        return segments
+    else:
+        print(f"No boundaries found for track {track_num}")
+        return []
 
-# Usage
-midi_file = 'archived/i_am_trying_sf_segmenter_a_bit/Something_in_the_Way.mid'
-report_file = 'testing_tools/test_scripts/almaz_scripts/midi_analysis_report.json'
+# Main script
+if __name__ == "__main__":
+    # CONSTANTS
+    MIDI_FILE = 'testing_tools/Manual_seg/take_on_me/track1.mid'
+    # MIDI_FILE = 'testing_tools/test_scripts/take_on_me_midi/take_on_me.mid'
+    # MIDI_FILE = 'archived/i_am_trying_sf_segmenter_a_bit/Something_in_the_Way.mid'
 
-# Analyze the MIDI file and save the report
-analyze_midi_file(midi_file, report_file)
+    OUTPUT_FILE = 'testing_tools/test_scripts/almaz_scripts/boundaries.json'
+    MIN_BARS = 1
+    MAX_BARS = 8
+    NGRAM_SIZE = 4
+    MIN_OCCURRENCES = 2
+    SILENCE_THRESHOLD = 100
+    TRACK_NUM = 0  # Change this to the desired track number
+    
+    # Analyze the MIDI file and save boundaries
+    analyze_midi_file(MIDI_FILE, OUTPUT_FILE, MIN_BARS, MAX_BARS, NGRAM_SIZE, MIN_OCCURRENCES, SILENCE_THRESHOLD)
+
+    # Later, extract segments for a specific track
+    segments = extract_segments_from_file(MIDI_FILE, OUTPUT_FILE, TRACK_NUM)
+
+    # You can now work with the extracted segments
+    for i, segment in enumerate(segments):
+        print(f"Segment {i+1}: {len(segment)} notes")
+        durations = [note[2] for note in segment]
+        pitches = [note[0] for note in segment]
+        print(f"  Average duration: {np.mean(durations):.2f} ticks")
+        print(f"  Pitch range: {min(pitches)}-{max(pitches)}")
