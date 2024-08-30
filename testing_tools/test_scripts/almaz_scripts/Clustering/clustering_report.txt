@@ -1,0 +1,166 @@
+----- MIDI Clustering Report -----
+Number of MIDI tracks analyzed: 148
+Optimal number of clusters: 5
+Principal Component Analysis (PCA) variance:
+  PCA 1: 90.99%
+  PCA 2: 5.35%
+Distribution of tracks across clusters:
+  Cluster 0: 92 tracks
+  Tracks in Cluster 0:
+    - Intro Guitar Noise Accents
+    - Lead Guitar
+    - Vocal Doubling/Distortion
+    - Lead
+    - More Synth
+    - TabIt MIDI - Track 2
+    - OVERDRIVE
+    - DISTORTION
+    - GTHARMONIC
+    - GTFRETNOIS
+    - WIND OF CHANGE 
+    - WIND OF CHANGE 
+    - WIND OF CHANGE 
+    - WIND OF CHANGE 
+    - g2
+    - g4+
+    - 
+    - 
+    - Lead Vocal 1
+    - Lead Vocal 2
+    - Choir 1
+    - Choir 2
+    - MELODY
+    - SYN STR 1
+    - ORGAN 1
+    - elec grand
+    - elec piano
+    - saw wave
+    - brass
+    - cl guitar
+    - square wave
+    - aahs
+    - syn calliope
+    - Guitar 2
+    - Guitar 3
+    - Guitar 4
+    - Synth 1
+    - Synth 2
+    - Vocals              
+    - Lead Vox
+    - Synth Riff
+    - Synth Pad
+    - Synth Pad
+    - SynthArp
+    - Choir Aah
+    - Riff Echo
+    - Back Vox
+    - Drums
+    - Harp
+    - Harp
+    - Melody              
+    - Rain                
+    - Thunder
+    - Lead Vox
+    - Synth Riff
+    - Synth Pad
+    - Synth Pad
+    - SynthArp
+    - Choir Aah
+    - 
+    - 
+    - Back Vox
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - vocal
+    - bass
+    - cello
+    - Brightness
+    - Piano 2
+    - Piano 2
+    - Brass 1
+    - SynthBrs1
+  Cluster 2: 38 tracks
+  Tracks in Cluster 2:
+    - Background Clean Guitar
+    - Vocals
+    - Bass Guitar
+    - Rhythm
+    - TabIt MIDI - Track 1
+    - TabIt MIDI - Track 3
+    - OBOE
+    - OVERDRIVE
+    - DISTORTION
+    - By: Anthony Peters
+    - WIND OF CHANGE 
+    - WIND OF CHANGE 
+    - WIND OF CHANGE 
+    - g4
+    - bass
+    - bass
+    - SYN BASS 1
+    - A.PIANO 3
+    - ORGAN 3
+    - synth bass
+    - strings
+    - mt guitar
+    - Melody              
+    - Bass                
+    - Keyboard
+    - SlapBass
+    - Guitar              
+    - SlapBass
+    - 
+    - 
+    - 
+    - 
+    - 
+    - guitar 2
+    - guitar 3
+    - Strings
+    - SynthBass1
+    - Star Theme
+  Cluster 4: 2 tracks
+  Tracks in Cluster 4:
+    - Rhythm Guitar
+    - WIND OF CHANGE 
+  Cluster 3: 15 tracks
+  Tracks in Cluster 3:
+    - Bass Guitar
+    - CLEAN GTR
+    - MUTED GTR
+    - PICK BASS
+    - By: Anthony Peters
+    - WIND OF CHANGE 
+    - WIND OF CHANGE 
+    - g3
+    - SAW WAVE
+    - HARPSICHRD
+    - Guitar 1
+    - Bass                
+    - Rhoades             
+    - 
+    - guitar 1
+  Cluster 1: 1 tracks
+  Tracks in Cluster 1:
+    - g1
+----- End of Report -----
