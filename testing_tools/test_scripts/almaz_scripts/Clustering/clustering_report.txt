@@ -1,166 +1,310 @@
------ MIDI Clustering Report -----
-Number of MIDI tracks analyzed: 148
-Optimal number of clusters: 5
-Principal Component Analysis (PCA) variance:
+----- Clustering Report -----
+Number of Clusters: 5
+Explained Variance by PCA Components:
   PCA 1: 90.99%
   PCA 2: 5.35%
-Distribution of tracks across clusters:
-  Cluster 0: 92 tracks
-  Tracks in Cluster 0:
-    - Intro Guitar Noise Accents
-    - Lead Guitar
-    - Vocal Doubling/Distortion
-    - Lead
-    - More Synth
-    - TabIt MIDI - Track 2
-    - OVERDRIVE
-    - DISTORTION
-    - GTHARMONIC
-    - GTFRETNOIS
-    - WIND OF CHANGE 
-    - WIND OF CHANGE 
-    - WIND OF CHANGE 
-    - WIND OF CHANGE 
-    - g2
-    - g4+
-    - 
-    - 
-    - Lead Vocal 1
-    - Lead Vocal 2
-    - Choir 1
-    - Choir 2
-    - MELODY
-    - SYN STR 1
-    - ORGAN 1
-    - elec grand
-    - elec piano
-    - saw wave
-    - brass
-    - cl guitar
-    - square wave
-    - aahs
-    - syn calliope
-    - Guitar 2
-    - Guitar 3
-    - Guitar 4
-    - Synth 1
-    - Synth 2
-    - Vocals              
-    - Lead Vox
-    - Synth Riff
-    - Synth Pad
-    - Synth Pad
-    - SynthArp
-    - Choir Aah
-    - Riff Echo
-    - Back Vox
-    - Drums
-    - Harp
-    - Harp
-    - Melody              
-    - Rain                
-    - Thunder
-    - Lead Vox
-    - Synth Riff
-    - Synth Pad
-    - Synth Pad
-    - SynthArp
-    - Choir Aah
-    - 
-    - 
-    - Back Vox
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - 
-    - vocal
-    - bass
-    - cello
-    - Brightness
-    - Piano 2
-    - Piano 2
-    - Brass 1
-    - SynthBrs1
-  Cluster 2: 38 tracks
-  Tracks in Cluster 2:
-    - Background Clean Guitar
-    - Vocals
-    - Bass Guitar
-    - Rhythm
-    - TabIt MIDI - Track 1
-    - TabIt MIDI - Track 3
-    - OBOE
-    - OVERDRIVE
-    - DISTORTION
-    - By: Anthony Peters
-    - WIND OF CHANGE 
-    - WIND OF CHANGE 
-    - WIND OF CHANGE 
-    - g4
-    - bass
-    - bass
-    - SYN BASS 1
-    - A.PIANO 3
-    - ORGAN 3
-    - synth bass
-    - strings
-    - mt guitar
-    - Melody              
-    - Bass                
-    - Keyboard
-    - SlapBass
-    - Guitar              
-    - SlapBass
-    - 
-    - 
-    - 
-    - 
-    - 
-    - guitar 2
-    - guitar 3
-    - Strings
-    - SynthBass1
-    - Star Theme
-  Cluster 4: 2 tracks
-  Tracks in Cluster 4:
-    - Rhythm Guitar
-    - WIND OF CHANGE 
-  Cluster 3: 15 tracks
-  Tracks in Cluster 3:
-    - Bass Guitar
-    - CLEAN GTR
-    - MUTED GTR
-    - PICK BASS
-    - By: Anthony Peters
-    - WIND OF CHANGE 
-    - WIND OF CHANGE 
-    - g3
-    - SAW WAVE
-    - HARPSICHRD
-    - Guitar 1
-    - Bass                
-    - Rhoades             
-    - 
-    - guitar 1
-  Cluster 1: 1 tracks
-  Tracks in Cluster 1:
-    - g1
+
+  Cluster 1:
+    - Eulogy.mid (Instrument: Intro Guitar Noise Accents)
+    - Eulogy.mid (Instrument: Lead Guitar)
+    - Eulogy.mid (Instrument: Vocal Doubling/Distortion)
+    - People_Are_Strange.mid (Instrument: Lead)
+    - People_Are_Strange.mid (Instrument: More Synth)
+    - Still_D.R.E.mid (Instrument: TabIt MIDI - Track 2)
+    - Heart-Shaped_Box.1.mid (Instrument: OVERDRIVE)
+    - Heart-Shaped_Box.1.mid (Instrument: DISTORTION)
+    - Heart-Shaped_Box.1.mid (Instrument: GTHARMONIC)
+    - Heart-Shaped_Box.1.mid (Instrument: GTFRETNOIS)
+    - Wind_Of_Change.mid (Instrument: WIND OF CHANGE )
+    - Wind_Of_Change.mid (Instrument: WIND OF CHANGE )
+    - Wind_Of_Change.mid (Instrument: WIND OF CHANGE )
+    - Wind_Of_Change.mid (Instrument: WIND OF CHANGE )
+    - Paranoid_Android.mid (Instrument: g2)
+    - Paranoid_Android.mid (Instrument: g4+)
+    - Paranoid_Android.mid (Instrument: )
+    - Paranoid_Android.mid (Instrument: )
+    - Paranoid_Android.mid (Instrument: Lead Vocal 1)
+    - Paranoid_Android.mid (Instrument: Lead Vocal 2)
+    - Paranoid_Android.mid (Instrument: Choir 1)
+    - Paranoid_Android.mid (Instrument: Choir 2)
+    - Back_In_The_U.K..mid (Instrument: MELODY)
+    - Back_In_The_U.K..mid (Instrument: SYN STR 1)
+    - Back_In_The_U.K..mid (Instrument: ORGAN 1)
+    - Take_On_Me.mid (Instrument: elec grand)
+    - Take_On_Me.mid (Instrument: elec piano)
+    - Take_On_Me.mid (Instrument: saw wave)
+    - Take_On_Me.mid (Instrument: brass)
+    - Take_On_Me.mid (Instrument: cl guitar)
+    - Take_On_Me.mid (Instrument: square wave)
+    - Take_On_Me.mid (Instrument: aahs)
+    - Take_On_Me.mid (Instrument: syn calliope)
+    - Beat_It.mid (Instrument: Guitar 2)
+    - Beat_It.mid (Instrument: Guitar 3)
+    - Beat_It.mid (Instrument: Guitar 4)
+    - Beat_It.mid (Instrument: Synth 1)
+    - Beat_It.mid (Instrument: Synth 2)
+    - Beat_It.mid (Instrument: Vocals              )
+    - Take_On_Me.2.mid (Instrument: Lead Vox)
+    - Take_On_Me.2.mid (Instrument: Synth Riff)
+    - Take_On_Me.2.mid (Instrument: Synth Pad)
+    - Take_On_Me.2.mid (Instrument: Synth Pad)
+    - Take_On_Me.2.mid (Instrument: SynthArp)
+    - Take_On_Me.2.mid (Instrument: Choir Aah)
+    - Take_On_Me.2.mid (Instrument: Riff Echo)
+    - Take_On_Me.2.mid (Instrument: Back Vox)
+    - Take_On_Me.2.mid (Instrument: Drums)
+    - Take_On_Me.2.mid (Instrument: Harp)
+    - Take_On_Me.2.mid (Instrument: Harp)
+    - Riders_on_the_Storm.mid (Instrument: Melody              )
+    - Riders_on_the_Storm.mid (Instrument: Rain                )
+    - Riders_on_the_Storm.mid (Instrument: Thunder)
+    - Take_On_Me.3.mid (Instrument: Lead Vox)
+    - Take_On_Me.3.mid (Instrument: Synth Riff)
+    - Take_On_Me.3.mid (Instrument: Synth Pad)
+    - Take_On_Me.3.mid (Instrument: Synth Pad)
+    - Take_On_Me.3.mid (Instrument: SynthArp)
+    - Take_On_Me.3.mid (Instrument: Choir Aah)
+    - Take_On_Me.3.mid (Instrument: )
+    - Take_On_Me.3.mid (Instrument: )
+    - Take_On_Me.3.mid (Instrument: Back Vox)
+    - Take_On_Me.3.mid (Instrument: )
+    - Take_On_Me.4.mid (Instrument: )
+    - Take_On_Me.4.mid (Instrument: )
+    - Take_On_Me.4.mid (Instrument: )
+    - Take_On_Me.4.mid (Instrument: )
+    - Take_On_Me.4.mid (Instrument: )
+    - Take_On_Me.4.mid (Instrument: )
+    - Take_On_Me.4.mid (Instrument: )
+    - Take_On_Me.4.mid (Instrument: )
+    - Take_On_Me.4.mid (Instrument: )
+    - Take_On_Me.4.mid (Instrument: )
+    - Take_On_Me.4.mid (Instrument: )
+    - You_Are_the_Sunshine_of_My_Life.mid (Instrument: )
+    - Take_On_Me.5.mid (Instrument: )
+    - Take_On_Me.5.mid (Instrument: )
+    - Take_On_Me.5.mid (Instrument: )
+    - Take_On_Me.5.mid (Instrument: )
+    - Take_On_Me.5.mid (Instrument: )
+    - Take_On_Me.5.mid (Instrument: )
+    - Take_On_Me.5.mid (Instrument: )
+    - Take_On_Me.5.mid (Instrument: )
+    - Take_On_Me.5.mid (Instrument: )
+    - Something_in_the_Way.1.mid (Instrument: vocal)
+    - Something_in_the_Way.1.mid (Instrument: bass)
+    - Something_in_the_Way.1.mid (Instrument: cello)
+    - Take_On_Me.6.mid (Instrument: Brightness)
+    - Take_On_Me.6.mid (Instrument: Piano 2)
+    - Take_On_Me.6.mid (Instrument: Piano 2)
+    - Take_On_Me.6.mid (Instrument: Brass 1)
+    - Take_On_Me.6.mid (Instrument: SynthBrs1)
+  Cluster 2:
+    - Paranoid_Android.mid (Instrument: g1)
+  Cluster 3:
+    - Eulogy.mid (Instrument: Background Clean Guitar)
+    - Eulogy.mid (Instrument: Vocals)
+    - People_Are_Strange.mid (Instrument: Bass Guitar)
+    - People_Are_Strange.mid (Instrument: Rhythm)
+    - Still_D.R.E.mid (Instrument: TabIt MIDI - Track 1)
+    - Still_D.R.E.mid (Instrument: TabIt MIDI - Track 3)
+    - Heart-Shaped_Box.1.mid (Instrument: OBOE)
+    - Heart-Shaped_Box.1.mid (Instrument: OVERDRIVE)
+    - Heart-Shaped_Box.1.mid (Instrument: DISTORTION)
+    - Polly.mid (Instrument: By: Anthony Peters)
+    - Wind_Of_Change.mid (Instrument: WIND OF CHANGE )
+    - Wind_Of_Change.mid (Instrument: WIND OF CHANGE )
+    - Wind_Of_Change.mid (Instrument: WIND OF CHANGE )
+    - Paranoid_Android.mid (Instrument: g4)
+    - Paranoid_Android.mid (Instrument: bass)
+    - Paranoid_Android.mid (Instrument: bass)
+    - Back_In_The_U.K..mid (Instrument: SYN BASS 1)
+    - Back_In_The_U.K..mid (Instrument: A.PIANO 3)
+    - Back_In_The_U.K..mid (Instrument: ORGAN 3)
+    - Take_On_Me.mid (Instrument: synth bass)
+    - Take_On_Me.mid (Instrument: strings)
+    - Take_On_Me.mid (Instrument: mt guitar)
+    - Beat_It.mid (Instrument: Melody              )
+    - Beat_It.mid (Instrument: Bass                )
+    - Beat_It.mid (Instrument: Keyboard)
+    - Take_On_Me.2.mid (Instrument: SlapBass)
+    - Riders_on_the_Storm.mid (Instrument: Guitar              )
+    - Take_On_Me.3.mid (Instrument: SlapBass)
+    - Take_On_Me.4.mid (Instrument: )
+    - You_Are_the_Sunshine_of_My_Life.mid (Instrument: )
+    - You_Are_the_Sunshine_of_My_Life.mid (Instrument: )
+    - Take_On_Me.5.mid (Instrument: )
+    - Take_On_Me.5.mid (Instrument: )
+    - Something_in_the_Way.1.mid (Instrument: guitar 2)
+    - Something_in_the_Way.1.mid (Instrument: guitar 3)
+    - Take_On_Me.6.mid (Instrument: Strings)
+    - Take_On_Me.6.mid (Instrument: SynthBass1)
+    - Take_On_Me.6.mid (Instrument: Star Theme)
+  Cluster 4:
+    - Eulogy.mid (Instrument: Bass Guitar)
+    - Heart-Shaped_Box.1.mid (Instrument: CLEAN GTR)
+    - Heart-Shaped_Box.1.mid (Instrument: MUTED GTR)
+    - Heart-Shaped_Box.1.mid (Instrument: PICK BASS)
+    - Polly.mid (Instrument: By: Anthony Peters)
+    - Wind_Of_Change.mid (Instrument: WIND OF CHANGE )
+    - Wind_Of_Change.mid (Instrument: WIND OF CHANGE )
+    - Paranoid_Android.mid (Instrument: g3)
+    - Back_In_The_U.K..mid (Instrument: SAW WAVE)
+    - Back_In_The_U.K..mid (Instrument: HARPSICHRD)
+    - Beat_It.mid (Instrument: Guitar 1)
+    - Riders_on_the_Storm.mid (Instrument: Bass                )
+    - Riders_on_the_Storm.mid (Instrument: Rhoades             )
+    - You_Are_the_Sunshine_of_My_Life.mid (Instrument: )
+    - Something_in_the_Way.1.mid (Instrument: guitar 1)
+  Cluster 5:
+    - Eulogy.mid (Instrument: Rhythm Guitar)
+    - Wind_Of_Change.mid (Instrument: WIND OF CHANGE )
+
+----- List of All Analyzed Tracks with Their Clusters -----
+Eulogy.mid (Track: Intro Guitar Noise Accents), Cluster: 1
+Eulogy.mid (Track: Background Clean Guitar), Cluster: 3
+Eulogy.mid (Track: Lead Guitar), Cluster: 1
+Eulogy.mid (Track: Rhythm Guitar), Cluster: 5
+Eulogy.mid (Track: Bass Guitar), Cluster: 4
+Eulogy.mid (Track: Vocals), Cluster: 3
+Eulogy.mid (Track: Vocal Doubling/Distortion), Cluster: 1
+People_Are_Strange.mid (Track: Bass Guitar), Cluster: 3
+People_Are_Strange.mid (Track: Rhythm), Cluster: 3
+People_Are_Strange.mid (Track: Lead), Cluster: 1
+People_Are_Strange.mid (Track: More Synth), Cluster: 1
+Still_D.R.E.mid (Track: TabIt MIDI - Track 1), Cluster: 3
+Still_D.R.E.mid (Track: TabIt MIDI - Track 2), Cluster: 1
+Still_D.R.E.mid (Track: TabIt MIDI - Track 3), Cluster: 3
+Heart-Shaped_Box.1.mid (Track: OBOE), Cluster: 3
+Heart-Shaped_Box.1.mid (Track: CLEAN GTR), Cluster: 4
+Heart-Shaped_Box.1.mid (Track: MUTED GTR), Cluster: 4
+Heart-Shaped_Box.1.mid (Track: OVERDRIVE), Cluster: 1
+Heart-Shaped_Box.1.mid (Track: PICK BASS), Cluster: 4
+Heart-Shaped_Box.1.mid (Track: OVERDRIVE), Cluster: 3
+Heart-Shaped_Box.1.mid (Track: DISTORTION), Cluster: 3
+Heart-Shaped_Box.1.mid (Track: DISTORTION), Cluster: 1
+Heart-Shaped_Box.1.mid (Track: GTHARMONIC), Cluster: 1
+Heart-Shaped_Box.1.mid (Track: GTFRETNOIS), Cluster: 1
+Polly.mid (Track: By: Anthony Peters), Cluster: 4
+Polly.mid (Track: By: Anthony Peters), Cluster: 3
+Wind_Of_Change.mid (Track: WIND OF CHANGE ), Cluster: 4
+Wind_Of_Change.mid (Track: WIND OF CHANGE ), Cluster: 1
+Wind_Of_Change.mid (Track: WIND OF CHANGE ), Cluster: 3
+Wind_Of_Change.mid (Track: WIND OF CHANGE ), Cluster: 1
+Wind_Of_Change.mid (Track: WIND OF CHANGE ), Cluster: 4
+Wind_Of_Change.mid (Track: WIND OF CHANGE ), Cluster: 3
+Wind_Of_Change.mid (Track: WIND OF CHANGE ), Cluster: 3
+Wind_Of_Change.mid (Track: WIND OF CHANGE ), Cluster: 5
+Wind_Of_Change.mid (Track: WIND OF CHANGE ), Cluster: 1
+Wind_Of_Change.mid (Track: WIND OF CHANGE ), Cluster: 1
+Paranoid_Android.mid (Track: g1), Cluster: 2
+Paranoid_Android.mid (Track: g2), Cluster: 1
+Paranoid_Android.mid (Track: g3), Cluster: 4
+Paranoid_Android.mid (Track: g4), Cluster: 3
+Paranoid_Android.mid (Track: g4+), Cluster: 1
+Paranoid_Android.mid (Track: bass), Cluster: 3
+Paranoid_Android.mid (Track: bass), Cluster: 3
+Paranoid_Android.mid (Track: ), Cluster: 1
+Paranoid_Android.mid (Track: ), Cluster: 1
+Paranoid_Android.mid (Track: Lead Vocal 1), Cluster: 1
+Paranoid_Android.mid (Track: Lead Vocal 2), Cluster: 1
+Paranoid_Android.mid (Track: Choir 1), Cluster: 1
+Paranoid_Android.mid (Track: Choir 2), Cluster: 1
+Back_In_The_U.K..mid (Track: SYN BASS 1), Cluster: 3
+Back_In_The_U.K..mid (Track: SAW WAVE), Cluster: 4
+Back_In_The_U.K..mid (Track: MELODY), Cluster: 1
+Back_In_The_U.K..mid (Track: HARPSICHRD), Cluster: 4
+Back_In_The_U.K..mid (Track: A.PIANO 3), Cluster: 3
+Back_In_The_U.K..mid (Track: SYN STR 1), Cluster: 1
+Back_In_The_U.K..mid (Track: ORGAN 3), Cluster: 3
+Back_In_The_U.K..mid (Track: ORGAN 1), Cluster: 1
+Take_On_Me.mid (Track: elec grand), Cluster: 1
+Take_On_Me.mid (Track: synth bass), Cluster: 3
+Take_On_Me.mid (Track: elec piano), Cluster: 1
+Take_On_Me.mid (Track: saw wave), Cluster: 1
+Take_On_Me.mid (Track: brass), Cluster: 1
+Take_On_Me.mid (Track: strings), Cluster: 3
+Take_On_Me.mid (Track: mt guitar), Cluster: 3
+Take_On_Me.mid (Track: cl guitar), Cluster: 1
+Take_On_Me.mid (Track: square wave), Cluster: 1
+Take_On_Me.mid (Track: aahs), Cluster: 1
+Take_On_Me.mid (Track: syn calliope), Cluster: 1
+Beat_It.mid (Track: Melody              ), Cluster: 3
+Beat_It.mid (Track: Bass                ), Cluster: 3
+Beat_It.mid (Track: Keyboard), Cluster: 3
+Beat_It.mid (Track: Guitar 1), Cluster: 4
+Beat_It.mid (Track: Guitar 2), Cluster: 1
+Beat_It.mid (Track: Guitar 3), Cluster: 1
+Beat_It.mid (Track: Guitar 4), Cluster: 1
+Beat_It.mid (Track: Synth 1), Cluster: 1
+Beat_It.mid (Track: Synth 2), Cluster: 1
+Beat_It.mid (Track: Vocals              ), Cluster: 1
+Take_On_Me.2.mid (Track: Lead Vox), Cluster: 1
+Take_On_Me.2.mid (Track: Synth Riff), Cluster: 1
+Take_On_Me.2.mid (Track: Synth Pad), Cluster: 1
+Take_On_Me.2.mid (Track: Synth Pad), Cluster: 1
+Take_On_Me.2.mid (Track: SynthArp), Cluster: 1
+Take_On_Me.2.mid (Track: SlapBass), Cluster: 3
+Take_On_Me.2.mid (Track: Choir Aah), Cluster: 1
+Take_On_Me.2.mid (Track: Riff Echo), Cluster: 1
+Take_On_Me.2.mid (Track: Back Vox), Cluster: 1
+Take_On_Me.2.mid (Track: Drums), Cluster: 1
+Take_On_Me.2.mid (Track: Harp), Cluster: 1
+Take_On_Me.2.mid (Track: Harp), Cluster: 1
+Riders_on_the_Storm.mid (Track: Bass                ), Cluster: 4
+Riders_on_the_Storm.mid (Track: Melody              ), Cluster: 1
+Riders_on_the_Storm.mid (Track: Rhoades             ), Cluster: 4
+Riders_on_the_Storm.mid (Track: Guitar              ), Cluster: 3
+Riders_on_the_Storm.mid (Track: Rain                ), Cluster: 1
+Riders_on_the_Storm.mid (Track: Thunder), Cluster: 1
+Take_On_Me.3.mid (Track: Lead Vox), Cluster: 1
+Take_On_Me.3.mid (Track: Synth Riff), Cluster: 1
+Take_On_Me.3.mid (Track: Synth Pad), Cluster: 1
+Take_On_Me.3.mid (Track: Synth Pad), Cluster: 1
+Take_On_Me.3.mid (Track: SynthArp), Cluster: 1
+Take_On_Me.3.mid (Track: SlapBass), Cluster: 3
+Take_On_Me.3.mid (Track: Choir Aah), Cluster: 1
+Take_On_Me.3.mid (Track: ), Cluster: 1
+Take_On_Me.3.mid (Track: ), Cluster: 1
+Take_On_Me.3.mid (Track: Back Vox), Cluster: 1
+Take_On_Me.3.mid (Track: ), Cluster: 1
+Take_On_Me.4.mid (Track: ), Cluster: 1
+Take_On_Me.4.mid (Track: ), Cluster: 1
+Take_On_Me.4.mid (Track: ), Cluster: 1
+Take_On_Me.4.mid (Track: ), Cluster: 1
+Take_On_Me.4.mid (Track: ), Cluster: 1
+Take_On_Me.4.mid (Track: ), Cluster: 3
+Take_On_Me.4.mid (Track: ), Cluster: 1
+Take_On_Me.4.mid (Track: ), Cluster: 1
+Take_On_Me.4.mid (Track: ), Cluster: 1
+Take_On_Me.4.mid (Track: ), Cluster: 1
+Take_On_Me.4.mid (Track: ), Cluster: 1
+Take_On_Me.4.mid (Track: ), Cluster: 1
+You_Are_the_Sunshine_of_My_Life.mid (Track: ), Cluster: 1
+You_Are_the_Sunshine_of_My_Life.mid (Track: ), Cluster: 3
+You_Are_the_Sunshine_of_My_Life.mid (Track: ), Cluster: 4
+You_Are_the_Sunshine_of_My_Life.mid (Track: ), Cluster: 3
+Take_On_Me.5.mid (Track: ), Cluster: 1
+Take_On_Me.5.mid (Track: ), Cluster: 1
+Take_On_Me.5.mid (Track: ), Cluster: 1
+Take_On_Me.5.mid (Track: ), Cluster: 1
+Take_On_Me.5.mid (Track: ), Cluster: 1
+Take_On_Me.5.mid (Track: ), Cluster: 3
+Take_On_Me.5.mid (Track: ), Cluster: 3
+Take_On_Me.5.mid (Track: ), Cluster: 1
+Take_On_Me.5.mid (Track: ), Cluster: 1
+Take_On_Me.5.mid (Track: ), Cluster: 1
+Take_On_Me.5.mid (Track: ), Cluster: 1
+Something_in_the_Way.1.mid (Track: guitar 1), Cluster: 4
+Something_in_the_Way.1.mid (Track: vocal), Cluster: 1
+Something_in_the_Way.1.mid (Track: bass), Cluster: 1
+Something_in_the_Way.1.mid (Track: guitar 2), Cluster: 3
+Something_in_the_Way.1.mid (Track: guitar 3), Cluster: 3
+Something_in_the_Way.1.mid (Track: cello), Cluster: 1
+Take_On_Me.6.mid (Track: Brightness), Cluster: 1
+Take_On_Me.6.mid (Track: Strings), Cluster: 3
+Take_On_Me.6.mid (Track: Piano 2), Cluster: 1
+Take_On_Me.6.mid (Track: Piano 2), Cluster: 1
+Take_On_Me.6.mid (Track: SynthBass1), Cluster: 3
+Take_On_Me.6.mid (Track: Brass 1), Cluster: 1
+Take_On_Me.6.mid (Track: Star Theme), Cluster: 3
+Take_On_Me.6.mid (Track: SynthBrs1), Cluster: 1
 ----- End of Report -----

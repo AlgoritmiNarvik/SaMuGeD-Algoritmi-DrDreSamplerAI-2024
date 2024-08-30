@@ -13,7 +13,7 @@ import pickle
 import logging
 from collections import Counter
 
-# Set up logging
+# logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def extract_features_from_midi(file_path):
@@ -71,8 +71,8 @@ def extract_features_from_midi(file_path):
                 'duration_iqr': np.percentile(note_durations, 75) - np.percentile(note_durations, 25),
                 'short_long_ratio': len([d for d in note_durations if d < np.median(note_durations)]) / len([d for d in note_durations if d >= np.median(note_durations)]),
                 'pitch_entropy': pitch_entropy,
-                'instrument_name': instrument.name,  # For reporting, not clustering
-                'file_name': os.path.basename(file_path)  # For reporting, not clustering
+                'instrument_name': instrument.name,  # for reporting, not clustering
+                'file_name': os.path.basename(file_path)  # for reporting, not clustering
             }
             features.append(feature_dict)
     
@@ -174,7 +174,7 @@ def cluster_and_visualize(features, max_clusters=10):
         'track_duration', 'tempo', 'pitch_entropy'
     ]
 
-    sns.pairplot(df[selected_features + ['Cluster']], hue='Cluster', palette='viridis', height=1.5)
+    sns.pairplot(df[selected_features + ['Cluster']], hue='Cluster', palette='viridis', height=1.0)
     plt.suptitle("Pairplot of Selected MIDI Features by Cluster", y=1.02)
     plt.show()
 
@@ -197,7 +197,8 @@ def generate_report(features, labels, n_clusters, explained_variance, kmeans, fe
         report_file.write("----- Clustering Report -----\n")
         report_file.write(f"Number of Clusters: {n_clusters}\n")
         report_file.write("Explained Variance by PCA Components:\n")
-        report_file.write(f"{explained_variance}\n\n")
+        report_file.write(f"  PCA 1: {explained_variance[0] * 100:.2f}%\n")
+        report_file.write(f"  PCA 2: {explained_variance[1] * 100:.2f}%\n\n")
 
         for cluster_id in range(n_clusters):
             report_file.write(f"  Cluster {cluster_id + 1}:\n")
@@ -217,23 +218,8 @@ def generate_report(features, labels, n_clusters, explained_variance, kmeans, fe
         report_file.write("----- End of Report -----\n")
         logging.info("----- End of Report -----")
 
-    # Save the report to a text file
-    with open('testing_tools/test_scripts/almaz_scripts/Clustering/clustering_report.txt', 'w') as report_file:
-        report_file.write("----- MIDI Clustering Report -----\n")
-        report_file.write(f"Number of MIDI tracks analyzed: {len(features)}\n")
-        report_file.write(f"Optimal number of clusters: {n_clusters}\n")
-        report_file.write(f"Principal Component Analysis (PCA) variance:\n")
-        report_file.write(f"  PCA 1: {pca_variance[0] * 100:.2f}%\n")
-        report_file.write(f"  PCA 2: {pca_variance[1] * 100:.2f}%\n")
-        report_file.write(f"Distribution of tracks across clusters:\n")
-        
-        for cluster_id, count in cluster_distribution.items():
-            report_file.write(f"  Cluster {cluster_id}: {count} tracks\n")
-            report_file.write(f"  Tracks in Cluster {cluster_id}:\n")
-            for track in cluster_tracks[cluster_id]:
-                report_file.write(f"    - {track['instrument_name']}\n")
-
-        report_file.write("----- End of Report -----\n")
+    # Save the cluster assignments separately if needed
+    # save_cluster_assignments(features, labels, 'testing_tools/test_scripts/almaz_scripts/Clustering/track_cluster_assignments.csv')
 
 def save_cluster_assignments(features, labels, output_file):
     assignments = [{'instrument_name': f['instrument_name'], 'cluster': labels[i]} for i, f in enumerate(features)]
@@ -242,13 +228,11 @@ def save_cluster_assignments(features, labels, output_file):
     logging.info(f"Track-cluster assignments saved to {output_file}")
 
 def predict_cluster_for_new_midi(file_path, kmeans_model_path='testing_tools/test_scripts/almaz_scripts/Clustering/kmeans_model.pkl'):
-    # Load the k-means model
+    # load the k-means model
     with open(kmeans_model_path, 'rb') as model_file:
         kmeans = pickle.load(model_file)
 
-    # Process the new MIDI file
-    midi_data = pretty_midi.PrettyMIDI(file_path)
-    track_features = extract_features(midi_data)  # Assuming extract_features can handle a single track
+    track_features = extract_features_from_midi(file_path)
 
     if not track_features:
         logging.error(f"No valid features extracted from {file_path}.")
@@ -267,8 +251,8 @@ def predict_cluster_for_new_midi(file_path, kmeans_model_path='testing_tools/tes
 
         # Predict the cluster
         cluster = kmeans.predict(feature_vector)[0]
-        logging.info(f"The track {feature['instrument_name']} in MIDI file {file_path} belongs to cluster {cluster + 1}.")
-        print(f"The track {feature['instrument_name']} in MIDI file {file_path} belongs to cluster {cluster + 1}.")
+        logging.info(f"The track '{feature['instrument_name']}' in MIDI file '{file_path}' belongs to cluster {cluster + 1}.")
+        print(f"The track '{feature['instrument_name']}' in MIDI file '{file_path}' belongs to cluster {cluster + 1}.")
 
 def analyze_midi_folder(folder_path):
     features = load_midi_files(folder_path)
@@ -280,7 +264,7 @@ def analyze_midi_folder(folder_path):
     if kmeans and feature_vectors is not None:
         generate_report(features, kmeans.labels_, kmeans.n_clusters, PCA(n_components=2).fit(feature_vectors).explained_variance_ratio_, kmeans, feature_vectors)
 
-# Example Usage
+# usage
 if __name__ == "__main__":
     analyze_midi_folder('testing_tools/test_scripts/almaz_scripts/Clustering/midi_files/not_actual_dataset')
     predict_cluster_for_new_midi('testing_tools/test_scripts/almaz_scripts/Clustering/midi_files/random_midi/Riders_on_the_Storm.4.mid')
