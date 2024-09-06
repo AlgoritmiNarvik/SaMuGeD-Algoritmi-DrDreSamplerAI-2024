@@ -57,7 +57,7 @@ def get_segments(mid_obj: str | object) -> list:
                 first_note_start = note.start
             if note.end > last_note_end:
                 last_note_end = note.end
-        print(f'Track: {ins_nr}, {instrument=}\n {first_note_start=}, {last_note_end=}')
+        #print(f'Track: {ins_nr}, {instrument=}\n {first_note_start=}, {last_note_end=}')
 
         note_playing = False #Is a note playing?
         note_playing_end = 0 #The tick the currently active note will end on
@@ -123,7 +123,10 @@ def ticks_per_bar(ticks_per_beat, current_note_time, time_signatures) -> int:
     
     return ticks
 
-def asle(INPUT_PATH, OUTPUT_DIR):
+def asle(INPUT_PATH, OUTPUT_DIR, ONE_FILE_PER_PATTERN):
+    KEEP_ORIGINAL = False
+
+
     print(f'Processing {INPUT_PATH} ...')
     #INPUT_PATH = "testing_tools/test_scripts/take_on_me.mid"
     #INPUT_PATH = "C:\\Users\\Pc\\Downloads\\Lakh MIDI Clean\\Michael_Jackson\\Beat_It.mid"
@@ -178,9 +181,9 @@ def asle(INPUT_PATH, OUTPUT_DIR):
                             #reset
                             active_pattern = False
                             if len(current_pattern) > 2: #TODO Use sf_segmenter for boundaries to help with boundaries of patterns
-                                if not_pattern:
-                                    list_of_patterns_in_current_segment.append(not_pattern)
-                                    not_pattern = []    
+                                #if not_pattern:
+                                #    list_of_patterns_in_current_segment.append(not_pattern)
+                                #    not_pattern = []    
                                 list_of_patterns_in_current_segment.append(current_pattern)
                                 note_number = note_number + len(current_pattern)
                                 compare_note_number = note_number
@@ -205,7 +208,7 @@ def asle(INPUT_PATH, OUTPUT_DIR):
                             current_pattern = []
                             
                         if compare_note_number >= len(segment):
-                            not_pattern.append(segment[note_number])
+                            #not_pattern.append(segment[note_number])
                             note_number += 1
                             compare_note_number = note_number
                         compare_note_number += 1 #increment until a match is found
@@ -221,7 +224,7 @@ def asle(INPUT_PATH, OUTPUT_DIR):
                     compare_note_number += 1 #increment until a match is found
 
             if not_pattern:
-                list_of_patterns_in_current_segment.append(not_pattern)
+                #list_of_patterns_in_current_segment.append(not_pattern)
                 not_pattern = []   
             if list_of_patterns_in_current_segment: #if patterns were found, remove duplicates within segment first.
                 duplicates_to_remove = [False]*len(list_of_patterns_in_current_segment)
@@ -267,7 +270,7 @@ def asle(INPUT_PATH, OUTPUT_DIR):
 
                 list_of_patterns_in_segments.append(list_of_patterns_in_current_segment)
 
-            else: #Segments might be short and already in pattern list. Might need to redo this 
+            """ else: #Segments might be short and already in pattern list. Might need to redo this 
                 segment_is_a_duplicate = False
                 for segment_group in list_of_patterns_in_segments:
                     for k, pattern2 in enumerate(pattern_list):
@@ -280,35 +283,61 @@ def asle(INPUT_PATH, OUTPUT_DIR):
                             segment_is_a_duplicate=True
 
                 if segment_is_a_duplicate == False:
-                    list_of_patterns_in_segments.append([segment])
+                    list_of_patterns_in_segments.append([segment]) """
 
+        if list_of_patterns_in_segments:
+            list_of_all_patterns.append(list_of_patterns_in_segments)
+            list_of_patterns_in_segments = []
 
-        list_of_all_patterns.append(list_of_patterns_in_segments)
-        list_of_patterns_in_segments = []
+        if not list_of_all_patterns:
+            return None
 
-        obj = mid_parser.MidiFile()
-        obj.ticks_per_beat = mid_obj.ticks_per_beat
-        obj.max_tick = mid_obj.max_tick
-        obj.tempo_changes = mid_obj.tempo_changes
-        obj.time_signature_changes = mid_obj.time_signature_changes
-        obj.key_signature_changes = mid_obj.key_signature_changes
-        obj.lyrics = mid_obj.lyrics
-        obj.markers = mid_obj.markers
+        if ONE_FILE_PER_PATTERN:
+            pattern_number = 1
+            for track in list_of_all_patterns:
+                for segment in track:
+                    name_number = 1
+                    for pattern in segment:
+                        obj = mid_parser.MidiFile()
+                        obj.ticks_per_beat = mid_obj.ticks_per_beat
+                        obj.max_tick = mid_obj.max_tick
+                        obj.tempo_changes = mid_obj.tempo_changes
+                        obj.time_signature_changes = mid_obj.time_signature_changes
+                        obj.key_signature_changes = mid_obj.key_signature_changes
+                        obj.lyrics = mid_obj.lyrics
+                        obj.markers = mid_obj.markers
 
-        obj.instruments.append(mid_obj.instruments[track_number]) #add the original track as the first track in the new file
+                        #print(len(pattern))
+                        new_name=mid_obj.instruments[track_number].name
+                        new_name = "pattern" + " " +str(name_number)
+                        new_instrument = Instrument(program=mid_obj.instruments[track_number].program, name=new_name, notes=pattern)
+                        obj.instruments.append(new_instrument)
+                        pattern_number += 1
+                        obj.dump(OUTPUT_DIR + "/pattern" + str(pattern_number) + ".mid")
+        else:
+            obj = mid_parser.MidiFile()
+            obj.ticks_per_beat = mid_obj.ticks_per_beat
+            obj.max_tick = mid_obj.max_tick
+            obj.tempo_changes = mid_obj.tempo_changes
+            obj.time_signature_changes = mid_obj.time_signature_changes
+            obj.key_signature_changes = mid_obj.key_signature_changes
+            obj.lyrics = mid_obj.lyrics
+            obj.markers = mid_obj.markers
 
-        for track in list_of_all_patterns:
-            for segment in track:
-                name_number = 1
-                for pattern in segment:
-                    print(len(pattern))
-                    new_name=mid_obj.instruments[track_number].name
-                    new_name = "pattern" + " " +str(name_number)
-                    new_instrument = Instrument(program=mid_obj.instruments[track_number].program, name=new_name, notes=pattern)
-                    obj.instruments.append(new_instrument)
-                    name_number += 1
+            if KEEP_ORIGINAL:
+                obj.instruments.append(mid_obj.instruments[track_number]) #add the original track as the first track in the new file
+            for track in list_of_all_patterns:
+                for segment in track:
+                    name_number = 1
+                    for pattern in segment:
+                        #print(len(pattern))
+                        new_name=mid_obj.instruments[track_number].name
+                        new_name = "pattern" + " " +str(name_number)
+                        new_instrument = Instrument(program=mid_obj.instruments[track_number].program, name=new_name, notes=pattern)
+                        obj.instruments.append(new_instrument)
+                        name_number += 1
 
-        obj.dump(OUTPUT_DIR + "/track" + str(track_number) + ".mid")
+            obj.dump(OUTPUT_DIR + "/track" + str(track_number) + ".mid")
 
         list_of_all_patterns = []
 
