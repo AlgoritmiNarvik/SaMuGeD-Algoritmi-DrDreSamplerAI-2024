@@ -124,10 +124,11 @@ def determine_optimal_clusters(feature_vectors, max_clusters=10):
     return optimal_n_clusters
 
 def cluster_and_visualize(features, max_clusters=10):
-    # Use the specific features for clustering (excluding file_name)
     feature_vectors = np.array([[
         f['avg_pitch'], f['pitch_std'], f['median_pitch'], f['avg_velocity'], f['velocity_std'],
-        f['avg_duration'], f['duration_std'], f['median_duration'], f['note_count'], f['pitch_range'],
+        f['avg_duration'], f['duration_std'], f['median_duration'], 
+        f['note_count'], 
+        f['pitch_range'],
         f['track_duration'], f['chord_frequency'], f['tempo'], f['avg_interval'], f['silence_ratio'],
         f['upper_half_ratio'], f['lower_half_ratio'], f['avg_chord_size'], f['chord_time_ratio'],
         f['note_variety'], f['note_density'], f['duration_skewness'], f['duration_kurtosis'],
@@ -158,7 +159,9 @@ def cluster_and_visualize(features, max_clusters=10):
     # Seaborn Pair Plot for feature relationships
     df = pd.DataFrame(feature_vectors, columns=[
         'avg_pitch', 'pitch_std', 'median_pitch', 'avg_velocity', 'velocity_std',
-        'avg_duration', 'duration_std', 'median_duration', 'note_count', 'pitch_range',
+        'avg_duration', 'duration_std', 'median_duration', 
+        'note_count', 
+        'pitch_range',
         'track_duration', 'chord_frequency', 'tempo', 'avg_interval', 'silence_ratio',
         'upper_half_ratio', 'lower_half_ratio', 'avg_chord_size', 'chord_time_ratio',
         'note_variety', 'note_density', 'duration_skewness', 'duration_kurtosis',
@@ -170,7 +173,9 @@ def cluster_and_visualize(features, max_clusters=10):
     # Selected features for a more manageable pair plot
     selected_features = [
         'avg_pitch', 'pitch_std', 'avg_velocity', 'velocity_std',
-        'avg_duration', 'duration_std', 'note_count', 'pitch_range',
+        'avg_duration', 'duration_std', 
+        'note_count', 
+        'pitch_range',
         'track_duration', 'tempo', 'pitch_entropy'
     ]
 
