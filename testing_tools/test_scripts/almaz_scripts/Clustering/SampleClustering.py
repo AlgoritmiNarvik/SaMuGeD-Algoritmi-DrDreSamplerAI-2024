@@ -44,15 +44,15 @@ def extract_features_from_midi(file_path):
             feature_dict = {
                 'avg_pitch': np.mean(note_pitches),
                 'pitch_std': np.std(note_pitches),
-                'median_pitch': np.median(note_pitches),
-                'avg_velocity': np.mean(velocities),
-                'velocity_std': np.std(velocities),
+                'median_pitch': np.median(note_pitches), # there is no need in this feature?
+                'avg_velocity': np.mean(velocities), # there is no need in this feature?
+                'velocity_std': np.std(velocities), # there is no need in this feature?
                 'avg_duration': np.mean(note_durations),
-                'duration_std': np.std(note_durations),
-                'median_duration': np.median(note_durations),
-                'note_count': len(note_pitches),
-                'pitch_range': pitch_range,
-                'track_duration': sum(note_durations),
+                'duration_std': np.std(note_durations), # there is no need in this feature?     
+                'median_duration': np.median(note_durations), # there is no need in this feature?
+                'note_count': len(note_pitches), 
+                'pitch_range': pitch_range, 
+                'track_duration': sum(note_durations), # there is no need in this feature?
                 'chord_frequency': chords / len(note_pitches) if len(note_pitches) > 0 else 0,
                 'tempo': midi.estimate_tempo(),
                 'avg_interval': np.mean(np.diff(start_times)) if len(start_times) > 1 else 0,
@@ -63,14 +63,14 @@ def extract_features_from_midi(file_path):
                 'chord_time_ratio': chords / len(note_durations) if len(note_durations) > 0 else 0,
                 'note_variety': len(set(note_pitches)),
                 'note_density': len(note_pitches) / max(start_times) if len(start_times) > 0 else 0,
-                'duration_skewness': skew(note_durations),
-                'duration_kurtosis': kurtosis(note_durations),
-                'duration_min': np.min(note_durations),
-                'duration_max': np.max(note_durations),
-                'duration_range': np.max(note_durations) - np.min(note_durations),
-                'duration_iqr': np.percentile(note_durations, 75) - np.percentile(note_durations, 25),
-                'short_long_ratio': len([d for d in note_durations if d < np.median(note_durations)]) / len([d for d in note_durations if d >= np.median(note_durations)]),
-                'pitch_entropy': pitch_entropy,
+                'duration_skewness': skew(note_durations), # there is no need in this feature?
+                'duration_kurtosis': kurtosis(note_durations), # there is no need in this feature?
+                'duration_min': np.min(note_durations), # there is no need in this feature?
+                'duration_max': np.max(note_durations), # there is no need in this feature?
+                'duration_range': np.max(note_durations) - np.min(note_durations), # there is no need in this feature?
+                'duration_iqr': np.percentile(note_durations, 75) - np.percentile(note_durations, 25), # there is no need in this feature?
+                'short_long_ratio': len([d for d in note_durations if d < np.median(note_durations)]) / len([d for d in note_durations if d >= np.median(note_durations)]), # there is no need in this feature?
+                'pitch_entropy': pitch_entropy, 
                 'instrument_name': instrument.name,  # for reporting, not clustering
                 'file_name': os.path.basename(file_path)  # for reporting, not clustering
             }
