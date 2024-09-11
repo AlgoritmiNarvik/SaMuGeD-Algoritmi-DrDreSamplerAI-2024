@@ -125,8 +125,8 @@ canvas_similar.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
 scrollbar() # build scrollbar
 
-canvas_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
-scrollbar_frame.pack(side=tk.RIGHT, fill=tk.BOTH)
+canvas_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=1)
+scrollbar_frame.pack(side=tk.LEFT, fill=tk.BOTH)
 
 
 window.mainloop()
