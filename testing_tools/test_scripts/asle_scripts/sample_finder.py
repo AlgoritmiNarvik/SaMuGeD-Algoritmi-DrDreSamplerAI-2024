@@ -12,7 +12,7 @@ pygame.mixer.init()
 def open_midi_file():
     filepath = tk.filedialog.askopenfilename(filetypes=[("MIDI files", "*.mid *.midi")])
     if not filepath:
-        return
+        return None
     current_midi_path = filepath
     midi_file = MidiFile(filepath)
     notes = extract_notes(midi_file)
@@ -94,16 +94,16 @@ def build_scrollbar():
 
 def build_buttons():
     global load_button, play_button, stop_button, temp_similar_button
-    load_button = tk.Button(window, text="Load MIDI", command=open_midi_file)
+    load_button = tk.Button(root, text="Load MIDI", command=open_midi_file)
     load_button.pack(side=tk.BOTTOM)
 
-    play_button = tk.Button(window, text="Play MIDI", command=play_midi)
+    play_button = tk.Button(root, text="Play MIDI", command=play_midi)
     play_button.pack(side=tk.BOTTOM)
 
-    stop_button = tk.Button(window, text="Stop MIDI", command=stop_midi)
+    stop_button = tk.Button(root, text="Stop MIDI", command=stop_midi)
     stop_button.pack(side=tk.BOTTOM)
 
-    temp_similar_button = tk.Button(window, text="temp Similar button", command=open_midi_file_similar)
+    temp_similar_button = tk.Button(root, text="temp Similar button", command=open_midi_file_similar)
     temp_similar_button.pack(side=tk.BOTTOM)
 
 def build_canvas():
@@ -117,11 +117,11 @@ def build_canvas():
     canvas_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=1)
 
 def main():
-    global window, current_midi_path
+    global root, current_midi_path
     current_midi_path = None
 
-    window = tk.Tk()
-    window.title("MIDI Piano Roll Viewer")
+    root = tk.Tk()
+    root.title("MIDI Piano Roll Viewer")
 
     
     build_canvas()
@@ -129,7 +129,7 @@ def main():
     build_scrollbar() # build scrollbar
 
 
-    window.mainloop()
+    root.mainloop()
 
 
 if __name__ == "__main__":
