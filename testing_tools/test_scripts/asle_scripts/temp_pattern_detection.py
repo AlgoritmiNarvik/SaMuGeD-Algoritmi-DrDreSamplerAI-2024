@@ -201,11 +201,11 @@ def asle(INPUT_PATH, OUTPUT_DIR, ONE_FILE_PER_PATTERN):
             list_of_patterns_in_current_segment = []
             compare_note_number = note_number + 1
             while note_number < len(segment):
-                if compare_note_number == previous_compare_match:
-                    if active_pattern:#If there was a pattern it has ended, reset
-                        note_number = old_note_number
-                        compare_note_number = previous_compare_match + 1
-                        active_pattern = False
+                # if compare_note_number == previous_compare_match:
+                #    if active_pattern:#If there was a pattern it has ended, reset
+                #        note_number = old_note_number
+                #        compare_note_number = previous_compare_match + 1
+                #        active_pattern = False
 
                 # if notes are the same, save note to pattern
                 if compare_notes(segment=segment, note_number=note_number, current_pattern=current_pattern, compare_note_number=compare_note_number):
