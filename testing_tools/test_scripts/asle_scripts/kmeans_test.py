@@ -154,5 +154,7 @@ def main():#Input folder with patterns, Output None(Makes folder with sorted pat
     #use aggregate list as input for kmeans_clustering
 
     #use output from kmeans to sort patterns into folders in an output folder
+    pass
 
 if __name__ == "__main__":
+    main()
