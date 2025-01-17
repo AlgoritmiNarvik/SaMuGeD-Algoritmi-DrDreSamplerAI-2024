@@ -54,3 +54,44 @@
    - **Higher Weight for Early Beats**: For many producers, notes in the first half of the bar often set the groove or motif.  
    - Example: If the first two beats have matching patterns, they are considered strongly similar even if the latter half differs slightly.
 ---
+
+### Single-number summaries vs. Full sequence comparison
+
+We need a **single scalar** per sequence (beyond just mean or mean+std) that still conveys
+the “essence” of that sequence. We’re avoiding expensive note-by-note comparisons in a
+20,000-note library, but a lone average discards too much detail.
+
+### Additional features for capturing pitch/note Changes
+
+Beyond `pitch_mean` and `pitch_std`, we can incorporate features that reflect how pitches
+(or durations) *evolve* over the sequence, but **without** explicitly comparing every note.
+Some ideas:
+
+1. **Interval-based stats**  
+   - **Mean Interval** (average absolute pitch difference between consecutive notes)  
+   - **Interval Std** (standard deviation of those consecutive pitch differences)  
+   - **Interval Skew** (skewness of the pitch-difference distribution)  
+   These describe how “jumpy” or “smooth” the melodic shape is, even if we ignore exact note order.
+
+2. **Pitch Contour “Slope”**  
+   - Compute a simple measure of how often the melody moves up vs. down overall.  
+   - For instance, `(number_of_ascents - number_of_descents) / total_intervals`.  
+   - This single value can distinguish a mostly ascending line from a mostly descending one.
+
+3. **Peak-to-Mean ratio** (or “Peakiness”)  
+   - Ratio of max pitch to mean pitch (similarly for duration).  
+   - Captures whether there’s a sudden leap far above the “average” pitch range.
+
+4. **Duration variation (Relative)**  
+   - Instead of raw `duration_mean`/`std`, we measure how a note’s duration compares to its neighbors 
+     (e.g., average ratio of consecutive durations).  
+   - This highlights a “staccato vs. legato” feel *without* requiring the entire sequence.
+
+All these features retain some **sequence essence** (interval jumps, directional trends)
+while still rolling everything into a small handful of numbers. That means we avoid
+“point-by-point” comparisons of long MIDI files, yet capture more than a naive global mean
+ever could.
+
+**We need to accept some information loss**  
+Any single-number compression inevitably loses detail. If speed and simplicity
+are important, a carefully chosen scalar can still be ok for the task
