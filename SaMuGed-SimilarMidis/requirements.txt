@@ -1,0 +1,13 @@
+# Core dependencies
+numpy>=1.21.0
+pretty-midi>=0.2.9
+faiss-cpu>=1.7.0  # For efficient similarity search
+scikit-learn>=1.0.0  # For StandardScaler
+
+# Type hints
+typing-extensions>=4.0.0
+
+# Development tools
+pytest>=7.0.0  # For testing
+black>=22.0.0  # For code formatting
+flake8>=4.0.0  # For linting 
