@@ -11,3 +11,4 @@ testing_tools/test_scripts/asle_scripts/__pycache__/
 .vscode/launch.json
 .vscode/settings.json
 datasets
+__pycache__/

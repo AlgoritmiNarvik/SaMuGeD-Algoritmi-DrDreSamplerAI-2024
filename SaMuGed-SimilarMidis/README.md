@@ -4,7 +4,7 @@ A Python application for finding similar MIDI patterns using feature-based simil
 
 ## Features
 
-- Advanced MIDI feature extraction (pitch, rhythm, tempo analysis)
+- MIDI feature extraction (pitch, rhythm, tempo analysis)
 - Configurable feature weights for customized similarity search
 - User-friendly GUI with interactive controls
 - Real-time similarity search results
