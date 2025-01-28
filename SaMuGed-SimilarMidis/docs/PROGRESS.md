@@ -60,6 +60,11 @@
 - [x] Cache validation
 - [x] Automatic cache management
 - [x] Cache directory structure
+- [x] Fixed cache persistence between runs
+  - Issue: Cache not being found on subsequent runs
+  - Root cause: Non-deterministic hash function in Python
+  - Solution: Use stable directory name for cache identification
+  - Affected files: database.py
 
 ### Bug Fixes [✓]
 - [x] Fixed macOS file dialog issue
@@ -75,18 +80,16 @@
 ### Known Issues [ ]
 - [ ] Some MIDI files may have tempo estimation issues
 - [ ] Dataset path needs to exist before first run
-- [ ] Cache system not properly utilizing existing processed files
 - [ ] MIDI playback not functioning
-- [ ] Need better cache invalidation strategy for stable datasets
+- [ ] Need better cache validation based on content
 
 ### Next Steps [ ]
-- [ ] Fix cache loading for stable dataset to avoid reprocessing
 - [ ] Investigate and fix MIDI playback issues
   - Check pygame MIDI initialization
   - Verify file paths and permissions
   - Add detailed playback error logging
+- [ ] Add cache validation based on dataset content
 - [ ] Implement cache versioning system
-- [ ] Add cache validation based on dataset content hash
 
 ## TODO
 

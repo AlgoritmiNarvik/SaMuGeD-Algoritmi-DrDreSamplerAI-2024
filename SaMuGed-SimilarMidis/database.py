@@ -37,12 +37,13 @@ class MIDIDatabase:
         """Get cache file path for dataset with better handling"""
         # Use absolute path for more reliable caching
         abs_path = os.path.abspath(dataset_path)
-        # For stable datasets, we'll use a simpler hash based on the directory name
-        # This ensures cache persistence across runs
-        stable_hash = hash(os.path.basename(abs_path))
-        cache_file = f'stable_dataset_cache_{stable_hash}.pkl'
+        # Use a more stable identifier for the cache file
+        # We'll use just the last directory name since we know it's stable
+        dir_name = os.path.basename(abs_path)
+        # Use a simple deterministic string instead of hash
+        cache_file = f'stable_dataset_cache_{dir_name}.pkl'
         cache_path = os.path.join(self.cache_dir, cache_file)
-        self.logger.debug(f"Cache path: {cache_path}")
+        self.logger.info(f"Cache path: {cache_path}")
         return cache_path
 
     def _save_to_cache(self, dataset_path: str):
