@@ -3,7 +3,7 @@ import numpy as np
 from typing import List, Dict, Tuple
 import faiss
 from sklearn.preprocessing import StandardScaler
-from config import DEFAULT_FEATURE_WEIGHTS, DATASET_PATH
+from config import DEFAULT_FEATURE_WEIGHTS, DATASET_PATH, MAX_RESULTS
 from feature_calculator import FeatureCalculator
 
 class MIDIDatabase:
