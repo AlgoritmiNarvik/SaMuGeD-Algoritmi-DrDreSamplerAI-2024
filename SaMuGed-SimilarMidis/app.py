@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from typing import List, Tuple
 import os
-from config import DEFAULT_FEATURE_WEIGHTS
+from config import DEFAULT_FEATURE_WEIGHTS, DATASET_PATH
 from database import MIDIDatabase
 from midi_player import MIDIPlayer
 
@@ -18,6 +18,16 @@ class MIDISearchApp:
         try:
             self.db.initialize()
             self._init_ui()
+            
+            # Show helpful message if no MIDI files found
+            if len(self.db.file_paths) == 0:
+                messagebox.showinfo(
+                    "No MIDI Files",
+                    f"No MIDI files found in the dataset directory:\n{DATASET_PATH}\n\n"
+                    "You can:\n"
+                    "1. Add MIDI files to this directory\n"
+                    "2. Use 'Load MIDI File' to analyze individual files"
+                )
         except Exception as e:
             self.logger.error(f"Initialization error: {str(e)}")
             messagebox.showerror("Initialization Error", 
@@ -117,14 +127,18 @@ class MIDISearchApp:
 
     def _load_midi(self):
         try:
-            filetypes = [("MIDI files", "*.mid;*.midi"), ("All files", "*.*")]
+            filetypes = (
+                ('MIDI files', '*.mid'),
+                ('MIDI files', '*.midi'),
+                ('All files', '*.*')
+            )
             path = filedialog.askopenfilename(
                 title="Select MIDI File",
-                filetypes=filetypes,
-                initialdir=os.path.expanduser("~")
+                initialdir=os.path.expanduser("~"),
+                filetypes=filetypes
             )
             
-            if path:
+            if path:  # Only proceed if a file was selected
                 self.logger.info(f"Loading MIDI file: {path}")
                 self.current_file_var.set(os.path.basename(path))
                 self._run_search(path)

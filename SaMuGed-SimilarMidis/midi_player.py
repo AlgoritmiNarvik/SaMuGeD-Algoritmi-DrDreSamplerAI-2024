@@ -6,11 +6,11 @@ import logging
 
 class MIDIPlayer:
     def __init__(self):
-        """Initialize MIDI player"""
         try:
-            pygame.midi.init()
+            pygame.mixer.pre_init(44100, -16, 2, 2048)
             pygame.mixer.init()
-            self.current_file: Optional[str] = None
+            pygame.init()
+            self.current_file = None
             self.is_playing = False
             self._setup_logging()
         except Exception as e:

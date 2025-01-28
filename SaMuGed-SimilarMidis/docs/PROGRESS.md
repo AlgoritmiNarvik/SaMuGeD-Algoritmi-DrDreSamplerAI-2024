@@ -61,6 +61,33 @@
 - [x] Automatic cache management
 - [x] Cache directory structure
 
+### Bug Fixes [✓]
+- [x] Fixed macOS file dialog issue
+  - Issue: NSInvalidArgumentException in Tkinter file dialog
+  - Root cause: Incompatible file type handling in macOS
+  - Solution: Updated file dialog configuration for macOS compatibility
+  - Affected files: app.py, database.py
+- [x] Improved error handling for missing dataset directory
+- [x] Better MIDI player initialization
+- [x] Graceful handling of empty dataset directory
+- [x] Proper subdirectory scanning for MIDI files
+
+### Known Issues [ ]
+- [ ] Some MIDI files may have tempo estimation issues
+- [ ] Dataset path needs to exist before first run
+- [ ] Cache system not properly utilizing existing processed files
+- [ ] MIDI playback not functioning
+- [ ] Need better cache invalidation strategy for stable datasets
+
+### Next Steps [ ]
+- [ ] Fix cache loading for stable dataset to avoid reprocessing
+- [ ] Investigate and fix MIDI playback issues
+  - Check pygame MIDI initialization
+  - Verify file paths and permissions
+  - Add detailed playback error logging
+- [ ] Implement cache versioning system
+- [ ] Add cache validation based on dataset content hash
+
 ## TODO
 
 ### Performance [ ]

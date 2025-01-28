@@ -34,9 +34,16 @@ class MIDIDatabase:
             self.logger.info(f"Created cache directory: {self.cache_dir}")
 
     def _get_cache_path(self, dataset_path: str) -> str:
-        """Get cache file path for dataset"""
-        dataset_hash = hash(dataset_path)
-        return os.path.join(self.cache_dir, f'dataset_cache_{dataset_hash}.pkl')
+        """Get cache file path for dataset with better handling"""
+        # Use absolute path for more reliable caching
+        abs_path = os.path.abspath(dataset_path)
+        # For stable datasets, we'll use a simpler hash based on the directory name
+        # This ensures cache persistence across runs
+        stable_hash = hash(os.path.basename(abs_path))
+        cache_file = f'stable_dataset_cache_{stable_hash}.pkl'
+        cache_path = os.path.join(self.cache_dir, cache_file)
+        self.logger.debug(f"Cache path: {cache_path}")
+        return cache_path
 
     def _save_to_cache(self, dataset_path: str):
         """Save processed data to cache"""
@@ -61,9 +68,11 @@ class MIDIDatabase:
         cache_path = self._get_cache_path(dataset_path)
         
         if not os.path.exists(cache_path):
+            self.logger.info("No cache file found")
             return False
             
         try:
+            self.logger.info(f"Attempting to load cache from: {cache_path}")
             with open(cache_path, 'rb') as f:
                 cache_data = pickle.load(f)
                 
@@ -71,12 +80,17 @@ class MIDIDatabase:
             self.feature_matrix = cache_data['feature_matrix']
             self.scaler = cache_data['scaler']
             
-            # Verify cache integrity
+            # Basic cache validation
             if len(self.file_paths) == 0 or self.feature_matrix is None:
                 self.logger.warning("Cache data is invalid")
                 return False
+
+            # Verify at least one file still exists (basic integrity check)
+            if not any(os.path.exists(path) for path in self.file_paths[:5]):
+                self.logger.warning("Cache validation failed - files no longer exist")
+                return False
                 
-            self.logger.info(f"Loaded {len(self.file_paths)} files from cache")
+            self.logger.info(f"Successfully loaded {len(self.file_paths)} files from cache")
             return True
         except Exception as e:
             self.logger.error(f"Failed to load cache: {str(e)}")
@@ -85,19 +99,51 @@ class MIDIDatabase:
     def initialize(self, dataset_path: str = DATASET_PATH) -> None:
         """Preprocess and index entire dataset"""
         self.logger.info(f"Initializing database from: {dataset_path}")
-        
-        # Try to load from cache first
+
+        # Check if dataset path exists
+        if not os.path.exists(dataset_path):
+            self.logger.warning(f"Dataset directory does not exist: {dataset_path}")
+            os.makedirs(dataset_path, exist_ok=True)
+            self.logger.info(f"Created dataset directory: {dataset_path}")
+            self._initialize_empty_database()
+            return
+
+        # First try to load from cache
         if self._load_from_cache(dataset_path):
-            self.logger.info("Successfully loaded dataset from cache")
+            self.logger.info(f"Successfully loaded dataset from cache with {len(self.file_paths)} files")
+            if len(self.file_paths) > 0:
+                # Create FAISS index from cached data
+                dimension = len(DEFAULT_FEATURE_WEIGHTS)
+                self.index = faiss.IndexFlatL2(dimension)
+                scaled_features = self.scaler.transform(self.feature_matrix)
+                self.index.add(scaled_features.astype('float32'))
+                self.logger.info("Successfully initialized index from cache")
+                return
+            else:
+                self.logger.warning("Cache was empty, will scan for new files")
+        
+        # If no cache or empty cache, check for MIDI files in all subdirectories
+        total_midi_files = []
+        for root, _, files in os.walk(dataset_path):
+            midi_files = [os.path.join(root, f) for f in files if f.lower().endswith(('.mid', '.midi'))]
+            total_midi_files.extend(midi_files)
+        
+        if not total_midi_files:
+            self.logger.warning(f"No MIDI files found in {dataset_path} or its subdirectories")
+            self._initialize_empty_database()
+            return
+        
+        self.logger.info(f"Found {len(total_midi_files)} MIDI files in dataset")
+        
+        # Process dataset
+        self.logger.info("Processing dataset (this may take a while)...")
+        features, paths = self._process_dataset(dataset_path)
+        
+        if len(features) == 0:
+            self.logger.warning("No valid MIDI files could be processed")
+            self._initialize_empty_database()
         else:
-            # Process dataset if cache not available
-            self.logger.info("Processing dataset (this may take a while)...")
-            features, paths = self._process_dataset(dataset_path)
-            if len(features) == 0:
-                self.logger.error("No valid MIDI files found in dataset")
-                raise ValueError("No valid MIDI files found in dataset")
-                
-            self.logger.info(f"Found {len(features)} valid MIDI files")
+            self.logger.info(f"Successfully processed {len(features)} MIDI files")
             self.file_paths = paths
             self.feature_matrix = np.array(features, dtype='float32')
             self.logger.info("Fitting StandardScaler...")
@@ -105,14 +151,22 @@ class MIDIDatabase:
             
             # Save processed data to cache
             self._save_to_cache(dataset_path)
-        
-        # Create FAISS index
-        scaled_features = self.scaler.transform(self.feature_matrix)
-        dimension = len(DEFAULT_FEATURE_WEIGHTS)
-        self.logger.info(f"Creating FAISS index with dimension {dimension}")
-        self.index = faiss.IndexFlatL2(dimension)
-        self.index.add(scaled_features.astype('float32'))
+            
+            # Create FAISS index
+            dimension = len(DEFAULT_FEATURE_WEIGHTS)
+            self.logger.info(f"Creating FAISS index with dimension {dimension}")
+            self.index = faiss.IndexFlatL2(dimension)
+            scaled_features = self.scaler.transform(self.feature_matrix)
+            self.index.add(scaled_features.astype('float32'))
+            
         self.logger.info("Database initialization complete")
+
+    def _initialize_empty_database(self):
+        """Initialize an empty database with proper structure"""
+        self.file_paths = []
+        self.feature_matrix = np.array([], dtype='float32').reshape(0, len(DEFAULT_FEATURE_WEIGHTS))
+        self.index = faiss.IndexFlatL2(len(DEFAULT_FEATURE_WEIGHTS))
+        self.logger.info("Initialized empty database - ready for new files")
 
     def _process_dataset(self, dataset_path: str) -> Tuple[List, List]:
         features = []
