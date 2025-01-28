@@ -1,6 +1,6 @@
 # Progress
 
-## v1.0.0 (Current)
+## v1.0.0 (Previous)
 
 ### Core [✓]
 - [x] MIDI feature extraction
@@ -21,24 +21,33 @@
 - [x] Results view
 - [x] Progress bar
 
+## v1.1.0 (Current)
+
+### Audio [✓]
+- [x] MIDI playback integration
+- [x] Playback controls (play, pause, stop)
+- [x] Volume control
+- [x] Double-click to play results
+
 ## TODO
 
 ### Performance [ ]
-- [ ] Batch processing?
-- [ ] Feature caching?
-- [ ] Parallel processing?
+- [ ] Batch processing
+- [ ] Feature caching
+- [ ] Parallel processing
 
 ### Features [ ]
 - [ ] More musical features
-- [ ] Advanced rhythm analysis?
-- [ ] Genre-specific weights?
+- [ ] Advanced rhythm analysis
+- [ ] Genre-specific weights
 
 ### UI [ ]
 - [ ] Dark/Light theme
 - [ ] Custom results view
-- [ ] MIDI playback
 - [ ] Export results
+- [ ] Playback visualization
+- [ ] Time position slider
 
 ## Planned Versions
-- v1.1.0: Advanced UI with playback and analysis and Performance optimizations
-- v1.2.0: Enhanced musical features
+- v1.2.0: Performance optimizations and UI enhancements
+- v1.3.0: Enhanced musical features

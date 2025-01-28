@@ -4,6 +4,10 @@ pretty-midi>=0.2.9
 faiss-cpu>=1.7.0  # For efficient similarity search
 scikit-learn>=1.0.0  # For StandardScaler
 
+# Audio playback
+pygame>=2.5.0  # For MIDI playback
+fluidsynth>=2.3.0  # For high-quality MIDI synthesis
+
 # Type hints
 typing-extensions>=4.0.0
 
