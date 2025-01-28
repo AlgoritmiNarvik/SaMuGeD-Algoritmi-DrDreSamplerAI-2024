@@ -29,7 +29,7 @@
 - [x] Volume control
 - [x] Double-click to play results
 
-## v1.1.1 (Current)
+## v1.1.1 (Previous)
 
 ### UI Enhancements [✓]
 - [x] Improved layout organization
@@ -52,12 +52,21 @@
 - [x] Consistent error handling
 - [x] Improved state management
 
+## v1.1.2 (Current)
+
+### Performance [✓]
+- [x] Dataset caching system
+- [x] Fast startup with cached data
+- [x] Cache validation
+- [x] Automatic cache management
+- [x] Cache directory structure
+
 ## TODO
 
 ### Performance [ ]
-- [ ] Batch processing
-- [ ] Feature caching
 - [ ] Parallel processing
+- [ ] Memory optimization
+- [ ] Incremental updates
 
 ### Features [ ]
 - [ ] More musical features

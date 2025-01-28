@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pickle
 from typing import List, Dict, Tuple
 import faiss
 import logging
@@ -14,6 +15,7 @@ class MIDIDatabase:
         self.file_paths = []
         self.feature_matrix = None
         self.calculator = FeatureCalculator()
+        self.cache_dir = os.path.join(os.path.dirname(__file__), 'cache')
         self._setup_logging()
         
     def _setup_logging(self):
@@ -24,23 +26,88 @@ class MIDIDatabase:
             datefmt='%Y-%m-%d %H:%M:%S'
         )
         self.logger = logging.getLogger(__name__)
+
+    def _ensure_cache_dir(self):
+        """Ensure cache directory exists"""
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
+            self.logger.info(f"Created cache directory: {self.cache_dir}")
+
+    def _get_cache_path(self, dataset_path: str) -> str:
+        """Get cache file path for dataset"""
+        dataset_hash = hash(dataset_path)
+        return os.path.join(self.cache_dir, f'dataset_cache_{dataset_hash}.pkl')
+
+    def _save_to_cache(self, dataset_path: str):
+        """Save processed data to cache"""
+        self._ensure_cache_dir()
+        cache_path = self._get_cache_path(dataset_path)
+        
+        cache_data = {
+            'file_paths': self.file_paths,
+            'feature_matrix': self.feature_matrix,
+            'scaler': self.scaler
+        }
+        
+        try:
+            with open(cache_path, 'wb') as f:
+                pickle.dump(cache_data, f)
+            self.logger.info(f"Saved dataset cache to: {cache_path}")
+        except Exception as e:
+            self.logger.error(f"Failed to save cache: {str(e)}")
+
+    def _load_from_cache(self, dataset_path: str) -> bool:
+        """Load processed data from cache if available"""
+        cache_path = self._get_cache_path(dataset_path)
+        
+        if not os.path.exists(cache_path):
+            return False
+            
+        try:
+            with open(cache_path, 'rb') as f:
+                cache_data = pickle.load(f)
+                
+            self.file_paths = cache_data['file_paths']
+            self.feature_matrix = cache_data['feature_matrix']
+            self.scaler = cache_data['scaler']
+            
+            # Verify cache integrity
+            if len(self.file_paths) == 0 or self.feature_matrix is None:
+                self.logger.warning("Cache data is invalid")
+                return False
+                
+            self.logger.info(f"Loaded {len(self.file_paths)} files from cache")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to load cache: {str(e)}")
+            return False
         
     def initialize(self, dataset_path: str = DATASET_PATH) -> None:
         """Preprocess and index entire dataset"""
         self.logger.info(f"Initializing database from: {dataset_path}")
-        features, paths = self._process_dataset(dataset_path)
-        if len(features) == 0:
-            self.logger.error("No valid MIDI files found in dataset")
-            raise ValueError("No valid MIDI files found in dataset")
+        
+        # Try to load from cache first
+        if self._load_from_cache(dataset_path):
+            self.logger.info("Successfully loaded dataset from cache")
+        else:
+            # Process dataset if cache not available
+            self.logger.info("Processing dataset (this may take a while)...")
+            features, paths = self._process_dataset(dataset_path)
+            if len(features) == 0:
+                self.logger.error("No valid MIDI files found in dataset")
+                raise ValueError("No valid MIDI files found in dataset")
+                
+            self.logger.info(f"Found {len(features)} valid MIDI files")
+            self.file_paths = paths
+            self.feature_matrix = np.array(features, dtype='float32')
+            self.logger.info("Fitting StandardScaler...")
+            self.scaler.fit(self.feature_matrix)
             
-        self.logger.info(f"Found {len(features)} valid MIDI files")
-        self.file_paths = paths
-        self.feature_matrix = np.array(features, dtype='float32')
-        self.logger.info("Fitting StandardScaler...")
-        self.scaler.fit(self.feature_matrix)
-        scaled_features = self.scaler.transform(self.feature_matrix)
+            # Save processed data to cache
+            self._save_to_cache(dataset_path)
         
         # Create FAISS index
+        scaled_features = self.scaler.transform(self.feature_matrix)
         dimension = len(DEFAULT_FEATURE_WEIGHTS)
         self.logger.info(f"Creating FAISS index with dimension {dimension}")
         self.index = faiss.IndexFlatL2(dimension)
