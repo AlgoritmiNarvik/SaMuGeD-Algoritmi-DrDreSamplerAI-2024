@@ -244,7 +244,20 @@
 - [x] Improved vertical space utilization
 - [x] Fixed alignment of piano roll headers
 
+### Dataset Integration [✓]
+- [x] Added clear dataset path requirements
+- [x] Specified Lakh_MIDI_Clean_Patterns_v1 as current dataset
+- [x] Added dataset download link for UiT users
+- [x] Updated documentation with dataset setup instructions
+- [x] Added dataset structure validation checks
+
 ### Known Issues [ ]
+- [ ] Dataset Management Issues
+  - Need better error messages for missing dataset directory
+  - Need automated dataset structure validation
+  - Need better handling of dataset loading errors
+  - Need progress indicator for initial dataset processing
+  - Need better caching system for processed dataset
 - [ ] Playback Issues
   - Error updating playback state with invalid command name
   - Need better cleanup of playback resources
@@ -260,6 +273,12 @@
   - Volume control needs better visual feedback
 
 ### Next Steps [ ]
+- [ ] Improve Dataset Management
+  - Add automated dataset directory creation
+  - Add dataset structure validation
+  - Add dataset processing progress indicators
+  - Improve error messages for dataset issues
+  - Add dataset statistics view
 - [ ] Fix Playback Issues
   - Implement proper playback state cleanup
   - Add better error handling for playback controls
