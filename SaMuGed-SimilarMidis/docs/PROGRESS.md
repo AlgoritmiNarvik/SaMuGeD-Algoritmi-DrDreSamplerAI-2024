@@ -181,12 +181,60 @@
   - Multi-track support
   - MIDI export functionality
 
+## v1.1.5 (Current)
+
+### Search Parameter Improvements [✓]
+- [x] Added "Search Again" button for manual search updates
+- [x] Removed automatic search on parameter changes
+- [x] Better user feedback during search operations
+- [x] Improved error handling for search operations
+- [x] Clear visual feedback with styled search button
+
+### Known Issues [ ]
+- [ ] UI Layout Issues
+  - Some elements still need better alignment
+  - Need more consistent spacing between elements
+  - Status bar could use better organization
+- [ ] Piano Roll Visualization Issues
+  - Note lines need to be thicker and more visible
+  - Notes sometimes not visible due to pitch range differences
+  - Need pitch normalization for better comparison
+  - Grid lines could be more subtle to emphasize notes
+  - Need better visual distinction between input and selected patterns
+  - Time scale needs better readability
+- [ ] MIDI Processing Issues
+  - Empty bars at start need more accurate detection
+  - Need to handle MIDI files with no notes gracefully
+  - Better tempo detection needed for some files
+  - Need to handle multi-track MIDI files better
+
+### Next Steps [ ]
+- [ ] Improve Piano Roll Visualization
+  - Implement pitch range normalization
+  - Increase note line thickness
+  - Add color intensity based on velocity
+  - Add zoom controls for detailed view
+  - Improve grid line visibility
+  - Add note labels on hover
+  - Add time markers for better navigation
+- [ ] Further UI Improvements
+  - Add more visual feedback for parameter changes
+  - Improve status bar organization
+  - Add tooltips for controls
+  - Better spacing and alignment
+- [ ] Enhance MIDI Processing
+  - Better empty bar detection
+  - Improved tempo detection
+  - Multi-track support
+  - MIDI export functionality
+
 ## Planned Versions
-- v1.1.5: Search Parameter Enhancement
-  - Focus on parameter update functionality
-  - Add result caching system
-  - Improve visual feedback
-  - Add parameter presets
+- v1.1.6: Piano Roll Enhancement
+  - Pitch normalization system
+  - Enhanced note visualization
+  - Better grid system
+  - Interactive features (zoom, hover info)
+  - Improved time scale display
 
 - v1.2.0: Advanced Playback Features
   - Add playback position indicator

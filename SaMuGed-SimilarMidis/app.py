@@ -151,6 +151,20 @@ class MIDISearchApp:
             value_label = ttk.Label(frame, textvariable=self.weight_vars[feat], width=4)
             value_label.pack(side="right")
         
+        # Add Search Again button
+        search_again_frame = ttk.Frame(weights_frame)
+        search_again_frame.pack(fill="x", pady=(10, 0))
+        
+        ttk.Button(search_again_frame, text="Search Again", 
+                  command=self._search_again,
+                  style="Search.TButton").pack(fill="x")
+        
+        # Configure search button style
+        style.configure("Search.TButton", 
+                      background='#4CAF50',  # Green background
+                      foreground='#ffffff',   # White text
+                      padding=5)
+        
         # Volume control
         volume_frame = ttk.LabelFrame(left_panel, text="Volume", padding=10)
         volume_frame.pack(fill="x", pady=(0, 10))
@@ -243,12 +257,25 @@ class MIDISearchApp:
         messagebox.showerror("Playback Error", error_msg)
 
     def _update_weight(self, feature: str, value: str):
+        """Update feature weight without automatic search"""
         try:
             self.weights[feature] = float(value)
-            if self.current_file_var.get() != "No file loaded":
-                self._run_search(self.player.current_file)
         except ValueError as e:
             self.logger.error(f"Error updating weight: {str(e)}")
+
+    def _search_again(self):
+        """Perform search with current weights"""
+        try:
+            if not self.input_file:
+                messagebox.showinfo("No Input File", "Please load a MIDI file first.")
+                return
+                
+            self.logger.info("Performing search with updated weights...")
+            self._run_search(self.input_file)
+            
+        except Exception as e:
+            self.logger.error(f"Error during search: {str(e)}")
+            messagebox.showerror("Search Error", f"Failed to perform search: {str(e)}")
 
     def _load_midi(self):
         try:
