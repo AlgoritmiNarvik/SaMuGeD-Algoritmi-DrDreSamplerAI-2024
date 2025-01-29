@@ -5,6 +5,12 @@ from typing import Optional, Callable
 import logging
 import pretty_midi
 import tempfile
+from enum import Enum
+
+class PlaybackState(Enum):
+    STOPPED = "stopped"
+    PLAYING = "playing"
+    PAUSED = "paused"
 
 class MIDIPlayer:
     def __init__(self):
@@ -17,10 +23,16 @@ class MIDIPlayer:
             
             self.current_file = None
             self.temp_file = None  # For storing modified MIDI
-            self.is_playing = False
+            self.state = PlaybackState.STOPPED
             self.on_playback_error: Optional[Callable[[str], None]] = None
+            self.on_state_change: Optional[Callable[[PlaybackState], None]] = None
             self.volume = 0.7  # Default volume
+            self.loop_enabled = True  # Enable looping by default
             self._setup_logging()
+            
+            # Set up event handler for end of music
+            pygame.mixer.music.set_endevent(pygame.USEREVENT)
+            pygame.time.set_timer(pygame.USEREVENT, 100)  # Check every 100ms
             
             # Test MIDI system
             if not pygame.mixer.get_init():
@@ -42,6 +54,17 @@ class MIDIPlayer:
     def set_error_callback(self, callback: Callable[[str], None]):
         """Set callback for playback errors"""
         self.on_playback_error = callback
+
+    def set_state_callback(self, callback: Callable[[PlaybackState], None]):
+        """Set callback for state changes"""
+        self.on_state_change = callback
+
+    def _update_state(self, new_state: PlaybackState):
+        """Update playback state and notify listeners"""
+        self.state = new_state
+        if self.on_state_change:
+            self.on_state_change(new_state)
+        self.logger.debug(f"Playback state changed to: {new_state.value}")
 
     def _create_trimmed_midi(self, midi_file: str, start_time: float = None) -> Optional[str]:
         """Create a new MIDI file with empty bars removed
@@ -99,8 +122,8 @@ class MIDIPlayer:
             start_time: Start time to begin playback from (if None, will detect automatically)
         """
         try:
-            if self.is_playing:
-                self.stop()
+            # Always stop current playback first
+            self.stop()
                 
             if not os.path.exists(midi_file):
                 error_msg = f"MIDI file not found: {midi_file}"
@@ -121,13 +144,13 @@ class MIDIPlayer:
             # Load and play the trimmed file
             pygame.mixer.music.load(trimmed_file)
             pygame.mixer.music.set_volume(self.volume)
-            pygame.mixer.music.play()
+            pygame.mixer.music.play(-1 if self.loop_enabled else 0)  # -1 for infinite loop
             
             # Verify playback started
             if pygame.mixer.music.get_busy():
                 self.current_file = midi_file
-                self.is_playing = True
-                self.logger.info(f"Started playing: {midi_file}")
+                self._update_state(PlaybackState.PLAYING)
+                self.logger.info(f"Started playing: {midi_file} (loop: {self.loop_enabled})")
                 return True
             else:
                 error_msg = "Failed to start playback"
@@ -145,24 +168,24 @@ class MIDIPlayer:
 
     def pause(self):
         """Pause playback"""
-        if self.is_playing:
+        if self.state == PlaybackState.PLAYING:
             pygame.mixer.music.pause()
-            self.is_playing = False
+            self._update_state(PlaybackState.PAUSED)
             self.logger.debug("Playback paused")
 
     def resume(self):
         """Resume playback"""
-        if not self.is_playing and self.current_file:
+        if self.state == PlaybackState.PAUSED and self.current_file:
             pygame.mixer.music.unpause()
-            self.is_playing = True
+            self._update_state(PlaybackState.PLAYING)
             self.logger.debug("Playback resumed")
 
     def stop(self):
         """Stop playback"""
-        if self.current_file:
+        if self.state != PlaybackState.STOPPED:
             pygame.mixer.music.stop()
-            self.is_playing = False
             self.current_file = None
+            self._update_state(PlaybackState.STOPPED)
             self.logger.debug("Playback stopped")
 
     def set_volume(self, volume: float):
@@ -173,13 +196,17 @@ class MIDIPlayer:
 
     def get_position(self) -> float:
         """Get current playback position in seconds"""
-        if self.is_playing:
+        if self.state == PlaybackState.PLAYING:
             return pygame.mixer.music.get_pos() / 1000.0
         return 0.0
 
     def is_busy(self) -> bool:
         """Check if currently playing"""
-        return pygame.mixer.music.get_busy()
+        return self.state == PlaybackState.PLAYING
+
+    def get_state(self) -> PlaybackState:
+        """Get current playback state"""
+        return self.state
 
     def cleanup(self):
         """Clean up resources"""

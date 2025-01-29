@@ -5,7 +5,7 @@ from typing import List, Tuple, Optional
 import os
 from config import DEFAULT_FEATURE_WEIGHTS, DATASET_PATH
 from database import MIDIDatabase
-from midi_player import MIDIPlayer
+from midi_player import MIDIPlayer, PlaybackState
 from piano_roll import PianoRollVisualizer
 import sys
 
@@ -15,6 +15,8 @@ class MIDISearchApp:
         self.db = MIDIDatabase()
         self.player = MIDIPlayer()
         self.weights = DEFAULT_FEATURE_WEIGHTS.copy()
+        self.input_file = None  # Track input file separately
+        self.selected_file = None  # Track selected file separately
         self._setup_logging()
         
         # Set error callback for MIDI player
@@ -74,18 +76,27 @@ class MIDISearchApp:
         style.configure("TLabelframe", background='#2b2b2b', foreground='#ffffff')
         style.configure("TLabelframe.Label", background='#2b2b2b', foreground='#ffffff')
         
+        # Configure playback button styles
+        style.configure("Play.TButton", background='#4CAF50')  # Green
+        style.configure("Pause.TButton", background='#FFA500')  # Orange
+        style.configure("Stop.TButton", background='#f44336')   # Red
+        
         # Configure grid
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(0, weight=1)
         
-        # Main container
+        # Main container with equal width columns
         main_frame = ttk.Frame(self.root)
         main_frame.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
-        main_frame.grid_columnconfigure(1, weight=1)
+        main_frame.grid_columnconfigure(0, weight=1)  # Left panel
+        main_frame.grid_columnconfigure(1, weight=1)  # Right panel
+        main_frame.grid_rowconfigure(0, weight=1)     # Make rows expandable
         
         # Left panel (controls)
         left_panel = ttk.Frame(main_frame)
-        left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 20))
+        left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        left_panel.grid_columnconfigure(0, weight=1)
+        left_panel.grid_rowconfigure(1, weight=1)  # Make piano roll expand
         
         # Query section
         query_frame = ttk.LabelFrame(left_panel, text="Input MIDI", padding=10)
@@ -97,18 +108,28 @@ class MIDISearchApp:
         current_file_label = ttk.Label(query_frame, textvariable=self.current_file_var, wraplength=250)
         current_file_label.pack(fill="x", pady=(0, 10))
         
-        # Input piano roll
+        # Input piano roll frame - make it expandable
         piano_roll_frame = ttk.Frame(query_frame)
-        piano_roll_frame.pack(fill="x", pady=(0, 10))
+        piano_roll_frame.pack(fill="both", expand=True, pady=(0, 10))
+        piano_roll_frame.grid_rowconfigure(0, weight=1)
+        piano_roll_frame.grid_columnconfigure(0, weight=1)
         self.input_piano_roll = PianoRollVisualizer(piano_roll_frame)
         
         # Input playback controls
         controls_frame = ttk.Frame(query_frame)
         controls_frame.pack(fill="x")
         
-        ttk.Button(controls_frame, text="▶", width=3, command=self._play_current).pack(side="left", padx=2)
-        ttk.Button(controls_frame, text="⏸", width=3, command=self.player.pause).pack(side="left", padx=2)
-        ttk.Button(controls_frame, text="⏹", width=3, command=self.player.stop).pack(side="left", padx=2)
+        self.input_play_btn = ttk.Button(controls_frame, text="▶", width=3, 
+                                       command=self._play_current, style="Play.TButton")
+        self.input_play_btn.pack(side="left", padx=2)
+        
+        self.input_pause_btn = ttk.Button(controls_frame, text="⏸", width=3,
+                                        command=self.player.pause, style="Pause.TButton")
+        self.input_pause_btn.pack(side="left", padx=2)
+        
+        self.input_stop_btn = ttk.Button(controls_frame, text="⏹", width=3,
+                                       command=self.player.stop, style="Stop.TButton")
+        self.input_stop_btn.pack(side="left", padx=2)
         
         # Feature weights
         weights_frame = ttk.LabelFrame(left_panel, text="Feature Weights", padding=10)
@@ -158,17 +179,28 @@ class MIDISearchApp:
         self.selected_file_var = tk.StringVar(value="No pattern selected")
         ttk.Label(selected_frame, textvariable=self.selected_file_var, wraplength=600).pack(fill="x", pady=(0, 10))
         
-        # Selected pattern piano roll
+        # Selected pattern piano roll frame - make it expandable
         selected_piano_roll_frame = ttk.Frame(selected_frame)
-        selected_piano_roll_frame.pack(fill="x", pady=(0, 10))
+        selected_piano_roll_frame.pack(fill="both", expand=True, pady=(0, 10))
+        selected_piano_roll_frame.grid_rowconfigure(0, weight=1)
+        selected_piano_roll_frame.grid_columnconfigure(0, weight=1)
         self.selected_piano_roll = PianoRollVisualizer(selected_piano_roll_frame)
         
         # Selected pattern playback controls
         selected_controls = ttk.Frame(selected_frame)
         selected_controls.pack(fill="x")
-        ttk.Button(selected_controls, text="▶", width=3, command=lambda: self._play_selected(None)).pack(side="left", padx=2)
-        ttk.Button(selected_controls, text="⏸", width=3, command=self.player.pause).pack(side="left", padx=2)
-        ttk.Button(selected_controls, text="⏹", width=3, command=self.player.stop).pack(side="left", padx=2)
+        
+        self.selected_play_btn = ttk.Button(selected_controls, text="▶", width=3,
+                                          command=lambda: self._play_selected(None), style="Play.TButton")
+        self.selected_play_btn.pack(side="left", padx=2)
+        
+        self.selected_pause_btn = ttk.Button(selected_controls, text="⏸", width=3,
+                                           command=self.player.pause, style="Pause.TButton")
+        self.selected_pause_btn.pack(side="left", padx=2)
+        
+        self.selected_stop_btn = ttk.Button(selected_controls, text="⏹", width=3,
+                                          command=self.player.stop, style="Stop.TButton")
+        self.selected_stop_btn.pack(side="left", padx=2)
         
         # Results list
         results_frame = ttk.Frame(right_panel)
@@ -201,6 +233,9 @@ class MIDISearchApp:
         
         self.progress = ttk.Progressbar(status_frame, mode='determinate', length=200)
         self.progress.pack(side="right", padx=(10, 0))
+        
+        # Set up playback state callback
+        self.player.set_state_callback(self._handle_playback_state_change)
 
     def _handle_playback_error(self, error_msg: str):
         """Handle MIDI playback errors"""
@@ -232,6 +267,9 @@ class MIDISearchApp:
                 self.logger.info(f"Loading MIDI file: {path}")
                 self.current_file_var.set(os.path.basename(path))
                 self.status_var.set("Analyzing MIDI file...")
+                
+                # Store input file reference
+                self.input_file = path
         
                 # Update input piano roll
                 self.input_piano_roll.update(path)
@@ -248,14 +286,11 @@ class MIDISearchApp:
 
     def _play_current(self):
         try:
-            if not self.player.is_playing and self.player.current_file:
+            if self.player.state == PlaybackState.PAUSED:
                 self.player.resume()
-            elif not self.player.current_file and self.results_tree.selection():
-                self._play_selected(None)
-            else:
-                # Get start time from piano roll
+            elif self.input_file:  # Always use input_file for input section playback
                 start_time = self.input_piano_roll.get_start_time()
-                self.player.play(self.player.current_file, start_time)
+                self.player.play(self.input_file, start_time)
         except Exception as e:
             self.logger.error(f"Error playing file: {str(e)}")
             messagebox.showerror("Error", f"Failed to play file: {str(e)}")
@@ -269,6 +304,9 @@ class MIDISearchApp:
                 file_path = item['values'][1]
                 similarity = item['values'][0]
                 
+                # Store selected file reference
+                self.selected_file = file_path
+                
                 # Update selected file info
                 self.selected_file_var.set(f"Selected: {os.path.basename(file_path)} (Similarity: {similarity})")
                 
@@ -280,13 +318,11 @@ class MIDISearchApp:
 
     def _play_selected(self, event):
         try:
-            selection = self.results_tree.selection()
-            if selection:
-                item = self.results_tree.item(selection[0])
-                file_path = item['values'][1]
-                # Get start time from selected piano roll
+            if self.player.state == PlaybackState.PAUSED and self.selected_file:
+                self.player.resume()
+            elif self.selected_file:  # Use selected_file for result section playback
                 start_time = self.selected_piano_roll.get_start_time()
-                self.player.play(file_path, start_time)
+                self.player.play(self.selected_file, start_time)
         except Exception as e:
             self.logger.error(f"Error playing selected file: {str(e)}")
             messagebox.showerror("Error", f"Failed to play selected file: {str(e)}")
@@ -317,6 +353,34 @@ class MIDISearchApp:
         except Exception as e:
             self.logger.error(f"Error displaying results: {str(e)}")
             messagebox.showerror("Error", f"Failed to display results: {str(e)}")
+
+    def _handle_playback_state_change(self, state: PlaybackState):
+        """Handle playback state changes"""
+        try:
+            # Update button states based on playback state
+            is_playing = state == PlaybackState.PLAYING
+            is_paused = state == PlaybackState.PAUSED
+            
+            # Update input controls
+            self.input_play_btn.configure(state="disabled" if is_playing else "normal")
+            self.input_pause_btn.configure(state="normal" if is_playing else "disabled")
+            self.input_stop_btn.configure(state="normal" if (is_playing or is_paused) else "disabled")
+            
+            # Update selected pattern controls
+            self.selected_play_btn.configure(state="disabled" if is_playing else "normal")
+            self.selected_pause_btn.configure(state="normal" if is_playing else "disabled")
+            self.selected_stop_btn.configure(state="normal" if (is_playing or is_paused) else "disabled")
+            
+            # Update status
+            if is_playing:
+                self.status_var.set("Playing...")
+            elif is_paused:
+                self.status_var.set("Paused")
+            else:
+                self.status_var.set("Ready")
+                
+        except Exception as e:
+            self.logger.error(f"Error updating playback state: {str(e)}")
 
 if __name__ == "__main__":
     try:

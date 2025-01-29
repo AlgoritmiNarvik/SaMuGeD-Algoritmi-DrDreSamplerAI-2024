@@ -130,20 +130,77 @@
   - Add incremental dataset updates
   - Add dataset statistics view
 
-## Planned Versions
-- v1.2.0: Fix playback and UI layout issues
-  - Focus on playback state management
-  - Improve piano roll visualization
-  - Add advanced playback controls
-  - Fix layout consistency issues
+## v1.1.4 (Current)
 
-- v1.3.0: Enhanced MIDI processing
+### Playback Improvements [✓]
+- [x] Fixed simultaneous playback issue
+- [x] Implemented proper state management with PlaybackState enum
+- [x] Added state change callback system
+- [x] Separate tracking for input and selected files
+- [x] Better visual feedback for playback state
+- [x] Improved button state management
+- [x] Added loop functionality for continuous playback
+
+### UI Layout Improvements [✓]
+- [x] Made piano roll panels equal width
+- [x] Improved grid configuration for consistent sizing
+- [x] Better organization of controls
+- [x] Enhanced visual feedback
+- [x] Proper expansion of piano roll displays
+
+### Known Issues [ ]
+- [ ] Search and Parameter Issues
+  - No way to retry search after changing feature weights
+  - Need immediate update of results when parameters change
+  - Need visual feedback during parameter updates
+  - Need to cache search results for quick parameter adjustments
+- [ ] UI Layout Issues
+  - Some elements still need better alignment
+  - Need more consistent spacing between elements
+  - Status bar could use better organization
+- [ ] MIDI Processing Issues
+  - Empty bars at start need more accurate detection
+  - Need to handle MIDI files with no notes gracefully
+  - Better tempo detection needed for some files
+  - Need to handle multi-track MIDI files better
+
+### Next Steps [ ]
+- [ ] Implement Search Parameter Updates
+  - Add immediate search update on parameter change
+  - Add progress indicator for parameter updates
+  - Implement result caching for quick updates
+  - Add reset button for parameters
+- [ ] Further UI Improvements
+  - Add more visual feedback for parameter changes
+  - Improve status bar organization
+  - Add tooltips for controls
+  - Better spacing and alignment
+- [ ] Enhance MIDI Processing
+  - Better empty bar detection
+  - Improved tempo detection
+  - Multi-track support
+  - MIDI export functionality
+
+## Planned Versions
+- v1.1.5: Search Parameter Enhancement
+  - Focus on parameter update functionality
+  - Add result caching system
+  - Improve visual feedback
+  - Add parameter presets
+
+- v1.2.0: Advanced Playback Features
+  - Add playback position indicator
+  - Add time position slider
+  - Add loop points
+  - Add track selection for multi-track MIDIs
+
+- v1.3.0: Enhanced MIDI Processing
   - Better multi-track support
   - Advanced tempo detection
   - MIDI modification and export
   - Loop point support
 
-- v1.4.0: Advanced features
+- v1.4.0: Advanced Features
   - Dataset management tools
   - Advanced visualization options
   - Batch processing capabilities
