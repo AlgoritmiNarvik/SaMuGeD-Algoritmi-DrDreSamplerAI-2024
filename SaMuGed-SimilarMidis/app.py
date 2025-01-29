@@ -8,6 +8,7 @@ from database import MIDIDatabase
 from midi_player import MIDIPlayer, PlaybackState
 from piano_roll import PianoRollVisualizer
 import sys
+import pretty_midi
 
 class MIDISearchApp:
     def __init__(self, root):
@@ -88,8 +89,8 @@ class MIDISearchApp:
         # Main container with equal width columns
         main_frame = ttk.Frame(self.root)
         main_frame.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
-        main_frame.grid_columnconfigure(0, weight=1)  # Left panel
-        main_frame.grid_columnconfigure(1, weight=1)  # Right panel
+        main_frame.grid_columnconfigure(0, weight=1, uniform="panel")  # Left panel with uniform size
+        main_frame.grid_columnconfigure(1, weight=1, uniform="panel")  # Right panel with uniform size
         main_frame.grid_rowconfigure(0, weight=1)     # Make rows expandable
         
         # Left panel (controls)
@@ -98,22 +99,25 @@ class MIDISearchApp:
         left_panel.grid_columnconfigure(0, weight=1)
         left_panel.grid_rowconfigure(1, weight=1)  # Make piano roll expand
         
-        # Query section
-        query_frame = ttk.LabelFrame(left_panel, text="Input MIDI", padding=10)
-        query_frame.pack(fill="x", pady=(0, 10))
+        # Input header - matching the results header style
+        input_header = ttk.Frame(left_panel)
+        input_header.pack(fill="x", pady=(0, 10))
+        ttk.Label(input_header, text="Input", style="Title.TLabel").pack(side="left")
+        ttk.Button(input_header, text="Load MIDI File", command=self._load_midi).pack(side="right")
         
-        # Load button and current file
-        ttk.Button(query_frame, text="Load MIDI File", command=self._load_midi).pack(fill="x", pady=(0, 5))
+        # Query section with fixed width
+        query_frame = ttk.LabelFrame(left_panel, text="Input MIDI", padding=5)
+        query_frame.pack(fill="both", expand=False)
+        
+        # Current file label - more compact
         self.current_file_var = tk.StringVar(value="No file loaded")
-        current_file_label = ttk.Label(query_frame, textvariable=self.current_file_var, wraplength=250)
-        current_file_label.pack(fill="x", pady=(0, 10))
+        current_file_label = ttk.Label(query_frame, textvariable=self.current_file_var, wraplength=600)
+        current_file_label.pack(fill="x", pady=(0, 2))
         
-        # Input piano roll frame - make it expandable
+        # Input piano roll frame - fixed height
         piano_roll_frame = ttk.Frame(query_frame)
-        piano_roll_frame.pack(fill="both", expand=True, pady=(0, 10))
-        piano_roll_frame.grid_rowconfigure(0, weight=1)
-        piano_roll_frame.grid_columnconfigure(0, weight=1)
-        self.input_piano_roll = PianoRollVisualizer(piano_roll_frame)
+        piano_roll_frame.pack(fill="both", expand=True, pady=(0, 2))
+        self.input_piano_roll = PianoRollVisualizer(piano_roll_frame, height=150)  # Increased height
         
         # Input playback controls
         controls_frame = ttk.Frame(query_frame)
@@ -193,12 +197,10 @@ class MIDISearchApp:
         self.selected_file_var = tk.StringVar(value="No pattern selected")
         ttk.Label(selected_frame, textvariable=self.selected_file_var, wraplength=600).pack(fill="x", pady=(0, 10))
         
-        # Selected pattern piano roll frame - make it expandable
+        # Selected pattern piano roll frame - matching height
         selected_piano_roll_frame = ttk.Frame(selected_frame)
-        selected_piano_roll_frame.pack(fill="both", expand=True, pady=(0, 10))
-        selected_piano_roll_frame.grid_rowconfigure(0, weight=1)
-        selected_piano_roll_frame.grid_columnconfigure(0, weight=1)
-        self.selected_piano_roll = PianoRollVisualizer(selected_piano_roll_frame)
+        selected_piano_roll_frame.pack(fill="both", expand=True, pady=(0, 2))
+        self.selected_piano_roll = PianoRollVisualizer(selected_piano_roll_frame, height=150)  # Same height as input
         
         # Selected pattern playback controls
         selected_controls = ttk.Frame(selected_frame)
@@ -297,6 +299,13 @@ class MIDISearchApp:
                 
                 # Store input file reference
                 self.input_file = path
+                
+                # Get MIDI duration and set time scale
+                midi_data = pretty_midi.PrettyMIDI(path)
+                total_time = max([note.end for instr in midi_data.instruments for note in instr.notes]) - \
+                           min([note.start for instr in midi_data.instruments for note in instr.notes])
+                self.input_piano_roll.set_total_time(total_time)
+                self.selected_piano_roll.set_total_time(total_time)
         
                 # Update input piano roll
                 self.input_piano_roll.update(path)
@@ -337,8 +346,25 @@ class MIDISearchApp:
                 # Update selected file info
                 self.selected_file_var.set(f"Selected: {os.path.basename(file_path)} (Similarity: {similarity})")
                 
-                # Update piano roll
+                # Load MIDI files to get their durations
+                input_midi = pretty_midi.PrettyMIDI(self.input_file)
+                selected_midi = pretty_midi.PrettyMIDI(file_path)
+                
+                # Calculate total time as the maximum of both files
+                input_duration = max([note.end for instr in input_midi.instruments for note in instr.notes]) - \
+                               min([note.start for instr in input_midi.instruments for note in instr.notes])
+                selected_duration = max([note.end for instr in selected_midi.instruments for note in instr.notes]) - \
+                                 min([note.start for instr in selected_midi.instruments for note in instr.notes])
+                total_time = max(input_duration, selected_duration)
+                
+                # Set the same time scale for both piano rolls
+                self.input_piano_roll.set_total_time(total_time)
+                self.selected_piano_roll.set_total_time(total_time)
+                
+                # Update piano rolls
                 self.selected_piano_roll.update(file_path)
+                self.input_piano_roll.update(self.input_file)  # Redraw input with new time scale
+                
         except Exception as e:
             self.logger.error(f"Error selecting result: {str(e)}")
             messagebox.showerror("Error", f"Failed to select result: {str(e)}")

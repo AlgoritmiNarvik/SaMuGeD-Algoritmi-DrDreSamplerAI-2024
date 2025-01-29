@@ -5,7 +5,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 class PianoRollVisualizer:
-    def __init__(self, frame: tk.Widget, height: int = 120):
+    def __init__(self, frame: tk.Widget, height: int = 80):
         """Initialize piano roll visualizer
         
         Args:
@@ -17,6 +17,7 @@ class PianoRollVisualizer:
         self.width = 600  # Default width
         self.current_midi: Optional[pretty_midi.PrettyMIDI] = None
         self.start_time = 0  # Start time after skipping empty bars
+        self.total_time = 4.0  # Default total time window (4 seconds)
         
         # Colors - Improved visibility
         self.bg_color = '#2b2b2b'      # Dark but not too dark background
@@ -34,14 +35,15 @@ class PianoRollVisualizer:
         
     def _setup_canvas(self):
         """Setup the Tkinter canvas"""
-        # Create canvas
+        # Create canvas with fixed width
         self.canvas = tk.Canvas(
             self.frame,
             height=self.height,
+            width=600,  # Fixed width for both piano rolls
             bg=self.bg_color,
             highlightthickness=0
         )
-        self.canvas.pack(fill=tk.X, expand=True)
+        self.canvas.pack(fill="both", expand=True)
         
         # Bind resize event
         self.canvas.bind('<Configure>', self._on_resize)
@@ -94,7 +96,7 @@ class PianoRollVisualizer:
                         20, y,
                         text=note_name,
                         fill=self.text_color,
-                        font=('Helvetica', 9, 'bold')
+                        font=('Helvetica', 9)  # Removed bold
                     )
         except Exception as e:
             print(f"Warning: Could not create note labels: {str(e)}")
@@ -175,7 +177,7 @@ class PianoRollVisualizer:
                     x, self.height - 5,
                     text=f"{time:.1f}s",
                     fill=self.text_color,
-                    font=('Helvetica', 9, 'bold')
+                    font=('Helvetica', 9)  # Removed bold
                 )
             
             # Horizontal pitch lines
@@ -200,6 +202,12 @@ class PianoRollVisualizer:
         except Exception as e:
             print(f"Warning: Could not draw grid: {str(e)}")
 
+    def set_total_time(self, total_time: float):
+        """Set the total time window for visualization"""
+        self.total_time = max(1.0, total_time)  # Minimum 1 second
+        if self.current_midi:
+            self._redraw()
+
     def _redraw(self):
         """Redraw the entire piano roll"""
         try:
@@ -211,7 +219,9 @@ class PianoRollVisualizer:
             # Find start and end times
             start_time = self._find_first_note_time()
             end_time = self._find_last_note_time()
-            total_time = end_time - start_time
+            
+            # Use either the actual duration or the set total_time
+            total_time = min(end_time - start_time, self.total_time)
             
             if total_time <= 0:
                 return
