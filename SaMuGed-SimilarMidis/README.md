@@ -74,12 +74,25 @@ See `requirements.txt` for detailed dependencies.
 
 ```
 ├── app.py              # Main application and GUI
+├── piano_roll.py       # Piano roll visualization component
+├── midi_player.py      # MIDI playback functionality
+├── database.py         # Dataset handling and similarity search
+├── feature_calculator.py # MIDI feature extraction and analysis
 ├── config.py           # Configuration settings
-├── database.py         # Dataset handling and search
-├── feature_calculator.py # MIDI feature extraction
 ├── requirements.txt    # Project dependencies
 ├── docs/              # Documentation
-│   ├── PROGRESS.md    # Development progress
-│   └── ...
-└── datasets/          # MIDI dataset directory
+│   ├── PROGRESS.md    # Development progress tracking
+│   └── Clustering_repeated_motifs_v040_clean.ipynb  # Clustering analysis notebook
+├── datasets/          # MIDI dataset directory
+│   └── Lakh_MIDI_Clean_Patterns_v1/  # Main dataset location
+└── cache/            # Cache directory for processed data
 ```
+
+Key Components:
+- `app.py`: Main application entry point with GUI implementation
+- `piano_roll.py`: Handles visualization of MIDI patterns in piano roll format
+- `midi_player.py`: Manages MIDI file playback and audio output
+- `database.py`: Handles dataset operations and similarity search functionality
+- `feature_calculator.py`: Extracts and processes MIDI features for analysis
+- `config.py`: Contains configuration parameters and settings
+- `cache/`: Stores processed dataset information for faster loading
