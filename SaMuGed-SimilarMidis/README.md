@@ -2,6 +2,25 @@
 
 A Python application for finding similar MIDI patterns using feature-based similarity search.
 
+## Development Progress
+
+The project maintains detailed progress tracking in `docs/PROGRESS.md`. Current version is v1.1.6 with the following major milestones achieved:
+
+- Core MIDI feature extraction and similarity search ✓
+- Feature weights system and GUI ✓
+- MIDI playback with controls ✓
+- Dataset caching system ✓
+- Piano roll visualization ✓
+- Advanced playback state management ✓
+
+Upcoming planned versions:
+- v1.1.7: Piano Roll Fine-tuning
+- v1.2.0: Advanced Playback Features
+- v1.3.0: Enhanced MIDI Processing
+- v1.4.0: Advanced Features
+
+For detailed progress tracking, feature status, and development plans, please refer to `docs/PROGRESS.md`.
+
 ## Features
 
 - MIDI feature extraction (pitch, rhythm, tempo analysis)
@@ -14,7 +33,7 @@ A Python application for finding similar MIDI patterns using feature-based simil
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/SaMuGed-SimilarMidis.git
+   git clone [https://github.com/yourusername/SaMuGed-SimilarMidis.git](https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSamplerAI-2024)
    cd SaMuGed-SimilarMidis
    ```
 
