@@ -50,11 +50,17 @@ For detailed progress tracking, feature status, and development plans, please re
 
 ## Usage
 
-1. Place your MIDI dataset in `datasets/Lakh_MIDI_Clean_Patterns_v1/`
+1. Dataset Setup:
+   - Create the directory `SaMuGed-SimilarMidis/datasets` if it doesn't exist
+   - Place your MIDI dataset in `SaMuGed-SimilarMidis/datasets/Lakh_MIDI_Clean_Patterns_v1/`
+   - For now we use dataset Lakh_MIDI_Clean_Patterns_v1 form Asle Øren that you can find here [Lakh_MIDI_Clean_Patterns_v1.zip](https://universitetetitromso.sharepoint.com/:u:/s/O365-AIMusicExpo2024/ETsYg7LmqI5LtZEQOsQR0FsB8mK_bY02lymu1OI_9lb7oA?e=5RFmuH) (access internal only if you have UiT account)
+   - Without a properly placed dataset, the application will not be able to perform similarity searches
+
 2. Run the application:
    ```bash
    python app.py
    ```
+
 3. Use the interface to:
    - Adjust feature weights using sliders
    - Load a query MIDI file
