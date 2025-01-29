@@ -228,13 +228,58 @@
   - Multi-track support
   - MIDI export functionality
 
+## v1.1.6 (Current)
+
+### Piano Roll Visualization Improvements [✓]
+- [x] Fixed note visibility with bright green color
+- [x] Added proper error handling for MIDI visualization
+- [x] Implemented pitch range normalization
+- [x] Added highlight effect for better note visibility
+- [x] Fixed note label creation issues
+- [x] Improved grid line visibility
+- [x] Added recovery mechanisms for visualization errors
+
+### Known Issues [ ]
+- [ ] Piano Roll Fine-tuning Needed
+  - Note labels should not be bold
+  - Input piano roll needs equal time scale with selected pattern
+  - Grid lines could be more subtle
+  - Need better vertical space utilization
+  - Could use velocity-based note coloring
+- [ ] UI Layout Issues
+  - Some elements still need better alignment
+  - Need more consistent spacing between elements
+  - Status bar could use better organization
+- [ ] MIDI Processing Issues
+  - Empty bars at start need more accurate detection
+  - Need to handle MIDI files with no notes gracefully
+  - Better tempo detection needed for some files
+  - Need to handle multi-track MIDI files better
+
+### Next Steps [ ]
+- [ ] Further Piano Roll Improvements
+  - Implement equal time scaling between rolls
+  - Add velocity-based note coloring
+  - Fine-tune label and grid appearance
+  - Add zoom controls for detailed view
+  - Add note information on hover
+- [ ] UI Improvements
+  - Add more visual feedback for parameter changes
+  - Improve status bar organization
+  - Add tooltips for controls
+  - Better spacing and alignment
+- [ ] MIDI Processing
+  - Better empty bar detection
+  - Improved tempo detection
+  - Multi-track support
+  - MIDI export functionality
+
 ## Planned Versions
-- v1.1.6: Piano Roll Enhancement
-  - Pitch normalization system
-  - Enhanced note visualization
-  - Better grid system
-  - Interactive features (zoom, hover info)
-  - Improved time scale display
+- v1.1.7: Piano Roll Fine-tuning
+  - Equal time scaling
+  - Velocity-based coloring
+  - Label and grid refinements
+  - Interactive features
 
 - v1.2.0: Advanced Playback Features
   - Add playback position indicator
