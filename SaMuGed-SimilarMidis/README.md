@@ -82,7 +82,7 @@ See `requirements.txt` for detailed dependencies.
 ├── requirements.txt    # Project dependencies
 ├── docs/              # Documentation
 │   ├── PROGRESS.md    # Development progress tracking
-│   └── Clustering_repeated_motifs_v040_clean.ipynb  # Clustering analysis notebook
+│   └── Clustering_repeated_motifs_v040_clean.ipynb  # Clustering analysis notebook (my reference for code)
 ├── datasets/          # MIDI dataset directory
 │   └── Lakh_MIDI_Clean_Patterns_v1/  # Main dataset location
 └── cache/            # Cache directory for processed data
