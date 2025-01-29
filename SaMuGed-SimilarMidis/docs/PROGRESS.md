@@ -238,41 +238,42 @@
 - [x] Fixed note label creation issues
 - [x] Improved grid line visibility
 - [x] Added recovery mechanisms for visualization errors
+- [x] Made piano roll panels equal width
+- [x] Removed bold formatting from note labels
+- [x] Synchronized time scales between input and selected patterns
+- [x] Improved vertical space utilization
+- [x] Fixed alignment of piano roll headers
 
 ### Known Issues [ ]
+- [ ] Playback Issues
+  - Error updating playback state with invalid command name
+  - Need better cleanup of playback resources
+  - Playback controls could use better state synchronization
 - [ ] Piano Roll Fine-tuning Needed
-  - Note labels should not be bold
-  - Input piano roll needs equal time scale with selected pattern
-  - Grid lines could be more subtle
-  - Need better vertical space utilization
   - Could use velocity-based note coloring
+  - Need zoom controls for detailed view
+  - Time markers could be more informative
+  - Grid lines could be more subtle
 - [ ] UI Layout Issues
-  - Some elements still need better alignment
-  - Need more consistent spacing between elements
-  - Status bar could use better organization
-- [ ] MIDI Processing Issues
-  - Empty bars at start need more accurate detection
-  - Need to handle MIDI files with no notes gracefully
-  - Better tempo detection needed for some files
-  - Need to handle multi-track MIDI files better
+  - Status bar needs better organization
+  - Need tooltips for controls and features
+  - Volume control needs better visual feedback
 
 ### Next Steps [ ]
-- [ ] Further Piano Roll Improvements
-  - Implement equal time scaling between rolls
+- [ ] Fix Playback Issues
+  - Implement proper playback state cleanup
+  - Add better error handling for playback controls
+  - Improve state synchronization between controls
+- [ ] Enhance Piano Roll Features
   - Add velocity-based note coloring
-  - Fine-tune label and grid appearance
-  - Add zoom controls for detailed view
-  - Add note information on hover
-- [ ] UI Improvements
-  - Add more visual feedback for parameter changes
-  - Improve status bar organization
-  - Add tooltips for controls
-  - Better spacing and alignment
-- [ ] MIDI Processing
-  - Better empty bar detection
-  - Improved tempo detection
-  - Multi-track support
-  - MIDI export functionality
+  - Implement zoom controls
+  - Add more informative time markers
+  - Fine-tune grid line appearance
+- [ ] Polish UI
+  - Reorganize status bar
+  - Add tooltips
+  - Improve volume control feedback
+  - Add keyboard shortcuts for common actions
 
 ## Planned Versions
 - v1.1.7: Piano Roll Fine-tuning
