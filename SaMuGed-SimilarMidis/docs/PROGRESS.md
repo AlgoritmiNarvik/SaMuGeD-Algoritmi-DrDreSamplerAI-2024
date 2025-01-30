@@ -88,6 +88,8 @@
 - [x] Proper note duration display
 
 ### Known Issues [ ]
+- [ ] No playback on windows in GUI
+- [ ] Display issues of buttons with nigth theme on Windows
 - [ ] Playback Control Issues
   - Multiple files can play simultaneously when switching between input and selected patterns
   - Need to properly stop previous playback before starting new one
