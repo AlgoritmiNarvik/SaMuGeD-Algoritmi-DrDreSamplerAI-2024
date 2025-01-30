@@ -39,7 +39,7 @@ For detailed progress tracking, feature status, and development plans, please re
 
 1. Clone the repository:
    ```bash
-   git clone [https://github.com/yourusername/SaMuGed-SimilarMidis.git](https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSamplerAI-2024)
+   git clone https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSamplerAI-2024
    cd SaMuGed-SimilarMidis
    ```
 
