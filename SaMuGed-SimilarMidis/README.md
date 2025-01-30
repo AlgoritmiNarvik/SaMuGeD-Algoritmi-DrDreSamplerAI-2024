@@ -2,6 +2,12 @@
 
 A Python application for finding similar MIDI patterns using feature-based similarity search.
 
+<div align="center">
+<h3>SimilarPatterns GUI v1.1.3</h3>
+
+![SimilarPatterns GUI v1.1.3](SimilarPatterns-GUI-v1.1.3.png)
+</div>
+
 ## Development Progress
 
 The project maintains detailed progress tracking in `docs/PROGRESS.md`. Current version is v1.1.6 with the following major milestones achieved:
