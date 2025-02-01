@@ -320,3 +320,7 @@
   - Advanced visualization options
   - Batch processing capabilities
   - Plugin system for extensions
+
+## Logging & Investigation
+- Integrated logging across all modules (including midi_player.py, feature_calculator.py, database.py, etc.) for diagnostics and troubleshooting.
+- Detailed logs capture events, errors, and state changes, which are being used to investigate issues such as MIDI playback problems on Windows PCs.

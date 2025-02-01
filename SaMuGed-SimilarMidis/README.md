@@ -102,3 +102,9 @@ Key Components:
 - `feature_calculator.py`: Extracts and processes MIDI features for analysis
 - `config.py`: Contains configuration parameters and settings
 - `cache/`: Stores processed dataset information for faster loading
+
+## Logging & Debugging
+
+This application integrates logging across all modules for diagnostics and troubleshooting. Detailed logs capture events, errors, and state changes from modules including `midi_player.py`, `feature_calculator.py`, `database.py`, and others. Log files (e.g., `midi_player.log`) provide critical insights, which is particularly helpful for diagnosing issues.
+
+Developers and users can refer to these logs to monitor the application's performance and to troubleshoot problems.

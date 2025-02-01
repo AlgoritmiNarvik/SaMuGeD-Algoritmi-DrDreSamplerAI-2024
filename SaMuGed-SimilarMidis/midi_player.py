@@ -1,4 +1,5 @@
 import os
+import platform
 import pygame
 import pygame.midi
 from typing import Optional, Callable
@@ -124,6 +125,7 @@ class MIDIPlayer:
         try:
             # Always stop current playback first
             self.stop()
+            self.logger.debug(f"Platform: {platform.system()}, mixer init: {pygame.mixer.get_init()}, volume: {self.volume}")
                 
             if not os.path.exists(midi_file):
                 error_msg = f"MIDI file not found: {midi_file}"
