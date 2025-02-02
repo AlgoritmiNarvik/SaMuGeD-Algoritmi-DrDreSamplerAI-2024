@@ -247,6 +247,14 @@
 - [x] Improved vertical space utilization
 - [x] Fixed alignment of piano roll headers
 
+### UI Theme Improvements [✓]
+- [x] Implemented universal dark theme compatible with all platforms
+- [x] Enhanced contrast for better visibility
+- [x] Added consistent accent colors for playback controls
+- [x] Improved button visibility on Windows
+- [x] Standardized color scheme across all UI elements
+- [x] Refined text colors for better readability
+
 ### Dataset Integration [✓]
 - [x] Added clear dataset path requirements
 - [x] Specified Lakh_MIDI_Clean_Patterns_v1 as current dataset

@@ -64,23 +64,23 @@ class MIDISearchApp:
         style.configure("Heading.TLabel", font=('Helvetica', 12, 'bold'))
         style.configure("Title.TLabel", font=('Helvetica', 14, 'bold'))
         
-        # Configure dark theme colors
-        style.configure(".", background='#2b2b2b', foreground='#ffffff')
-        style.configure("TFrame", background='#2b2b2b')
-        style.configure("TLabel", background='#2b2b2b', foreground='#ffffff')
-        style.configure("TButton", background='#404040', foreground='#ffffff')
-        style.configure("Treeview", background='#333333', foreground='#ffffff', fieldbackground='#333333')
-        style.configure("TScale", background='#2b2b2b', troughcolor='#404040')
-        style.configure("Vertical.TScrollbar", background='#404040', troughcolor='#2b2b2b')
-        style.configure("Horizontal.TScrollbar", background='#404040', troughcolor='#2b2b2b')
-        style.configure("TProgressbar", background='#404040', troughcolor='#2b2b2b')
-        style.configure("TLabelframe", background='#2b2b2b', foreground='#ffffff')
-        style.configure("TLabelframe.Label", background='#2b2b2b', foreground='#ffffff')
+        # Updated universal dark theme colors for cross-platform consistency
+        style.configure(".", background="#282c34", foreground="#abb2bf")
+        style.configure("TFrame", background="#282c34")
+        style.configure("TLabel", background="#282c34", foreground="#abb2bf")
+        style.configure("TButton", background="#3a3f4b", foreground="#abb2bf")
+        style.configure("Treeview", background="#3e4451", foreground="#abb2bf", fieldbackground="#3e4451")
+        style.configure("TScale", background="#282c34", troughcolor="#3a3f4b")
+        style.configure("Vertical.TScrollbar", background="#3a3f4b", troughcolor="#282c34")
+        style.configure("Horizontal.TScrollbar", background="#3a3f4b", troughcolor="#282c34")
+        style.configure("TProgressbar", background="#3a3f4b", troughcolor="#282c34")
+        style.configure("TLabelframe", background="#282c34", foreground="#abb2bf")
+        style.configure("TLabelframe.Label", background="#282c34", foreground="#abb2bf")
         
-        # Configure playback button styles
-        style.configure("Play.TButton", background='#4CAF50')  # Green
-        style.configure("Pause.TButton", background='#FFA500')  # Orange
-        style.configure("Stop.TButton", background='#f44336')   # Red
+        # Configure playback button styles with accent colors
+        style.configure("Play.TButton", background="#61afef", foreground="#ffffff")
+        style.configure("Pause.TButton", background="#e5c07b", foreground="#ffffff")
+        style.configure("Stop.TButton", background="#e06c75", foreground="#ffffff")
         
         # Configure grid
         self.root.grid_columnconfigure(0, weight=1)
