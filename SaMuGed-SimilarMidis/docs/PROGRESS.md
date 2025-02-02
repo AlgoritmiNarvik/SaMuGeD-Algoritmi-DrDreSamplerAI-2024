@@ -254,6 +254,8 @@
 - [x] Improved button visibility on Windows
 - [x] Standardized color scheme across all UI elements
 - [x] Refined text colors for better readability
+  (couldn't check properly on windows though)
+
 
 ### Dataset Integration [✓]
 - [x] Added clear dataset path requirements
