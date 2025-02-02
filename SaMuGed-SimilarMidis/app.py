@@ -68,19 +68,72 @@ class MIDISearchApp:
         style.configure(".", background="#282c34", foreground="#abb2bf")
         style.configure("TFrame", background="#282c34")
         style.configure("TLabel", background="#282c34", foreground="#abb2bf")
-        style.configure("TButton", background="#3a3f4b", foreground="#abb2bf")
-        style.configure("Treeview", background="#3e4451", foreground="#abb2bf", fieldbackground="#3e4451")
-        style.configure("TScale", background="#282c34", troughcolor="#3a3f4b")
-        style.configure("Vertical.TScrollbar", background="#3a3f4b", troughcolor="#282c34")
-        style.configure("Horizontal.TScrollbar", background="#3a3f4b", troughcolor="#282c34")
-        style.configure("TProgressbar", background="#3a3f4b", troughcolor="#282c34")
-        style.configure("TLabelframe", background="#282c34", foreground="#abb2bf")
-        style.configure("TLabelframe.Label", background="#282c34", foreground="#abb2bf")
+        style.configure("TButton", 
+                       background="#3a3f4b", 
+                       foreground="#abb2bf",
+                       borderwidth=1,
+                       relief="raised")
+        style.map("TButton",
+                 background=[('active', '#4a5261'), ('pressed', '#2c313a')],
+                 relief=[('pressed', 'sunken')])
+                 
+        # Enhanced Treeview styling
+        style.configure("Treeview", 
+                       background="#3e4451", 
+                       foreground="#abb2bf", 
+                       fieldbackground="#3e4451",
+                       borderwidth=0)
+        style.map("Treeview",
+                 background=[('selected', '#4a5261')],
+                 foreground=[('selected', '#ffffff')])
+                 
+        style.configure("TScale", 
+                       background="#282c34", 
+                       troughcolor="#3a3f4b",
+                       borderwidth=0)
+        style.configure("Vertical.TScrollbar", 
+                       background="#3a3f4b", 
+                       troughcolor="#282c34",
+                       borderwidth=1,
+                       arrowcolor="#abb2bf")
+        style.configure("Horizontal.TScrollbar", 
+                       background="#3a3f4b", 
+                       troughcolor="#282c34",
+                       borderwidth=1,
+                       arrowcolor="#abb2bf")
+        style.configure("TProgressbar", 
+                       background="#3a3f4b", 
+                       troughcolor="#282c34",
+                       borderwidth=0)
+        style.configure("TLabelframe", 
+                       background="#282c34", 
+                       foreground="#abb2bf",
+                       borderwidth=1)
+        style.configure("TLabelframe.Label", 
+                       background="#282c34", 
+                       foreground="#abb2bf")
         
-        # Configure playback button styles with accent colors
-        style.configure("Play.TButton", background="#61afef", foreground="#ffffff")
-        style.configure("Pause.TButton", background="#e5c07b", foreground="#ffffff")
-        style.configure("Stop.TButton", background="#e06c75", foreground="#ffffff")
+        # Configure playback button styles with accent colors and states
+        style.configure("Play.TButton", 
+                       background="#61afef", 
+                       foreground="#ffffff",
+                       borderwidth=1)
+        style.map("Play.TButton",
+                 background=[('active', '#7dbeff'), ('pressed', '#4a8cc4')])
+                 
+        style.configure("Pause.TButton", 
+                       background="#e5c07b", 
+                       foreground="#ffffff",
+                       borderwidth=1)
+        style.map("Pause.TButton",
+                 background=[('active', '#ffd694'), ('pressed', '#b89862')])
+                 
+        style.configure("Stop.TButton", 
+                       background="#e06c75", 
+                       foreground="#ffffff",
+                       borderwidth=1)
+        style.map("Stop.TButton",
+                 background=[('active', '#ff858f'), ('pressed', '#b3555c')])
         
         # Configure grid
         self.root.grid_columnconfigure(0, weight=1)

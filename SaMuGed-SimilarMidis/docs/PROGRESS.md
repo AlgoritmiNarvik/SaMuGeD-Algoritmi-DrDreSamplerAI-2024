@@ -254,8 +254,11 @@
 - [x] Improved button visibility on Windows
 - [x] Standardized color scheme across all UI elements
 - [x] Refined text colors for better readability
-  (couldn't check properly on windows though)
-
+- [x] Added explicit hover and pressed states for buttons
+- [x] Enhanced selection highlighting in Treeview
+- [x] Standardized border widths and relief styles
+- [x] Improved scroll bar visibility with arrow colors
+  (couldn't check properly on windows yet though)
 
 ### Dataset Integration [✓]
 - [x] Added clear dataset path requirements
