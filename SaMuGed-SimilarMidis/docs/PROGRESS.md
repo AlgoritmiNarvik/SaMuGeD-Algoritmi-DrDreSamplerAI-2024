@@ -88,7 +88,8 @@
 - [x] Proper note duration display
 
 ### Known Issues [ ]
-- [ ] No playback on windows in GUI
+- [ ] No playback on Windows PC in GUI (works just fine on MacOS)
+  (because of pygame? drivers? waiting feedback with logging details from Peiyi's tests since she has a windows pc)
 - [ ] Display issues of buttons with nigth theme on Windows
 - [ ] Playback Control Issues
   - Multiple files can play simultaneously when switching between input and selected patterns
