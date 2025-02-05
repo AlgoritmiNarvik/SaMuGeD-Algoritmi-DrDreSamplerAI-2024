@@ -11,5 +11,5 @@ DEFAULT_FEATURE_WEIGHTS = {
     'contour_slope': 1.2
 }
 
-MAX_RESULTS = 50
+MAX_RESULTS = 100
 DATASET_PATH = "datasets/Lakh_MIDI_Clean_Patterns_v1"

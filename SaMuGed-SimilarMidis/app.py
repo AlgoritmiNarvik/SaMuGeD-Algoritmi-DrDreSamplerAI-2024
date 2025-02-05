@@ -5,7 +5,7 @@ from typing import List, Tuple, Optional
 import os
 from config import DEFAULT_FEATURE_WEIGHTS, DATASET_PATH
 from database import MIDIDatabase
-from midi_player import MIDIPlayer, PlaybackState
+from fluidsynth_player import FluidSynthPlayer as MIDIPlayer, PlaybackState
 from piano_roll import PianoRollVisualizer
 import sys
 import pretty_midi
@@ -57,8 +57,12 @@ class MIDISearchApp:
         self.root.title("SaMuGed - MIDI Pattern Finder")
         self.root.geometry("1400x900")  # Larger window
         
-        # Configure modern style
+        # Configure modern style with cross-platform consistency
         style = ttk.Style()
+        import platform
+        if platform.system() == "Windows":
+            # Force consistent styling on Windows using 'clam' theme
+            style.theme_use("clam")
         style.configure(".", font=('Helvetica', 10))
         style.configure("Treeview", rowheight=25)
         style.configure("Heading.TLabel", font=('Helvetica', 12, 'bold'))
