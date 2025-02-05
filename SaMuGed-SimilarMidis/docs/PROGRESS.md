@@ -310,6 +310,53 @@
   - Improve volume control feedback
   - Add keyboard shortcuts for common actions
 
+## v1.1.7 (Current)
+
+### Audio System Improvements [✓]
+- [x] Replaced pygame MIDI with FluidSynth for better sound quality
+- [x] Added platform-specific audio drivers (coreaudio/dsound/alsa)
+- [x] Implemented direct MIDI note playback with proper timing
+- [x] Added volume control with gain adjustment
+- [x] Added automatic silence trimming for MIDI files
+- [x] Implemented repeat playback functionality
+- [x] Improved error handling and logging for audio system
+
+### Cross-Platform UI Consistency [✓]
+- [x] Implemented universal dark theme compatible with all platforms
+- [x] Added Windows-specific theme adjustments using 'clam'
+- [x] Enhanced button states and visual feedback
+- [x] Improved Treeview and scrollbar visibility
+- [x] Standardized colors and contrast across platforms
+- [x] Increased max search results from 50 to 100
+
+### Known Issues [ ]
+- [ ] FluidSynth Setup
+  - [x] Added FluidR3_GM.sf2 soundfont to application
+  - [ ] Need to handle soundfont loading errors gracefully
+  - [ ] Need to test FluidSynth on different Windows versions
+- [ ] UI Fine-tuning
+  - Some elements might need size adjustments on Windows
+  - Need to test high DPI displays
+  - Font rendering differences between platforms
+- [ ] Playback Features
+  - Need to add visual feedback for repeat mode
+  - Need to add repeat toggle control in UI
+  - Consider adding loop point selection
+
+### Next Steps [ ]
+- [ ] Enhance Playback Controls
+  - Add repeat mode toggle button
+  - Add visual indicator for repeat status
+  - Add loop point selection interface
+- [ ] UI Polish
+  - Add more visual feedback for playback state
+  - Fine-tune element sizes for Windows
+  - Test and adjust for various display configurations
+- [ ] Documentation
+  - Update user guide with new FluidSynth features
+  - Add troubleshooting section for audio setup
+  - Document platform-specific considerations
+
 ## Planned Versions
 - v1.1.7: Piano Roll Fine-tuning
   - Equal time scaling
