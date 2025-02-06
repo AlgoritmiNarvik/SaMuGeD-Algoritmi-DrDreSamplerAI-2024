@@ -1,5 +1,24 @@
 # Progress
 
+## v1.1.7 (Current)
+
+### Audio System Improvements [✓]
+- [x] Replaced pygame MIDI with FluidSynth for better sound quality
+- [x] Added platform-specific audio drivers (coreaudio/dsound/alsa)
+- [x] Implemented direct MIDI note playback with proper timing
+- [x] Added volume control with gain adjustment
+- [x] Added automatic silence trimming for MIDI files
+- [x] Implemented repeat playback functionality
+- [x] Improved error handling and logging for audio system
+
+### Cross-Platform UI Consistency [✓]
+- [x] Implemented universal dark theme compatible with all platforms
+- [x] Added Windows-specific theme adjustments using 'clam'
+- [x] Enhanced button states and visual feedback
+- [x] Improved Treeview and scrollbar visibility
+- [x] Standardized colors and contrast across platforms
+- [x] Increased max search results from 50 to 100
+---
 ## v1.0.0 (Previous)
 
 ### Core [✓]
@@ -69,7 +88,7 @@
 - [x] Graceful handling of empty dataset directory
 - [x] Proper subdirectory scanning for MIDI files
 
-## v1.1.3 (Current)
+## v1.1.3
 
 ### UI Improvements [✓]
 - [x] Added piano roll visualization for input and selected MIDI
@@ -133,7 +152,7 @@
   - Add incremental dataset updates
   - Add dataset statistics view
 
-## v1.1.4 (Current)
+## v1.1.4
 
 ### Playback Improvements [✓]
 - [x] Fixed simultaneous playback issue
@@ -184,7 +203,7 @@
   - Multi-track support
   - MIDI export functionality
 
-## v1.1.5 (Current)
+## v1.1.5
 
 ### Search Parameter Improvements [✓]
 - [x] Added "Search Again" button for manual search updates
@@ -231,7 +250,7 @@
   - Multi-track support
   - MIDI export functionality
 
-## v1.1.6 (Current)
+## v1.1.6
 
 ### Piano Roll Visualization Improvements [✓]
 - [x] Fixed note visibility with bright green color
@@ -310,24 +329,6 @@
   - Improve volume control feedback
   - Add keyboard shortcuts for common actions
 
-## v1.1.7 (Current)
-
-### Audio System Improvements [✓]
-- [x] Replaced pygame MIDI with FluidSynth for better sound quality
-- [x] Added platform-specific audio drivers (coreaudio/dsound/alsa)
-- [x] Implemented direct MIDI note playback with proper timing
-- [x] Added volume control with gain adjustment
-- [x] Added automatic silence trimming for MIDI files
-- [x] Implemented repeat playback functionality
-- [x] Improved error handling and logging for audio system
-
-### Cross-Platform UI Consistency [✓]
-- [x] Implemented universal dark theme compatible with all platforms
-- [x] Added Windows-specific theme adjustments using 'clam'
-- [x] Enhanced button states and visual feedback
-- [x] Improved Treeview and scrollbar visibility
-- [x] Standardized colors and contrast across platforms
-- [x] Increased max search results from 50 to 100
 
 ### Known Issues [ ]
 - [ ] FluidSynth Setup
