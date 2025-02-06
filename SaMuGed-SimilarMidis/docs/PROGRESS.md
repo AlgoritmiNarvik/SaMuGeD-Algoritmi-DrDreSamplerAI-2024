@@ -358,6 +358,35 @@
   - Add troubleshooting section for audio setup
   - Document platform-specific considerations
 
+## Unit Testing Priority [ ]
+- [ ] Core Feature Extraction & Analysis
+  - Port existing tests from Clustering_repeated_motifs_v040_clean.ipynb
+  - Expand test coverage for feature calculation
+  - Add tests for similarity search algorithms
+  - Test edge cases in MIDI processing
+- [ ] Database & Caching
+  - Test dataset loading and processing
+  - Verify cache functionality
+  - Test search result accuracy
+  - Add performance benchmarks
+- [ ] Audio System
+  - Test FluidSynth integration
+  - Verify playback state management
+  - Test audio driver compatibility
+  - Add stress tests for concurrent playback
+- [ ] UI Components
+  - Test piano roll rendering
+  - Verify user input handling
+  - Test state management
+  - Add integration tests for UI flows
+
+### Testing Goals
+- Achieve 95%+ test coverage
+- Implement continuous integration
+- Establish automated test pipeline
+- Regular benchmark testing
+- Regression test suite
+
 ## Planned Versions
 - v1.1.7: Piano Roll Fine-tuning
   - Equal time scaling
