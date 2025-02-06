@@ -2,7 +2,7 @@ import multiprocessing.process
 import os
 import tkinter as tk
 from tkinter.filedialog import askopenfilename, askdirectory
-from pattern_detection import asle
+from pattern_detection_old import asle # NOTE: THIS WAS USED TO CREATE THE LAST DATASET
 import multiprocessing
 import threading
 
