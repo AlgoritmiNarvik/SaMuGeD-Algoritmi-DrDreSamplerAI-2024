@@ -1,0 +1,10 @@
+numpy==1.26.3
+scikit-learn==1.6.1
+faiss-cpu==1.7.4
+pretty_midi==0.2.10
+pyfluidsynth==1.3.2
+pillow==10.2.0
+# Windows specific dependencies
+pywin32==306
+# For the executable
+pyinstaller==6.2.0 

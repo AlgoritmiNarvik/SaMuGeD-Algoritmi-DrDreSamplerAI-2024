@@ -5,7 +5,7 @@ from typing import List, Dict, Tuple
 import faiss
 import logging
 from sklearn.preprocessing import StandardScaler
-from config import DEFAULT_FEATURE_WEIGHTS, DATASET_PATH, MAX_RESULTS
+from config import DEFAULT_FEATURE_WEIGHTS, DATASET_PATH, MAX_RESULTS, CACHE_DIR
 from feature_calculator import FeatureCalculator
 
 class MIDIDatabase:
@@ -15,7 +15,7 @@ class MIDIDatabase:
         self.file_paths = []
         self.feature_matrix = None
         self.calculator = FeatureCalculator()
-        self.cache_dir = os.path.join(os.path.dirname(__file__), 'cache')
+        self.cache_dir = CACHE_DIR
         self._setup_logging()
         
     def _setup_logging(self):

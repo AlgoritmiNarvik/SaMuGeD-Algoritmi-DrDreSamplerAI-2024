@@ -3,12 +3,20 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from typing import List, Tuple, Optional
 import os
+import sys
+import platform
 from config import DEFAULT_FEATURE_WEIGHTS, DATASET_PATH
 from database import MIDIDatabase
 from fluidsynth_player import FluidSynthPlayer as MIDIPlayer, PlaybackState
 from piano_roll import PianoRollVisualizer
-import sys
 import pretty_midi
+
+# Set DPI awareness for Windows
+try:
+    from ctypes import windll
+    windll.shcore.SetProcessDpiAwareness(1)
+except ImportError:
+    pass  # Not on Windows or missing DLL
 
 class MIDISearchApp:
     def __init__(self, root):
@@ -59,7 +67,6 @@ class MIDISearchApp:
         
         # Configure modern style with cross-platform consistency
         style = ttk.Style()
-        import platform
         if platform.system() == "Windows":
             # Force consistent styling on Windows using 'clam' theme
             style.theme_use("clam")

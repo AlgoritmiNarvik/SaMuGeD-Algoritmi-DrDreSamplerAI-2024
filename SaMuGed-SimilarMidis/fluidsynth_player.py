@@ -7,6 +7,7 @@ import pretty_midi
 import fluidsynth
 import time
 from enum import Enum
+from config import SOUNDFONT_PATH
 
 
 class PlaybackState(Enum):
@@ -29,7 +30,7 @@ class FluidSynthPlayer:
         self.repeat = True  # Add repeat flag
         
         # Set up soundfont path
-        self.soundfont_path = os.path.join(os.path.dirname(__file__), "soundfonts", "FluidR3_GM.sf2")
+        self.soundfont_path = SOUNDFONT_PATH
         if not os.path.exists(self.soundfont_path):
             self.logger.error(f"Soundfont not found at {self.soundfont_path}")
             raise FileNotFoundError(f"Soundfont not found at {self.soundfont_path}")
