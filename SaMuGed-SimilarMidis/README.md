@@ -89,7 +89,7 @@ The web version allows you to run SaMuGed on any device with a web browser.
    PYTHONPATH=. flask --app web/app.py run
    ```
 
-4. Access the application at `http://localhost:5001`
+4. Access the application at `http://localhost:5000`
 
 ## Usage
 

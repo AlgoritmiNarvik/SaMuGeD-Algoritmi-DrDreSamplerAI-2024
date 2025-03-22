@@ -66,7 +66,7 @@ The easiest way to run SaMuGed Web is through Docker:
 
 4. Access the application in your browser:
    ```
-   http://localhost:5001
+   http://localhost:5000
    ```
 
 ## Dataset Setup
