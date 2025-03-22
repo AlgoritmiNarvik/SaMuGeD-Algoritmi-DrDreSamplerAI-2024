@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify, send_file
+from flask import Flask, request, render_template, jsonify, send_file, after_this_request
 import os
 import sys
 import logging
@@ -9,6 +9,8 @@ import pretty_midi
 from io import BytesIO
 import matplotlib.pyplot as plt
 import numpy as np
+import subprocess
+import time
 
 # Add the parent directory to the path so we can import the existing modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -39,6 +41,18 @@ except Exception as e:
 uploaded_files = {}
 # Store piano roll info
 piano_roll_cache = {}
+
+# Path to soundfont file
+SOUNDFONT_PATH = "/app/soundfonts/FluidR3_GM.sf2"
+
+# Check if soundfont exists
+if not os.path.exists(SOUNDFONT_PATH):
+    logger.warning(f"Soundfont not found at {SOUNDFONT_PATH}, using system default if available")
+    # Try to find a system soundfont
+    if os.path.exists("/usr/share/sounds/sf2/FluidR3_GM.sf2"):
+        SOUNDFONT_PATH = "/usr/share/sounds/sf2/FluidR3_GM.sf2"
+    else:
+        logger.error("No soundfont found. Audio playback may not work.")
 
 
 @app.route('/')
@@ -141,15 +155,137 @@ def search_similar():
         return jsonify({'error': str(e)}), 500
 
 
+def create_trimmed_midi(midi_file):
+    """Create a trimmed version of a MIDI file by removing silence at the beginning
+    
+    Args:
+        midi_file: Path to the original MIDI file
+        
+    Returns:
+        Path to the temporary trimmed MIDI file or None if error
+    """
+    try:
+        # Load MIDI
+        midi_data = pretty_midi.PrettyMIDI(midi_file)
+        
+        # Find start time automatically
+        start_time = float('inf')
+        for instrument in midi_data.instruments:
+            if not instrument.is_drum and instrument.notes:
+                first_note = min(instrument.notes, key=lambda x: x.start)
+                start_time = min(start_time, first_note.start)
+        
+        if start_time == float('inf'):
+            start_time = 0
+        
+        if start_time > 0:
+            logger.info(f"Trimming MIDI file, removing {start_time:.2f}s of silence from beginning")
+            
+            # Shift all notes to remove empty space
+            for instrument in midi_data.instruments:
+                for note in instrument.notes:
+                    note.start -= start_time
+                    note.end -= start_time
+        
+        # Save to temporary file
+        fd, temp_path = tempfile.mkstemp(suffix='.mid')
+        os.close(fd)
+        midi_data.write(temp_path)
+        
+        return temp_path
+        
+    except Exception as e:
+        logger.error(f"Error creating trimmed MIDI: {str(e)}")
+        return None
+
+
+def midi_to_wav(midi_path):
+    """Convert a MIDI file to WAV using FluidSynth
+    
+    Args:
+        midi_path: Path to the MIDI file
+        
+    Returns:
+        Path to the temporary WAV file or None if error
+    """
+    try:
+        # First, create a trimmed MIDI file without silence
+        trimmed_midi = create_trimmed_midi(midi_path)
+        if not trimmed_midi:
+            return None
+            
+        # Create a temporary WAV file
+        fd, wav_path = tempfile.mkstemp(suffix='.wav')
+        os.close(fd)
+        
+        # Use FluidSynth to convert MIDI to WAV
+        cmd = [
+            'fluidsynth',
+            '-ni',
+            '-g', '0.7',  # gain (volume)
+            '-F', wav_path,
+            SOUNDFONT_PATH,
+            trimmed_midi
+        ]
+        
+        logger.info(f"Converting MIDI to WAV: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        # Check if conversion was successful
+        if result.returncode != 0:
+            logger.error(f"FluidSynth error: {result.stderr}")
+            os.remove(trimmed_midi)
+            os.remove(wav_path)
+            return None
+            
+        # Clean up the trimmed MIDI file
+        os.remove(trimmed_midi)
+        
+        return wav_path
+        
+    except Exception as e:
+        logger.error(f"MIDI to WAV conversion error: {str(e)}")
+        return None
+
+
 @app.route('/play/<file_id>')
 def play_midi(file_id):
-    """Serve a MIDI file for playback"""
+    """Serve a MIDI file for playback with silence removed"""
     try:
+        logger.info(f"Requested playback for file ID: {file_id}")
+        
         if file_id not in uploaded_files:
+            logger.error(f"File ID not found in uploaded files: {file_id}")
             return jsonify({'error': 'File not found'}), 404
             
         file_path = uploaded_files[file_id]['path']
-        return send_file(file_path, mimetype='audio/midi')
+        logger.info(f"Found file at path: {file_path}")
+        
+        # Check if the file exists
+        if not os.path.exists(file_path):
+            logger.error(f"File does not exist at path: {file_path}")
+            return jsonify({'error': 'File not found on disk'}), 404
+        
+        # Convert MIDI to WAV
+        logger.info(f"Converting MIDI to WAV: {file_path}")
+        wav_path = midi_to_wav(file_path)
+        if not wav_path:
+            logger.error(f"Failed to convert MIDI to WAV: {file_path}")
+            return jsonify({'error': 'Failed to process MIDI file'}), 500
+        
+        logger.info(f"Successfully converted to WAV: {wav_path}")
+        
+        # Set up a callback to remove the temp file after sending
+        @after_this_request
+        def cleanup(response):
+            try:
+                os.remove(wav_path)
+                logger.info(f"Temporary WAV file removed: {wav_path}")
+            except Exception as e:
+                logger.error(f"Error removing temp file: {str(e)}")
+            return response
+            
+        return send_file(wav_path, mimetype='audio/wav', conditional=True)
         
     except Exception as e:
         logger.error(f"Playback error: {str(e)}")
@@ -158,16 +294,60 @@ def play_midi(file_id):
 
 @app.route('/play_result/<path:file_path>')
 def play_result(file_path):
-    """Serve a result MIDI file for playback"""
+    """Serve a result MIDI file for playback with silence removed"""
     try:
-        # Sanitize file path to prevent directory traversal
-        full_path = os.path.join(DATASET_PATH, os.path.basename(file_path))
+        logger.info(f"Requested playback for result file: {file_path}")
         
-        if not os.path.exists(full_path):
-            return jsonify({'error': 'File not found'}), 404
+        # Try to find file in dataset path
+        full_paths = []
+        
+        # First check if the file exists with given path
+        direct_path = os.path.join(DATASET_PATH, file_path)
+        if os.path.exists(direct_path):
+            full_paths.append(direct_path)
+            logger.info(f"Found result file at direct path: {direct_path}")
+        
+        # If not found directly, search for it by basename
+        if not full_paths:
+            basename = os.path.basename(file_path)
+            logger.info(f"Searching for file with basename: {basename}")
             
-        return send_file(full_path, mimetype='audio/midi')
+            for root, dirs, files in os.walk(DATASET_PATH):
+                if basename in files:
+                    found_path = os.path.join(root, basename)
+                    full_paths.append(found_path)
+                    logger.info(f"Found candidate file at: {found_path}")
         
+        # If still no matching files, try to find by filename only
+        if not full_paths:
+            logger.error(f"No files found matching path: {file_path}")
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Use the first found path
+        full_path = full_paths[0]
+        logger.info(f"Using file at path: {full_path}")
+        
+        # Convert MIDI to WAV
+        logger.info(f"Converting MIDI to WAV: {full_path}")
+        wav_path = midi_to_wav(full_path)
+        if not wav_path:
+            logger.error(f"Failed to convert MIDI to WAV: {full_path}")
+            return jsonify({'error': 'Failed to process MIDI file'}), 500
+            
+        logger.info(f"Successfully converted to WAV: {wav_path}")
+        
+        # Set up a callback to remove the temp file after sending
+        @after_this_request
+        def cleanup(response):
+            try:
+                os.remove(wav_path)
+                logger.info(f"Temporary WAV file removed: {wav_path}")
+            except Exception as e:
+                logger.error(f"Error removing temp file: {str(e)}")
+            return response
+            
+        return send_file(wav_path, mimetype='audio/wav', conditional=True)
+            
     except Exception as e:
         logger.error(f"Result playback error: {str(e)}")
         return jsonify({'error': str(e)}), 500
@@ -322,14 +502,42 @@ def visualize_synchronized():
         query_file_id = data.get('query_file_id')
         result_path = data.get('result_path')
         
+        logger.info(f"Visualize synchronized request with query_file_id: {query_file_id}, result_path: {result_path}")
+        
         if query_file_id not in uploaded_files:
+            logger.error(f"Query file not found: {query_file_id}")
             return jsonify({'error': 'Query file not found'}), 404
             
         query_path = uploaded_files[query_file_id]['path']
+        logger.info(f"Query path: {query_path}")
         
-        # Get full path for result file
-        full_result_path = os.path.join(DATASET_PATH, os.path.basename(result_path))
+        # First, try to use the result_path directly if it's a complete path
+        if os.path.isabs(result_path) and os.path.exists(result_path):
+            full_result_path = result_path
+            logger.info(f"Using absolute path directly: {full_result_path}")
+        # Then try using it with the dataset path
+        elif os.path.exists(os.path.join(DATASET_PATH, result_path)):
+            full_result_path = os.path.join(DATASET_PATH, result_path)
+            logger.info(f"Found result file at dataset path: {full_result_path}")
+        # If not found, try to search by basename as a fallback
+        else:
+            basename = os.path.basename(result_path)
+            logger.info(f"Searching for file with basename: {basename}")
+            
+            found = False
+            for root, dirs, files in os.walk(DATASET_PATH):
+                if basename in files:
+                    full_result_path = os.path.join(root, basename)
+                    logger.info(f"Found result file at: {full_result_path}")
+                    found = True
+                    break
+                    
+            if not found:
+                logger.error(f"Result file not found for path: {result_path}")
+                return jsonify({'error': 'Result file not found'}), 404
+        
         if not os.path.exists(full_result_path):
+            logger.error(f"Result file not found at final path: {full_result_path}")
             return jsonify({'error': 'Result file not found'}), 404
             
         # Generate synchronized visualizations

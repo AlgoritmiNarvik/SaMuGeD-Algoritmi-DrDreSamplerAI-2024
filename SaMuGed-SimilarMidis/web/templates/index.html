@@ -299,11 +299,41 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         $(document).ready(function() {
+            // Initialize global variables
             let currentFileId = null;
             let currentSelectedPath = null;
             let isPlaying = false;
+            let volumeLevel = 0.7; // Default volume level
+            
+            // Initialize audio player
             let audioPlayer = document.getElementById('midi-player');
-            let volumeLevel = 0.7;
+            
+            // Disable buttons by default
+            $('#play-input, #pause-input, #stop-input').prop('disabled', true);
+            $('#play-selected, #pause-selected, #stop-selected').prop('disabled', true);
+            
+            // Add random identifier to requests to prevent caching
+            $.ajaxSetup({
+                cache: false,
+                beforeSend: function(xhr) {
+                    xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+                    xhr.setRequestHeader('Pragma', 'no-cache');
+                    xhr.setRequestHeader('Expires', '0');
+                }
+            });
+            
+            // Set volume
+            $('#volume-slider').val(volumeLevel * 100);
+            audioPlayer.volume = volumeLevel;
+            
+            // Volume control
+            $('#volume-slider').on('input', function() {
+                volumeLevel = $(this).val() / 100;
+                audioPlayer.volume = volumeLevel;
+            });
+            
+            // Initialize default volume
+            audioPlayer.volume = 0.7;
             
             // Show file upload form when Load MIDI button is clicked
             $('#load-midi-btn').on('click', function() {
@@ -322,9 +352,6 @@
                     $(`#${featureName}-value`).text(value);
                 }
             });
-            
-            // Set initial volume
-            audioPlayer.volume = 0.7;
             
             // File upload handling
             $('#upload-form').on('submit', function(e) {
@@ -461,23 +488,43 @@
             
             // Handle result selection
             function selectResult(resultRow) {
-                // Update visual selection
-                $('#results-tbody tr').removeClass('selected');
-                resultRow.addClass('selected');
-                
-                // Get the path and piano roll image
-                const path = resultRow.data('path');
-                const fullPath = resultRow.data('full-path') || path;
-                const pianoRollImg = resultRow.data('piano-roll');
-                currentSelectedPath = path;
-                
-                // Update the selected section
-                $('#selected-file').text(`${path} (${resultRow.find('td:first').text()})`);
-                $('#selected-piano-roll').attr('src', pianoRollImg);
-                $('#selected-pattern').show();
-                
-                // Synchronize piano rolls for better comparison
-                synchronizePianoRolls(path);
+                try {
+                    console.log("Selecting result row:", resultRow);
+                    
+                    // Update visual selection
+                    $('#results-tbody tr').removeClass('selected');
+                    resultRow.addClass('selected');
+                    
+                    // Get the path and piano roll image
+                    const path = resultRow.data('path');
+                    const fullPath = resultRow.data('full-path') || path;
+                    const pianoRollImg = resultRow.data('piano-roll');
+                    
+                    console.log("Selected midi path:", path);
+                    console.log("Full path:", fullPath);
+                    
+                    if (!pianoRollImg) {
+                        console.error("No piano roll image available for this result");
+                        showStatus("Error: No piano roll visualization available", "danger");
+                        return;
+                    }
+                    
+                    currentSelectedPath = path;
+                    
+                    // Update the selected section
+                    $('#selected-file').text(`${path} (${resultRow.find('td:first').text()})`);
+                    $('#selected-piano-roll').attr('src', pianoRollImg);
+                    $('#selected-pattern').show();
+                    
+                    // Enable play button now that we have a selected result
+                    $('#play-selected').prop('disabled', false);
+                    
+                    // Synchronize piano rolls for better comparison - use fullPath instead of path
+                    synchronizePianoRolls(fullPath);
+                } catch (error) {
+                    console.error("Error selecting result:", error);
+                    showStatus("Error selecting result: " + error.message, "danger");
+                }
             }
             
             // Synchronize piano rolls when selecting a result
@@ -518,20 +565,76 @@
                 if (!currentFileId) return;
                 
                 stopAnyPlayback();
-                audioPlayer.src = `/play/${currentFileId}`;
-                audioPlayer.play();
-                updatePlaybackState(true, 'input');
-                $('#status-text').text('Playing input...');
+                $('#status-text').text('Loading audio...');
+                
+                // Add timestamp to prevent caching
+                const timestamp = new Date().getTime();
+                const audioUrl = `/play/${currentFileId}?t=${timestamp}`;
+                
+                console.log("Playing input file:", audioUrl);
+                
+                // Create a new Audio element for better error handling
+                const newAudio = new Audio(audioUrl);
+                
+                newAudio.onerror = function() {
+                    console.error("Error loading audio:", this.error);
+                    showStatus('Audio playback error: Could not load audio file', 'danger');
+                    $('#status-text').text('Error');
+                };
+                
+                newAudio.oncanplaythrough = function() {
+                    // Replace the old audio player
+                    audioPlayer.src = audioUrl;
+                    audioPlayer.play()
+                        .then(() => {
+                            console.log("Audio playback started successfully");
+                            updatePlaybackState(true, 'input');
+                            $('#status-text').text('Playing input...');
+                        })
+                        .catch(error => {
+                            console.error("Error playing audio:", error);
+                            showStatus('Audio playback error: ' + error.message, 'danger');
+                            $('#status-text').text('Error');
+                        });
+                };
             });
             
             $('#play-selected').on('click', function() {
                 if (!currentSelectedPath) return;
                 
                 stopAnyPlayback();
-                audioPlayer.src = `/play_result/${currentSelectedPath}`;
-                audioPlayer.play();
-                updatePlaybackState(true, 'selected');
-                $('#status-text').text('Playing selected...');
+                $('#status-text').text('Loading audio...');
+                
+                // Add timestamp to prevent caching
+                const timestamp = new Date().getTime();
+                const audioUrl = `/play_result/${currentSelectedPath}?t=${timestamp}`;
+                
+                console.log("Playing selected file:", audioUrl);
+                
+                // Create a new Audio element for better error handling
+                const newAudio = new Audio(audioUrl);
+                
+                newAudio.onerror = function() {
+                    console.error("Error loading audio:", this.error);
+                    showStatus('Audio playback error: Could not load audio file', 'danger');
+                    $('#status-text').text('Error');
+                };
+                
+                newAudio.oncanplaythrough = function() {
+                    // Replace the old audio player
+                    audioPlayer.src = audioUrl;
+                    audioPlayer.play()
+                        .then(() => {
+                            console.log("Audio playback started successfully");
+                            updatePlaybackState(true, 'selected');
+                            $('#status-text').text('Playing selected...');
+                        })
+                        .catch(error => {
+                            console.error("Error playing audio:", error);
+                            showStatus('Audio playback error: ' + error.message, 'danger');
+                            $('#status-text').text('Error');
+                        });
+                };
             });
             
             $('#pause-input, #pause-selected').on('click', function() {
