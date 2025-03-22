@@ -60,7 +60,7 @@ For detailed progress tracking, feature status, and development plans, please re
 
 ## Algorithm Documentation
 
-The core algorithm for finding similar MIDI patterns is thoroughly documented in the [Clustering Repeated Motifs notebook](https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSamplerAI-2024/blob/main/docs/Clustering_repeated_motifs_v040_clean.ipynb). This Jupyter notebook provides:
+The core algorithm for finding similar MIDI patterns is thoroughly documented in the [Clustering Repeated Motifs notebook](https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSamplerAI-2024/blob/main/SaMuGed-SimilarMidis/docs/Clustering_repeated_motifs_v040_clean.ipynb). This Jupyter notebook provides:
 
 - Detailed explanation of the similarity detection algorithm
 - Feature extraction techniques for MIDI analysis
