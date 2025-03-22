@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SaMuGed - MIDI Pattern Finder</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #282c34;
+            color: #abb2bf;
+            font-family: 'Helvetica', sans-serif;
+        }
+        .card {
+            background-color: #3e4451;
+            border-color: #4a5261;
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background-color: #3a3f4b;
+            color: #abb2bf;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background-color: #61afef;
+            border-color: #61afef;
+        }
+        .btn-primary:hover {
+            background-color: #7dbeff;
+            border-color: #7dbeff;
+        }
+        .btn-warning {
+            background-color: #e5c07b;
+            border-color: #e5c07b;
+            color: #ffffff;
+        }
+        .btn-danger {
+            background-color: #e06c75;
+            border-color: #e06c75;
+        }
+        .btn-success {
+            background-color: #4CAF50;
+            border-color: #4CAF50;
+        }
+        .piano-roll-container {
+            background-color: #2b2b2b;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 15px;
+            min-height: 150px;
+        }
+        .form-range {
+            background-color: #3a3f4b;
+        }
+        .form-control {
+            background-color: #3a3f4b;
+            border-color: #4a5261;
+            color: #abb2bf;
+        }
+        .form-control:focus {
+            background-color: #3e4451;
+            border-color: #61afef;
+            color: #abb2bf;
+        }
+        .result-item {
+            border-left: 4px solid #61afef;
+            padding-left: 10px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .result-item:hover {
+            background-color: #4a5261;
+        }
+        .result-item.active {
+            background-color: #4a5261;
+            border-left: 4px solid #98c379;
+        }
+        .piano-roll-img {
+            width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
+        #status-message {
+            margin-top: 10px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            background-color: #3a3f4b;
+            display: none;
+        }
+        .progress {
+            margin-top: 10px;
+            height: 5px;
+            background-color: #282c34;
+        }
+        .progress-bar {
+            background-color: #61afef;
+        }
+        .midi-info {
+            font-size: 0.9rem;
+            color: #abb2bf;
+            margin-bottom: 5px;
+        }
+        .results-table {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .results-table table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #3e4451;
+            color: #abb2bf;
+        }
+        .results-table thead {
+            position: sticky;
+            top: 0;
+            background-color: #3a3f4b;
+            z-index: 1;
+        }
+        .results-table th, .results-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #4a5261;
+        }
+        .results-table tr:hover {
+            background-color: #4a5261;
+            cursor: pointer;
+        }
+        .results-table tr.selected {
+            background-color: #4a5261;
+            border-left: 4px solid #98c379;
+        }
+        .weight-value {
+            display: inline-block;
+            width: 40px;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <h1 class="mb-4 text-center">SaMuGed - MIDI Pattern Finder</h1>
+        
+        <div class="row">
+            <!-- Left column (Input) -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Input</span>
+                        <button id="load-midi-btn" class="btn btn-primary btn-sm">Load MIDI File</button>
+                    </div>
+                    <div class="card-body">
+                        <form id="upload-form" enctype="multipart/form-data" style="display: none;">
+                            <div class="mb-3">
+                                <label for="file-upload" class="form-label">Upload MIDI File</label>
+                                <input type="file" class="form-control" id="file-upload" accept=".mid,.midi">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Load MIDI</button>
+                        </form>
+                        
+                        <div id="input-midi" class="mt-3" style="display: none;">
+                            <h5 id="current-file">No file loaded</h5>
+                            <div class="piano-roll-container">
+                                <img id="input-piano-roll" class="piano-roll-img" src="" alt="Piano Roll Visualization">
+                            </div>
+                            <div class="controls">
+                                <button id="play-input" class="btn btn-primary btn-sm">▶</button>
+                                <button id="pause-input" class="btn btn-warning btn-sm" disabled>⏸</button>
+                                <button id="stop-input" class="btn btn-danger btn-sm" disabled>⏹</button>
+                            </div>
+                        </div>
+                        
+                        <div id="feature-weights" class="mt-4">
+                            <h5>Feature Weights</h5>
+                            {% for feature, value in feature_weights.items() %}
+                            <div class="mb-3 d-flex align-items-center">
+                                <label for="{{ feature }}" class="form-label me-2 w-50">{{ feature.replace('_', ' ').title()}}:</label>
+                                <input type="range" class="form-range me-2" min="0" max="3" step="0.1" id="{{ feature }}" value="{{ value }}">
+                                <span id="{{ feature }}-value" class="weight-value">{{ value }}</span>
+                            </div>
+                            {% endfor %}
+                            <button id="search-again" class="btn btn-success w-100" disabled>Search Again</button>
+                        </div>
+                        
+                        <!-- Volume control -->
+                        <div id="volume-control" class="mt-4">
+                            <h5>Volume</h5>
+                            <div class="d-flex align-items-center">
+                                <input type="range" class="form-range" min="0" max="100" step="1" id="volume-slider" value="70">
+                                <span id="volume-value" class="ms-2 weight-value">70%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right column (Results) -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Similar Patterns</div>
+                    <div class="card-body">
+                        <!-- Selected pattern section -->
+                        <div id="selected-pattern" style="display: none;">
+                            <h5 id="selected-file">No pattern selected</h5>
+                            <div class="piano-roll-container">
+                                <img id="selected-piano-roll" class="piano-roll-img" src="" alt="Selected Piano Roll">
+                            </div>
+                            <div class="controls mb-3">
+                                <button id="play-selected" class="btn btn-primary btn-sm">▶</button>
+                                <button id="pause-selected" class="btn btn-warning btn-sm" disabled>⏸</button>
+                                <button id="stop-selected" class="btn btn-danger btn-sm" disabled>⏹</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Results list as a table -->
+                        <div id="results-table-container" class="results-table" style="display: none;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th width="100">Similarity</th>
+                                        <th>File Path</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="results-tbody">
+                                    <!-- Results will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Empty state message -->
+                        <div id="results-empty-state">
+                            <p class="text-center my-5">Upload and search for a MIDI file to see results</p>
+                        </div>
+                        
+                        <!-- Status and progress -->
+                        <div id="status-message"></div>
+                        <div class="progress">
+                            <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Audio element for MIDI playback -->
+    <audio id="midi-player" style="display: none;"></audio>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            let currentFileId = null;
+            let currentSelectedPath = null;
+            let isPlaying = false;
+            let audioPlayer = document.getElementById('midi-player');
+            let volumeLevel = 0.7;
+            
+            // Show file upload form when Load MIDI button is clicked
+            $('#load-midi-btn').on('click', function() {
+                $('#upload-form').toggle();
+            });
+            
+            // Update range input values
+            $('input[type="range"]').on('input', function() {
+                const value = $(this).val();
+                const featureName = $(this).attr('id');
+                if (featureName === "volume-slider") {
+                    $('#volume-value').text(value + "%");
+                    volumeLevel = parseInt(value) / 100;
+                    audioPlayer.volume = volumeLevel;
+                } else {
+                    $(`#${featureName}-value`).text(value);
+                }
+            });
+            
+            // Set initial volume
+            audioPlayer.volume = 0.7;
+            
+            // File upload handling
+            $('#upload-form').on('submit', function(e) {
+                e.preventDefault();
+                
+                const fileInput = $('#file-upload')[0];
+                if (fileInput.files.length === 0) {
+                    showStatus('Please select a file first', 'danger');
+                    return;
+                }
+                
+                const file = fileInput.files[0];
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                showStatus('Uploading file...', 'info');
+                updateProgress(30);
+                
+                $.ajax({
+                    url: '/upload',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        currentFileId = response.file_id;
+                        $('#current-file').text(response.filename);
+                        $('#input-piano-roll').attr('src', response.piano_roll);
+                        $('#input-midi').show();
+                        $('#search-again').prop('disabled', false);
+                        
+                        // Hide the upload form
+                        $('#upload-form').hide();
+                        
+                        // Perform initial search
+                        performSearch();
+                    },
+                    error: function(xhr) {
+                        showStatus('Error: ' + xhr.responseJSON.error, 'danger');
+                        updateProgress(0);
+                    }
+                });
+            });
+            
+            // Search functionality
+            $('#search-again').on('click', performSearch);
+            
+            function performSearch() {
+                if (!currentFileId) return;
+                
+                showStatus('Searching for similar patterns...', 'info');
+                updateProgress(50);
+                
+                // Gather current weights
+                let weights = {};
+                {% for feature in feature_weights %}
+                weights['{{ feature }}'] = parseFloat($('#{{ feature }}').val());
+                {% endfor %}
+                
+                $.ajax({
+                    url: '/search',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        file_id: currentFileId,
+                        weights: weights
+                    }),
+                    success: function(response) {
+                        displayResults(response.results);
+                        
+                        // Store query data if available
+                        if (response.query) {
+                            // Could be used for additional functionality later
+                            const queryData = response.query;
+                        }
+                        
+                        showStatus('Search complete', 'success');
+                        updateProgress(100);
+                        
+                        setTimeout(() => {
+                            $('#status-message').fadeOut();
+                            updateProgress(0);
+                        }, 3000);
+                    },
+                    error: function(xhr) {
+                        showStatus('Search error: ' + xhr.responseJSON.error, 'danger');
+                        updateProgress(0);
+                    }
+                });
+            }
+            
+            // Display search results
+            function displayResults(results) {
+                // Show the table container
+                $('#results-table-container').show();
+                // Hide the empty state message
+                $('#results-empty-state').hide();
+                
+                // Clear previous results
+                const tbody = $('#results-tbody');
+                tbody.empty();
+                
+                if (results.length === 0) {
+                    $('#results-table-container').hide();
+                    $('#results-empty-state').show().html('<p class="text-center my-5">No similar patterns found</p>');
+                    return;
+                }
+                
+                // Add each result to the table
+                for (const result of results) {
+                    const row = $(`<tr data-path="${result.path}" data-full-path="${result.full_path}" data-piano-roll="${result.piano_roll}">
+                        <td>${result.score}</td>
+                        <td>${result.path}</td>
+                    </tr>`);
+                    
+                    // Add click handler
+                    row.on('click', function() {
+                        selectResult($(this));
+                    });
+                    
+                    tbody.append(row);
+                }
+                
+                // Select the first result
+                if (results.length > 0) {
+                    selectResult($('#results-tbody tr').first());
+                }
+            }
+            
+            // Handle result selection
+            function selectResult(resultRow) {
+                // Update visual selection
+                $('#results-tbody tr').removeClass('selected');
+                resultRow.addClass('selected');
+                
+                // Get the path and piano roll image
+                const path = resultRow.data('path');
+                const fullPath = resultRow.data('full-path') || path;
+                const pianoRollImg = resultRow.data('piano-roll');
+                currentSelectedPath = path;
+                
+                // Update the selected section
+                $('#selected-file').text(`Selected: ${path}`);
+                $('#selected-piano-roll').attr('src', pianoRollImg);
+                $('#selected-pattern').show();
+                
+                // Synchronize piano rolls for better comparison
+                synchronizePianoRolls(path);
+            }
+            
+            // Synchronize piano rolls when selecting a result
+            function synchronizePianoRolls(resultPath) {
+                if (!currentFileId) return;
+                
+                showStatus('Synchronizing visualizations...', 'info');
+                
+                $.ajax({
+                    url: '/visualize_synchronized',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        query_file_id: currentFileId,
+                        result_path: resultPath
+                    }),
+                    success: function(response) {
+                        // Update both piano rolls with synchronized versions
+                        $('#input-piano-roll').attr('src', response.query_piano_roll);
+                        $('#selected-piano-roll').attr('src', response.result_piano_roll);
+                        showStatus('Visualization synchronized', 'success');
+                        
+                        setTimeout(() => {
+                            $('#status-message').fadeOut();
+                        }, 2000);
+                    },
+                    error: function(xhr) {
+                        showStatus('Synchronization error: ' + xhr.responseJSON.error, 'danger');
+                    }
+                });
+            }
+            
+            // Playback controls
+            $('#play-input').on('click', function() {
+                if (!currentFileId) return;
+                
+                stopAnyPlayback();
+                audioPlayer.src = `/play/${currentFileId}`;
+                audioPlayer.play();
+                updatePlaybackState(true, 'input');
+            });
+            
+            $('#play-selected').on('click', function() {
+                if (!currentSelectedPath) return;
+                
+                stopAnyPlayback();
+                audioPlayer.src = `/play_result/${currentSelectedPath}`;
+                audioPlayer.play();
+                updatePlaybackState(true, 'selected');
+            });
+            
+            $('#pause-input, #pause-selected').on('click', function() {
+                audioPlayer.pause();
+                isPlaying = false;
+                updatePlaybackButtons();
+            });
+            
+            $('#stop-input, #stop-selected').on('click', function() {
+                stopAnyPlayback();
+            });
+            
+            // Handle audio events
+            audioPlayer.addEventListener('ended', function() {
+                stopAnyPlayback();
+            });
+            
+            // Helper functions
+            function stopAnyPlayback() {
+                audioPlayer.pause();
+                audioPlayer.currentTime = 0;
+                isPlaying = false;
+                updatePlaybackButtons();
+            }
+            
+            function updatePlaybackState(playing, source) {
+                isPlaying = playing;
+                updatePlaybackButtons(source);
+            }
+            
+            function updatePlaybackButtons(activeSource) {
+                if (isPlaying) {
+                    $('#play-input, #play-selected').prop('disabled', true);
+                    
+                    if (activeSource === 'input') {
+                        $('#pause-input, #stop-input').prop('disabled', false);
+                        $('#pause-selected, #stop-selected').prop('disabled', true);
+                    } else {
+                        $('#pause-selected, #stop-selected').prop('disabled', false);
+                        $('#pause-input, #stop-input').prop('disabled', true);
+                    }
+                } else {
+                    $('#play-input, #play-selected').prop('disabled', false);
+                    $('#pause-input, #pause-selected').prop('disabled', true);
+                    $('#stop-input, #stop-selected').prop('disabled', true);
+                }
+            }
+            
+            function showStatus(message, type) {
+                const statusElement = $('#status-message');
+                statusElement.text(message);
+                
+                // Remove existing classes
+                statusElement.removeClass('bg-info bg-success bg-danger');
+                
+                // Add appropriate class
+                if (type === 'info') {
+                    statusElement.addClass('bg-info');
+                } else if (type === 'success') {
+                    statusElement.addClass('bg-success');
+                } else if (type === 'danger') {
+                    statusElement.addClass('bg-danger');
+                }
+                
+                statusElement.fadeIn();
+            }
+            
+            function updateProgress(value) {
+                $('#progress-bar').css('width', `${value}%`);
+            }
+        });
+    </script>
+</body>
+</html> 
