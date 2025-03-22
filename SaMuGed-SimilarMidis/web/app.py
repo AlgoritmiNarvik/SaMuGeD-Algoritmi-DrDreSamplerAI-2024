@@ -310,21 +310,26 @@ def play_result(file_path):
             full_path = file_path
             logger.info(f"Using absolute path directly: {full_path}")
         else:
-            # If not absolute, try to join with dataset path
-            full_path = os.path.join(DATASET_PATH, file_path)
+            # Check if file_path already contains DATASET_PATH to avoid duplication
+            if file_path.startswith(DATASET_PATH):
+                full_path = file_path
+                logger.info(f"Using path as-is (already contains dataset path): {full_path}")
+            else:
+                # If not, join with DATASET_PATH
+                full_path = os.path.join(DATASET_PATH, file_path)
+                logger.info(f"Joined with dataset path: {full_path}")
             
-            # If not found, fall back to searching by basename (legacy support)
+            # If still not found, fall back to searching by basename
             if not os.path.exists(full_path):
                 logger.info(f"File not found at {full_path}, attempting to find by basename")
                 basename = os.path.basename(file_path)
                 
-                # Only search if we're using just a basename (for backward compatibility)
-                if basename == file_path:
-                    for root, dirs, files in os.walk(DATASET_PATH):
-                        if basename in files:
-                            full_path = os.path.join(root, basename)
-                            logger.info(f"Found file by basename search: {full_path}")
-                            break
+                # Search the whole dataset for the basename
+                for root, dirs, files in os.walk(DATASET_PATH):
+                    if basename in files:
+                        full_path = os.path.join(root, basename)
+                        logger.info(f"Found file by basename search: {full_path}")
+                        break
         
         # Check if we found the file
         if not os.path.exists(full_path):
@@ -522,22 +527,30 @@ def visualize_synchronized():
         query_path = uploaded_files[query_file_id]['path']
         logger.info(f"Query path: {query_path}")
         
-        # Direct path resolution - same logic as play_result
+        # Handle path resolution with the same logic as in play_result
         if os.path.isabs(result_path) and os.path.exists(result_path):
             full_result_path = result_path
             logger.info(f"Using absolute path directly: {full_result_path}")
         else:
-            # Try with dataset path
-            full_result_path = os.path.join(DATASET_PATH, result_path)
+            # Check if result_path already contains DATASET_PATH to avoid duplication
+            if result_path.startswith(DATASET_PATH):
+                full_result_path = result_path
+                logger.info(f"Using path as-is (already contains dataset path): {full_result_path}")
+            else:
+                # If not, join with DATASET_PATH
+                full_result_path = os.path.join(DATASET_PATH, result_path)
+                logger.info(f"Joined with dataset path: {full_result_path}")
             
-            # If not found and the path looks like just a basename, try legacy search
-            if not os.path.exists(full_result_path) and os.path.basename(result_path) == result_path:
-                logger.info(f"File not found at {full_result_path}, attempting legacy search")
+            # If still not found, fall back to searching by basename
+            if not os.path.exists(full_result_path):
+                logger.info(f"File not found at {full_result_path}, attempting to find by basename")
                 basename = os.path.basename(result_path)
+                
+                # Search the whole dataset for the basename
                 for root, dirs, files in os.walk(DATASET_PATH):
                     if basename in files:
                         full_result_path = os.path.join(root, basename)
-                        logger.info(f"Found file via legacy search: {full_result_path}")
+                        logger.info(f"Found file by basename search: {full_result_path}")
                         break
         
         # Final check
