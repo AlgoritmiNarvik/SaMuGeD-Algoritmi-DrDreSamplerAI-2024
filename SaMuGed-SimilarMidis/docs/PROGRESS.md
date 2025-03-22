@@ -13,6 +13,15 @@
 - [x] Documented web application setup and usage
 - [x] Ensured cross-platform compatibility
 
+### Recent Fixes [✓]
+- [x] Fixed piano roll visualization flickering when selecting different MIDI files
+- [x] Implemented file path handling to prevent duplicate paths
+- [x] Added MIDI to WAV conversion with FluidSynth for browser audio playback
+- [x] Implemented silence trimming for better audio playback experience
+- [x] Added race condition handling for rapid UI interactions
+- [x] Enhanced error handling and logging for better diagnostics
+- [x] Fixed file path resolution for consistent file access across the application
+
 ### Next Steps [ ]
 - [ ] Add MIDI export functionality
 - [ ] Implement user accounts and saved searches
@@ -165,11 +174,6 @@
   - Improved tempo detection
   - Multi-track support
   - MIDI export functionality
-- [ ] Improve Dataset Handling
-  - Add dataset path creation if missing
-  - Implement cache versioning
-  - Add incremental dataset updates
-  - Add dataset statistics view
 
 ## v1.1.4
 
