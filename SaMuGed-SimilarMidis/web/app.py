@@ -183,10 +183,13 @@ def generate_piano_roll_data(midi_path):
         max_pitch = 0
         start_time = float('inf')
         end_time = 0
+        all_notes = []
         
+        # Collect all notes from non-drum instruments
         for instrument in midi_data.instruments:
-            if not instrument.is_drum and instrument.notes:
+            if not instrument.is_drum:
                 for note in instrument.notes:
+                    all_notes.append(note)
                     min_pitch = min(min_pitch, note.pitch)
                     max_pitch = max(max_pitch, note.pitch)
                     start_time = min(start_time, note.start)
@@ -205,46 +208,84 @@ def generate_piano_roll_data(midi_path):
         # Calculate duration
         duration = end_time - start_time
         
-        # Add padding to the range
-        min_pitch = max(0, min_pitch - 2)
-        max_pitch = min(127, max_pitch + 2)
+        # Add padding to the range, but ensure we include C and octave boundaries
+        min_pitch_octave = (min_pitch // 12) * 12  # Find nearest C below
+        max_pitch_octave = ((max_pitch // 12) + 1) * 12  # Find nearest C above
         
-        # Create piano roll
-        plt.figure(figsize=(8, 3))
+        min_pitch = max(0, min_pitch_octave - 3)
+        max_pitch = min(127, max_pitch_octave + 3)
+        
+        # Create piano roll with proper styling
+        plt.figure(figsize=(8, 3), dpi=100)
         ax = plt.axes()
         ax.set_facecolor('#2b2b2b')
         
-        # Add grid lines
-        plt.grid(color='#404040', linestyle='-', linewidth=0.5)
+        # Draw octave boundaries (horizontal lines)
+        octave_min = min_pitch // 12
+        octave_max = max_pitch // 12
+        
+        # Grid lines
+        for octave in range(octave_min, octave_max + 1):
+            c_pitch = octave * 12
+            if min_pitch <= c_pitch <= max_pitch:
+                plt.axhline(y=c_pitch, color='#505050', linestyle='-', linewidth=0.7)
+        
+        # Vertical grid lines (time markers)
+        beat_duration = 0.5  # Adjust based on typical beat length
+        for t in np.arange(0, duration + beat_duration, beat_duration):
+            plt.axvline(x=t, color='#404040', linestyle='-', linewidth=0.5)
         
         # Plot notes
-        for instrument in midi_data.instruments:
-            if not instrument.is_drum:
-                for note in instrument.notes:
-                    rect = plt.Rectangle(
-                        (note.start - start_time, note.pitch - 0.4),
-                        note.end - note.start,
-                        0.8,
-                        color='#00ff00',
-                        ec='#00cc00',
-                        linewidth=1
-                    )
-                    ax.add_patch(rect)
+        if all_notes:
+            for note in all_notes:
+                # Calculate note position and size
+                x = note.start - start_time
+                y = note.pitch
+                width = note.end - note.start
+                height = 0.7
+                
+                # Draw the note rectangle
+                rect = plt.Rectangle(
+                    (x, y - height/2),
+                    width,
+                    height,
+                    color='#00ff00',
+                    ec='#00cc00',
+                    linewidth=1
+                )
+                ax.add_patch(rect)
         
         # Set axis limits
         plt.xlim(0, duration)
         plt.ylim(min_pitch - 1, max_pitch + 1)
         
-        # Add note labels
-        plt.yticks([60, 72, 84], ['C3', 'C4', 'C5'])
+        # Add note labels on y-axis
+        note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+        y_ticks = []
+        y_labels = []
         
-        # Remove axis labels
-        plt.xlabel('')
-        plt.ylabel('')
+        for octave in range(octave_min, octave_max + 1):
+            for note_idx, note_name in enumerate(note_names):
+                pitch = octave * 12 + note_idx
+                if min_pitch <= pitch <= max_pitch:
+                    if note_idx == 0:  # Only label 'C' notes with octave
+                        y_ticks.append(pitch)
+                        y_labels.append(f'{note_name}{octave}')
+                    elif note_idx % 2 == 0:  # Label only natural notes (non-sharps)
+                        y_ticks.append(pitch)
+                        y_labels.append(note_name)
+        
+        plt.yticks(y_ticks, y_labels)
+        
+        # Add time markers on x-axis
+        time_ticks = np.arange(0, duration + 1, 1.0)
+        time_labels = [f"{start_time + t:.1f}" for t in time_ticks]
+        plt.xticks(time_ticks, time_labels)
         
         # Save to bytesIO and convert to base64
         buffer = BytesIO()
-        plt.savefig(buffer, format='png', bbox_inches='tight', dpi=100)
+        plt.tight_layout()
+        plt.savefig(buffer, format='png', bbox_inches='tight')
         buffer.seek(0)
         plt.close()
         
@@ -358,21 +399,43 @@ def visualize_synchronized():
 def generate_unified_piano_roll(midi_data, start_time, min_pitch, max_pitch, total_duration):
     """Generate a piano roll with unified scale for comparison"""
     try:
-        plt.figure(figsize=(8, 3))
+        # Create piano roll with proper styling
+        plt.figure(figsize=(8, 3), dpi=100)
         ax = plt.axes()
         ax.set_facecolor('#2b2b2b')
         
-        # Add grid lines
-        plt.grid(color='#404040', linestyle='-', linewidth=0.5)
+        # Draw octave boundaries (horizontal lines)
+        octave_min = min_pitch // 12
+        octave_max = max_pitch // 12
+        
+        # Grid lines
+        for octave in range(octave_min, octave_max + 1):
+            c_pitch = octave * 12
+            if min_pitch <= c_pitch <= max_pitch:
+                plt.axhline(y=c_pitch, color='#505050', linestyle='-', linewidth=0.7)
+        
+        # Vertical grid lines (time markers)
+        beat_duration = 0.5  # Adjust based on typical beat length
+        for t in np.arange(0, total_duration + beat_duration, beat_duration):
+            plt.axvline(x=t, color='#404040', linestyle='-', linewidth=0.5)
         
         # Plot notes
+        has_notes = False
         for instrument in midi_data.instruments:
             if not instrument.is_drum:
                 for note in instrument.notes:
+                    has_notes = True
+                    # Calculate note position and size
+                    x = note.start - start_time
+                    y = note.pitch
+                    width = note.end - note.start
+                    height = 0.7
+                    
+                    # Draw the note rectangle
                     rect = plt.Rectangle(
-                        (note.start - start_time, note.pitch - 0.4),
-                        note.end - note.start,
-                        0.8,
+                        (x, y - height/2),
+                        width,
+                        height,
                         color='#00ff00',
                         ec='#00cc00',
                         linewidth=1
@@ -383,16 +446,33 @@ def generate_unified_piano_roll(midi_data, start_time, min_pitch, max_pitch, tot
         plt.xlim(0, total_duration)
         plt.ylim(min_pitch - 1, max_pitch + 1)
         
-        # Add note labels
-        plt.yticks([60, 72, 84], ['C3', 'C4', 'C5'])
+        # Add note labels on y-axis
+        note_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+        y_ticks = []
+        y_labels = []
         
-        # Remove axis labels
-        plt.xlabel('')
-        plt.ylabel('')
+        for octave in range(octave_min, octave_max + 1):
+            for note_idx, note_name in enumerate(note_names):
+                pitch = octave * 12 + note_idx
+                if min_pitch <= pitch <= max_pitch:
+                    if note_idx == 0:  # Only label 'C' notes with octave
+                        y_ticks.append(pitch)
+                        y_labels.append(f'{note_name}{octave}')
+                    elif note_idx % 2 == 0:  # Label only natural notes (non-sharps)
+                        y_ticks.append(pitch)
+                        y_labels.append(note_name)
+        
+        plt.yticks(y_ticks, y_labels)
+        
+        # Add time markers on x-axis
+        time_ticks = np.arange(0, total_duration + 1, 1.0)
+        time_labels = [f"{start_time + t:.1f}" for t in time_ticks]
+        plt.xticks(time_ticks, time_labels)
         
         # Save to bytesIO and convert to base64
         buffer = BytesIO()
-        plt.savefig(buffer, format='png', bbox_inches='tight', dpi=100)
+        plt.tight_layout()
+        plt.savefig(buffer, format='png', bbox_inches='tight')
         buffer.seek(0)
         plt.close()
         
