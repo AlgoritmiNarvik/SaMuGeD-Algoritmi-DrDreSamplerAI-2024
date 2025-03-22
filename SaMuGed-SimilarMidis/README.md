@@ -1,11 +1,11 @@
-# SaMuGed (Similar MIDI Generator & Editor)
+# SaMuGed (Similar MIDI Finder)
 
 A Python application for finding similar MIDI patterns using feature-based similarity search.
 
-> **Platform Support Note:** The Docker web application version is recommended for all users. The desktop application works well on macOS systems but has display issues and functionality problems on Windows. The Windows desktop version is currently under development with medium/low priority.
+> **Platform Support Note:** The Docker web application version is recommended for all users (check [web application section (using docker)](#using-docker-recommended)). The desktop application works well on macOS systems but has display issues and functionality problems on Windows. The Windows desktop version is currently under development with medium/low priority.
 
 ## Contents
-- [SaMuGed (Similar MIDI Generator \& Editor)](#samuged-similar-midi-generator--editor)
+- [SaMuGed (Similar MIDI Finder)](#samuged-similar-midi-finder)
   - [Contents](#contents)
   - [Development Progress](#development-progress)
   - [Features](#features)
