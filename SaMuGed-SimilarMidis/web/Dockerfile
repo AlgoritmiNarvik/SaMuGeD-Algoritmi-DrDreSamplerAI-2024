@@ -30,6 +30,15 @@ VOLUME /app/cache
 # Create soundfont directory and copy soundfont
 RUN mkdir -p /app/soundfonts
 
+# Download FluidR3_GM.sf2 if it doesn't exist
+RUN if [ ! -f /app/soundfonts/FluidR3_GM.sf2 ]; then \
+    apt-get update && apt-get install -y wget && \
+    wget -O /app/soundfonts/FluidR3_GM.sf2 https://www.dropbox.com/s/4z8sti7a1vu2snv/FluidR3_GM.sf2?dl=1 && \
+    apt-get remove -y wget && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*; \
+    fi
+
 # Expose port
 EXPOSE 5000
 
