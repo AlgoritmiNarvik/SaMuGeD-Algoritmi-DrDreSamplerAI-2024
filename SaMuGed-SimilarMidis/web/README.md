@@ -79,6 +79,8 @@ SaMuGed-SimilarMidis/datasets/Lakh_MIDI_Clean_Patterns_v1/
 
 For best results, use the Lakh MIDI Clean Patterns v1 dataset.
 
+If you're interested in understanding how the Lakh_MIDI_Clean_Patterns_v1 dataset was created, detailed documentation is available in the [dataset creation scripts directory](../testing_tools/test_scripts/asle_scripts/README.md). This documentation explains the pattern detection algorithm and process used to extract and organize musical patterns from the original MIDI files.
+
 ## Soundfont Setup
 
 For proper MIDI playback, you need a soundfont. Place it in:
