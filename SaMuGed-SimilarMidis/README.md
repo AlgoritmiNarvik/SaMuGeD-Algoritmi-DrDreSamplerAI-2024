@@ -2,6 +2,26 @@
 
 A Python application for finding similar MIDI patterns using feature-based similarity search.
 
+> **Platform Support Note:** The Docker web application version is recommended for all users. The desktop application works well on macOS systems but has display issues and functionality problems on Windows. The Windows desktop version is currently under development with medium/low priority.
+
+## Contents
+- [SaMuGed (Similar MIDI Generator \& Editor)](#samuged-similar-midi-generator--editor)
+  - [Contents](#contents)
+  - [Development Progress](#development-progress)
+  - [Features](#features)
+  - [Installation Options](#installation-options)
+    - [Desktop Application (Original)](#desktop-application-original)
+    - [Web Application](#web-application)
+      - [Using Docker (RECOMMENDED)](#using-docker-recommended)
+      - [Manual Web Setup](#manual-web-setup)
+  - [Usage](#usage)
+    - [Dataset Setup (Required for All Versions)](#dataset-setup-required-for-all-versions)
+    - [Desktop Application](#desktop-application)
+    - [Web Application](#web-application-1)
+  - [Requirements](#requirements)
+  - [Project Structure](#project-structure)
+  - [Logging \& Debugging](#logging--debugging)
+
 <div align="center">
 <h3>SimilarPatterns GUI v1.1.3</h3>
 
@@ -58,11 +78,11 @@ For detailed progress tracking, feature status, and development plans, please re
    pip install -r requirements.txt
    ```
 
-### Web Application (NEW)
+### Web Application
 
 The web version allows you to run SaMuGed on any device with a web browser.
 
-#### Using Docker (Recommended)
+#### Using Docker (RECOMMENDED)
 
 1. Install [Docker](https://www.docker.com/get-started) and [Docker Compose](https://docs.docker.com/compose/install/)
 
@@ -99,6 +119,7 @@ The web version allows you to run SaMuGed on any device with a web browser.
 - Place your MIDI dataset in `SaMuGed-SimilarMidis/datasets/Lakh_MIDI_Clean_Patterns_v1/`
 - For now we use dataset Lakh_MIDI_Clean_Patterns_v1 form Asle Øren that you can find here [Lakh_MIDI_Clean_Patterns_v1.zip](https://universitetetitromso.sharepoint.com/:u:/s/O365-AIMusicExpo2024/ETsYg7LmqI5LtZEQOsQR0FsB8mK_bY02lymu1OI_9lb7oA?e=5RFmuH) (access internal only if you have UiT account)
 - Without a properly placed dataset, the application will not be able to perform similarity searches
+- Documentation on how the dataset was created is available in the [dataset creation scripts directory](testing_tools/test_scripts/asle_scripts/README.md)
 
 ### Desktop Application
 
@@ -136,6 +157,9 @@ See `requirements.txt` for detailed dependencies.
 │   └── Clustering_repeated_motifs_v040_clean.ipynb  # Clustering analysis notebook
 ├── datasets/          # MIDI dataset directory
 │   └── Lakh_MIDI_Clean_Patterns_v1/  # Main dataset location
+├── testing_tools/     # Testing and dataset creation utilities
+│   └── test_scripts/
+│       └── asle_scripts/ # Dataset creation scripts and documentation
 └── cache/            # Cache directory for processed data
 ```
 
