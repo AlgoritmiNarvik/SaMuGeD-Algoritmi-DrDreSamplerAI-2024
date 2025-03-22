@@ -115,13 +115,19 @@ def search_similar():
             
         # Get the file path
         file_path = uploaded_files[file_id]['path']
+        logger.info(f"Searching for patterns similar to: {file_path}")
         
         # Perform the search
         results = db.find_similar(file_path, weights)
+        logger.info(f"Found {len(results)} results")
         
         # Format results
         formatted_results = []
-        for path, score in sorted(results, key=lambda x: x[1], reverse=True)[:MAX_RESULTS]:
+        for idx, (path, score) in enumerate(sorted(results, key=lambda x: x[1], reverse=True)[:MAX_RESULTS]):
+            # Clean and normalize the path
+            clean_path = os.path.normpath(path)
+            logger.info(f"Result #{idx+1}: {clean_path} (score: {score:.2%})")
+            
             # Generate piano roll data for each result
             if path not in piano_roll_cache:
                 piano_roll_data = generate_piano_roll_data(path)
@@ -129,9 +135,10 @@ def search_similar():
             else:
                 piano_roll_data = piano_roll_cache[path]
             
+            # Cache the full path for better tracking
             formatted_results.append({
-                'path': os.path.basename(path),
-                'full_path': path,
+                'path': os.path.basename(clean_path),
+                'full_path': clean_path,  # this is the complete, normalized path
                 'score': f"{score:.2%}",
                 'piano_roll': piano_roll_data['image'],
                 'duration': piano_roll_data['duration'],
@@ -298,33 +305,32 @@ def play_result(file_path):
     try:
         logger.info(f"Requested playback for result file: {file_path}")
         
-        # Try to find file in dataset path
-        full_paths = []
-        
-        # First check if the file exists with given path
-        direct_path = os.path.join(DATASET_PATH, file_path)
-        if os.path.exists(direct_path):
-            full_paths.append(direct_path)
-            logger.info(f"Found result file at direct path: {direct_path}")
-        
-        # If not found directly, search for it by basename
-        if not full_paths:
-            basename = os.path.basename(file_path)
-            logger.info(f"Searching for file with basename: {basename}")
+        # If the file_path is already an absolute path, use it directly
+        if os.path.isabs(file_path) and os.path.exists(file_path):
+            full_path = file_path
+            logger.info(f"Using absolute path directly: {full_path}")
+        else:
+            # If not absolute, try to join with dataset path
+            full_path = os.path.join(DATASET_PATH, file_path)
             
-            for root, dirs, files in os.walk(DATASET_PATH):
-                if basename in files:
-                    found_path = os.path.join(root, basename)
-                    full_paths.append(found_path)
-                    logger.info(f"Found candidate file at: {found_path}")
+            # If not found, fall back to searching by basename (legacy support)
+            if not os.path.exists(full_path):
+                logger.info(f"File not found at {full_path}, attempting to find by basename")
+                basename = os.path.basename(file_path)
+                
+                # Only search if we're using just a basename (for backward compatibility)
+                if basename == file_path:
+                    for root, dirs, files in os.walk(DATASET_PATH):
+                        if basename in files:
+                            full_path = os.path.join(root, basename)
+                            logger.info(f"Found file by basename search: {full_path}")
+                            break
         
-        # If still no matching files, try to find by filename only
-        if not full_paths:
-            logger.error(f"No files found matching path: {file_path}")
+        # Check if we found the file
+        if not os.path.exists(full_path):
+            logger.error(f"File not found: {file_path}")
             return jsonify({'error': 'File not found'}), 404
-        
-        # Use the first found path
-        full_path = full_paths[0]
+            
         logger.info(f"Using file at path: {full_path}")
         
         # Convert MIDI to WAV
@@ -504,6 +510,11 @@ def visualize_synchronized():
         
         logger.info(f"Visualize synchronized request with query_file_id: {query_file_id}, result_path: {result_path}")
         
+        # Validate input
+        if not query_file_id or not result_path:
+            logger.error(f"Missing required parameter - query_file_id: {query_file_id}, result_path: {result_path}")
+            return jsonify({'error': 'Missing required parameters'}), 400
+            
         if query_file_id not in uploaded_files:
             logger.error(f"Query file not found: {query_file_id}")
             return jsonify({'error': 'Query file not found'}), 404
@@ -511,39 +522,37 @@ def visualize_synchronized():
         query_path = uploaded_files[query_file_id]['path']
         logger.info(f"Query path: {query_path}")
         
-        # First, try to use the result_path directly if it's a complete path
+        # Direct path resolution - same logic as play_result
         if os.path.isabs(result_path) and os.path.exists(result_path):
             full_result_path = result_path
             logger.info(f"Using absolute path directly: {full_result_path}")
-        # Then try using it with the dataset path
-        elif os.path.exists(os.path.join(DATASET_PATH, result_path)):
-            full_result_path = os.path.join(DATASET_PATH, result_path)
-            logger.info(f"Found result file at dataset path: {full_result_path}")
-        # If not found, try to search by basename as a fallback
         else:
-            basename = os.path.basename(result_path)
-            logger.info(f"Searching for file with basename: {basename}")
+            # Try with dataset path
+            full_result_path = os.path.join(DATASET_PATH, result_path)
             
-            found = False
-            for root, dirs, files in os.walk(DATASET_PATH):
-                if basename in files:
-                    full_result_path = os.path.join(root, basename)
-                    logger.info(f"Found result file at: {full_result_path}")
-                    found = True
-                    break
-                    
-            if not found:
-                logger.error(f"Result file not found for path: {result_path}")
-                return jsonify({'error': 'Result file not found'}), 404
+            # If not found and the path looks like just a basename, try legacy search
+            if not os.path.exists(full_result_path) and os.path.basename(result_path) == result_path:
+                logger.info(f"File not found at {full_result_path}, attempting legacy search")
+                basename = os.path.basename(result_path)
+                for root, dirs, files in os.walk(DATASET_PATH):
+                    if basename in files:
+                        full_result_path = os.path.join(root, basename)
+                        logger.info(f"Found file via legacy search: {full_result_path}")
+                        break
         
+        # Final check
         if not os.path.exists(full_result_path):
-            logger.error(f"Result file not found at final path: {full_result_path}")
+            logger.error(f"Result file not found: {result_path}")
             return jsonify({'error': 'Result file not found'}), 404
             
-        # Generate synchronized visualizations
-        query_midi = pretty_midi.PrettyMIDI(query_path)
-        result_midi = pretty_midi.PrettyMIDI(full_result_path)
-        
+        try:
+            # Try loading the MIDI files
+            query_midi = pretty_midi.PrettyMIDI(query_path)
+            result_midi = pretty_midi.PrettyMIDI(full_result_path)
+        except Exception as e:
+            logger.error(f"Error loading MIDI files: {str(e)}")
+            return jsonify({'error': f'Error loading MIDI files: {str(e)}'}), 500
+            
         # Find the overall pitch range and time range
         min_pitch = 127
         max_pitch = 0

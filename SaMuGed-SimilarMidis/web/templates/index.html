@@ -62,6 +62,16 @@
             padding: 10px;
             margin-bottom: 15px;
             min-height: 150px;
+            position: relative;
+        }
+        .piano-roll-container.loading::after {
+            content: "Loading...";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #abb2bf;
+            font-size: 14px;
         }
         .piano-roll-img {
             width: 100%;
@@ -304,6 +314,8 @@
             let currentSelectedPath = null;
             let isPlaying = false;
             let volumeLevel = 0.7; // Default volume level
+            let currentSyncRequest = null; // Track the current sync AJAX request
+            let syncRequestId = 0; // Used to track which request is the most recent
             
             // Initialize audio player
             let audioPlayer = document.getElementById('midi-player');
@@ -489,6 +501,11 @@
             // Handle result selection
             function selectResult(resultRow) {
                 try {
+                    // Debounce rapid selections
+                    if (currentSyncRequest) {
+                        console.log("Selection in progress, aborting previous selection");
+                    }
+                    
                     console.log("Selecting result row:", resultRow);
                     
                     // Update visual selection
@@ -496,9 +513,10 @@
                     resultRow.addClass('selected');
                     
                     // Get the path and piano roll image
-                    const path = resultRow.data('path');
-                    const fullPath = resultRow.data('full-path') || path;
+                    const path = resultRow.data('path'); // basename
+                    const fullPath = resultRow.data('full-path') || path; // this is the complete path
                     const pianoRollImg = resultRow.data('piano-roll');
+                    const similarity = resultRow.find('td:first').text();
                     
                     console.log("Selected midi path:", path);
                     console.log("Full path:", fullPath);
@@ -509,18 +527,30 @@
                         return;
                     }
                     
-                    currentSelectedPath = path;
+                    // Use fullPath, not just basename for currentSelectedPath
+                    currentSelectedPath = fullPath;
                     
-                    // Update the selected section
-                    $('#selected-file').text(`${path} (${resultRow.find('td:first').text()})`);
-                    $('#selected-piano-roll').attr('src', pianoRollImg);
-                    $('#selected-pattern').show();
+                    // Update just the text but not the image yet - will be set by synchronization
+                    $('#selected-file').text(`${path} (${similarity})`);
                     
                     // Enable play button now that we have a selected result
                     $('#play-selected').prop('disabled', false);
                     
-                    // Synchronize piano rolls for better comparison - use fullPath instead of path
-                    synchronizePianoRolls(fullPath);
+                    // Only show the container - image will be set by synchronization
+                    $('#selected-pattern').show();
+                    
+                    // Show a loading indicator
+                    $('#selected-piano-roll').attr('src', '');
+                    $('#selected-piano-roll').parent().addClass('loading');
+                    
+                    // Show temporary piano roll immediately for better UX
+                    $('#selected-piano-roll').attr('src', pianoRollImg);
+                    
+                    // Delay slightly to allow UI update before starting sync
+                    setTimeout(() => {
+                        // Synchronize piano rolls for better comparison - use fullPath instead of path
+                        synchronizePianoRolls(fullPath);
+                    }, 50);
                 } catch (error) {
                     console.error("Error selecting result:", error);
                     showStatus("Error selecting result: " + error.message, "danger");
@@ -531,10 +561,23 @@
             function synchronizePianoRolls(resultPath) {
                 if (!currentFileId) return;
                 
+                // Cancel any previous AJAX request
+                if (currentSyncRequest) {
+                    currentSyncRequest.abort();
+                }
+                
+                // Increment request ID
+                const requestId = ++syncRequestId;
+                
                 showStatus('Synchronizing visualizations...', 'info');
                 $('#status-text').text('Synchronizing...');
                 
-                $.ajax({
+                // Mark both containers as loading
+                $('#input-piano-roll').parent().addClass('loading');
+                $('#selected-piano-roll').parent().addClass('loading');
+                
+                // Store the AJAX request
+                currentSyncRequest = $.ajax({
                     url: '/visualize_synchronized',
                     type: 'POST',
                     contentType: 'application/json',
@@ -543,6 +586,16 @@
                         result_path: resultPath
                     }),
                     success: function(response) {
+                        // Only process if this is the most recent request
+                        if (requestId !== syncRequestId) {
+                            console.log(`Ignoring stale sync response for request ${requestId}, current is ${syncRequestId}`);
+                            return;
+                        }
+                        
+                        // Remove loading state
+                        $('#input-piano-roll').parent().removeClass('loading');
+                        $('#selected-piano-roll').parent().removeClass('loading');
+                        
                         // Update both piano rolls with synchronized versions
                         $('#input-piano-roll').attr('src', response.query_piano_roll);
                         $('#selected-piano-roll').attr('src', response.result_piano_roll);
@@ -553,9 +606,35 @@
                             $('#status-message').fadeOut();
                         }, 2000);
                     },
-                    error: function(xhr) {
-                        showStatus('Synchronization error: ' + xhr.responseJSON.error, 'danger');
+                    error: function(xhr, status, error) {
+                        // Don't show errors for aborted requests
+                        if (status === 'abort') {
+                            console.log('Sync request aborted');
+                            return;
+                        }
+                        
+                        // Only process if this is the most recent request
+                        if (requestId !== syncRequestId) {
+                            console.log(`Ignoring stale sync error for request ${requestId}, current is ${syncRequestId}`);
+                            return;
+                        }
+                        
+                        // Remove loading state
+                        $('#input-piano-roll').parent().removeClass('loading');
+                        $('#selected-piano-roll').parent().removeClass('loading');
+                        
+                        try {
+                            const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : 'Unknown error';
+                            showStatus('Synchronization error: ' + errorMsg, 'danger');
+                        } catch (e) {
+                            showStatus('Synchronization error', 'danger');
+                        }
                         $('#status-text').text('Error');
+                    },
+                    complete: function() {
+                        if (requestId === syncRequestId) {
+                            currentSyncRequest = null;
+                        }
                     }
                 });
             }
