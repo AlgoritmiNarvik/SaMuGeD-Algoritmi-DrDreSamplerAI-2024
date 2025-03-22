@@ -10,6 +10,7 @@ A Python application for finding similar MIDI patterns using feature-based simil
   - [Development Progress](#development-progress)
   - [Features](#features)
   - [Algorithm Documentation](#algorithm-documentation)
+    - [Similarity Detection Algorithm](#similarity-detection-algorithm)
   - [Installation Options](#installation-options)
     - [Desktop Application (Original)](#desktop-application-original)
     - [Web Application](#web-application)
@@ -68,7 +69,24 @@ The core algorithm for finding similar MIDI patterns is thoroughly documented in
 - Clustering methodology for identifying repeated musical motifs
 - Code examples with thorough annotations
 
-Understanding this documentation is essential for developers working on the similarity search functionality or extending the application's pattern recognition capabilities.
+### Similarity Detection Algorithm
+
+The similarity detection algorithm works through a multi-step process:
+
+1. **Feature Extraction**: Each MIDI file is analyzed to extract 8 key features:
+   - Tempo (BPM)
+   - Pitch mean and standard deviation (captures melodic characteristics)
+   - Note duration mean and standard deviation (captures articulation style)
+   - Inter-onset interval mean and standard deviation (captures rhythm spacing)
+   - Syncopation ratio (captures rhythmic complexity)
+
+2. **Vector Space Representation**: These features create an 8-dimensional vector for each MIDI pattern, standardized to balance feature importance.
+
+3. **Efficient Similarity Search**: Using Facebook AI Similarity Search (FAISS), the application builds an index of all patterns and efficiently finds the closest matches based on Euclidean distance.
+
+4. **Weighted Customization**: Users can adjust feature weights to prioritize certain musical aspects (melody, rhythm, etc.) when searching for similar patterns.
+
+When a query MIDI is provided, the system extracts its features, finds the nearest neighbors in the vector space, and returns the most similar patterns ranked by similarity score.
 
 ## Installation Options
 
