@@ -18,6 +18,7 @@ A Python application for finding similar MIDI patterns using feature-based simil
       - [Manual Web Setup](#manual-web-setup)
   - [Usage](#usage)
     - [Dataset Setup (Required for All Versions)](#dataset-setup-required-for-all-versions)
+    - [Dataset Creation Process](#dataset-creation-process)
     - [Desktop Application](#desktop-application)
     - [Web Application](#web-application-1)
   - [Requirements](#requirements)
@@ -144,6 +145,19 @@ The web version allows you to run SaMuGed on any device with a web browser.
 - Without a properly placed dataset, the application will not be able to perform similarity searches
 - Documentation on how the dataset was created is available in the [dataset creation scripts directory](https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSamplerAI-2024/tree/main/testing_tools/test_scripts/asle_scripts)
 
+### Dataset Creation Process
+
+The Lakh_MIDI_Clean_Patterns_v1 dataset was created using a specialized pattern detection system that identifies repeating musical patterns or motifs within MIDI files. The process involves:
+
+1. **Segmentation**: Dividing each MIDI track into segments based on natural breaks in the music (silence between notes)
+2. **Pattern Detection**: Identifying repeating note sequences by comparing pitch and duration
+3. **Deduplication**: Filtering similar patterns to prevent duplicates
+4. **Output Generation**: Saving each unique pattern as a separate MIDI file
+
+The dataset is organized hierarchically by artist, song, and instrument, making it easy to navigate and use for similarity search. Each pattern contains at least one musical bar and preserves the original tempo, time signature, and other MIDI metadata.
+
+For detailed information about the pattern detection algorithm and dataset creation process, see the [full documentation](https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSamplerAI-2024/tree/main/testing_tools/test_scripts/asle_scripts).
+
 ### Desktop Application
 
 Run the desktop application:
@@ -183,13 +197,14 @@ See `requirements.txt` for detailed dependencies.
 │   ├── datasets/           # MIDI dataset directory
 │   │   └── Lakh_MIDI_Clean_Patterns_v1/  # Main dataset location
 │   ├── soundfonts/         # Sound font files for MIDI playback
-│   └── cache/              # Cache directory for processed data
-├── docs/                   # Repository-level documentation
-│   └── Clustering_repeated_motifs_v040_clean.ipynb  # Clustering analysis notebook
-├── testing_tools/          # Testing and dataset creation utilities
-│   └── test_scripts/
+│   ├── cache/              # Cache directory for processed data
+│   └── docs/                   # Repository-level documentation
+│       └── Clustering_repeated_motifs_v040_clean.ipynb  # Clustering analysis notebook
+├── web/                    # Web components outside the main project folder
+
+/testing_tools/          # Testing and dataset creation utilities
+├── test_scripts/
 │       └── asle_scripts/   # Dataset creation scripts and documentation
-└── web/                    # Web components outside the main project folder
 ```
 
 Key Components:
