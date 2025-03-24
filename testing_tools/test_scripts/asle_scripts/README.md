@@ -7,6 +7,7 @@ This directory contains the scripts used to generate the Lakh_MIDI_Clean_Pattern
 - [MIDI Pattern Detection and Dataset Creation](#midi-pattern-detection-and-dataset-creation)
   - [Contents](#contents)
   - [Main Components](#main-components)
+    - [Download the dataset](#download-the-dataset)
   - [How the Dataset Was Created](#how-the-dataset-was-created)
     - [Overview](#overview)
     - [Technical Process](#technical-process)
@@ -25,6 +26,9 @@ This directory contains the scripts used to generate the Lakh_MIDI_Clean_Pattern
   - [Limitations](#limitations)
 
 ## Main Components
+
+### Download the dataset
+The actual midi dataset Lakh_MIDI_Clean_Patterns_v1 can be found and downloaded here [Lakh_MIDI_Clean_Patterns_v1.zip](https://universitetetitromso.sharepoint.com/:u:/s/O365-AIMusicExpo2024/ETsYg7LmqI5LtZEQOsQR0FsB8mK_bY02lymu1OI_9lb7oA?e=5RFmuH) (access internal only if you have UiT account)
 
 The dataset creation process involves two primary files:
 
