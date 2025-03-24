@@ -9,8 +9,8 @@ A Python application for finding similar MIDI patterns using feature-based simil
   - [Contents](#contents)
   - [Development Progress](#development-progress)
   - [Features](#features)
-  - [Algorithm Documentation](#algorithm-documentation)
-    - [Similarity Detection Algorithm](#similarity-detection-algorithm)
+  - [About algorithm inside SimilarMidis](#about-algorithm-inside-similarmidis)
+    - [Similarity Detection Algorithm (overview)](#similarity-detection-algorithm-overview)
   - [Installation Options](#installation-options)
     - [Desktop Application (Original)](#desktop-application-original)
     - [Web Application](#web-application)
@@ -25,30 +25,22 @@ A Python application for finding similar MIDI patterns using feature-based simil
   - [Logging \& Debugging](#logging--debugging)
 
 <div align="center">
-<h3>SimilarPatterns GUI v1.1.3</h3>
+<h3>SimilarPatterns GUI v1.1.7+</h3>
 
-![SimilarPatterns GUI v1.1.3](SimilarPatterns-GUI-v1.1.3.png)
+![SimilarPatterns GUI v1.1.7+](SimilarPatterns-GUI-v1.1.3+.png)
 </div>
 
 ## Development Progress
 
-The project maintains detailed progress tracking in `docs/PROGRESS.md`. Current version is v1.1.6 with the following major milestones achieved:
+The project maintains progress tracking in `docs/PROGRESS.md`. Current version is v1.1.7+ with the following major milestones achieved:
 
 - Core MIDI feature extraction and similarity search ✓
 - Feature weights system and GUI ✓
 - MIDI playback with controls ✓
 - Dataset caching system ✓
 - Piano roll visualization ✓
-- Advanced playback state management ✓
+- Playback state management ✓
 - Web interface and containerization ✓
-
-Upcoming planned versions:
-- v1.1.7: Piano Roll Fine-tuning
-- v1.2.0: Advanced Playback Features
-- v1.3.0: Enhanced MIDI Processing
-- v1.4.0: Advanced Features
-
-For detailed progress tracking, feature status, and development plans, please refer to `docs/PROGRESS.md`.
 
 ## Features
 
@@ -59,7 +51,7 @@ For detailed progress tracking, feature status, and development plans, please re
 - Support for large MIDI datasets
 - Cross-platform support via web interface and Docker
 
-## Algorithm Documentation
+## About algorithm inside SimilarMidis 
 
 The core algorithm for finding similar MIDI patterns is thoroughly documented in the [Clustering Repeated Motifs notebook](https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSamplerAI-2024/blob/main/SaMuGed-SimilarMidis/docs/Clustering_repeated_motifs_v040_clean.ipynb). This Jupyter notebook provides:
 
@@ -69,7 +61,7 @@ The core algorithm for finding similar MIDI patterns is thoroughly documented in
 - Clustering methodology for identifying repeated musical motifs
 - Code examples with thorough annotations
 
-### Similarity Detection Algorithm
+### Similarity Detection Algorithm (overview)
 
 The similarity detection algorithm works through a multi-step process:
 
