@@ -7,7 +7,13 @@ import pytest
 
 from samuged.dataset import file_digest
 from samuged.experiment import verify_completed_experiment
-from scripts.compare_variants import compare_variants, global_rank_shifts, semantic_phrase
+from scripts.compare_variants import (
+    compare_variants,
+    global_rank_shifts,
+    prototype_projection,
+    recurrence_projection,
+    semantic_phrase,
+)
 
 
 def _phrase(
@@ -30,8 +36,11 @@ def _phrase(
         "rank_in_file": rank,
         "part_index": 0 if kind == "melodic" else -1,
         "source_track": 0,
+        "channel": 0 if kind == "melodic" else 9,
+        "program": 0,
         "start_tick": 0,
         "end_tick": note_count * 480,
+        "ticks_per_beat": 480,
         "note_count": note_count,
         "duration_beats": float(note_count),
         "pitches": pitches,
@@ -173,6 +182,170 @@ def test_semantic_phrase_excludes_artifact_identity_and_global_rank_only() -> No
     ]
     right["occurrences"] = [{**right["occurrences"][0], "end_tick": 481}]
     assert semantic_phrase(left) != semantic_phrase(right)
+
+
+def test_common_projections_keep_only_content_and_sorted_intervals() -> None:
+    phrase = _phrase("melodic", "same", rank=1)
+    phrase["recurrence_score"] = 0.99
+    phrase["matcher_flags"] = {"source_verified": True}
+    phrase["occurrences"] = [
+        {
+            "start_tick": 960,
+            "end_tick": 1920,
+            "transpose_semitones": 2,
+            "edit_count": 1,
+            "matched_note_pairs": [[0, 0]],
+        },
+        {
+            "start_tick": 0,
+            "end_tick": 960,
+            "transpose_semitones": 0,
+            "similarity": 1.0,
+        },
+    ]
+
+    prototype = prototype_projection(phrase)
+    recurrence = recurrence_projection(phrase)
+
+    assert set(prototype) == {
+        "kind", "part_index", "source_track", "channel", "program",
+        "start_tick", "end_tick", "ticks_per_beat", "pitches",
+        "onsets_beats", "durations_beats", "velocities",
+    }
+    assert "recurrence_score" not in prototype
+    assert recurrence["occurrences"] == [
+        {"start_tick": 0, "end_tick": 960, "transpose_semitones": 0},
+        {"start_tick": 960, "end_tick": 1920, "transpose_semitones": 2},
+    ]
+    assert "edit_count" not in recurrence["occurrences"][1]
+    assert "matched_note_pairs" not in recurrence["occurrences"][1]
+
+
+def test_score_and_matcher_drift_is_not_common_content_change(tmp_path: Path) -> None:
+    left_phrase = _phrase("melodic", "same", rank=1)
+    right_phrase = json.loads(json.dumps(left_phrase))
+    right_phrase["recurrence_score"] = 0.2
+    right_phrase["score_components"] = {"support": 0.1, "boundary": 0.4}
+    right_phrase["matcher_flags"] = {"source_verified": True, "fixed_transposition": True}
+    right_phrase["occurrences"][0].update(
+        {
+            "similarity": 0.8,
+            "edit_count": 1,
+            "inserted_note_indices": [1],
+            "matched_note_pairs": [[0, 0]],
+        }
+    )
+    left, right = tmp_path / "left", tmp_path / "right"
+    _write_build(left, "aligned_indexed", [(_record("a1", [left_phrase]), "train", "g1")])
+    _write_build(right, "aligned_closed", [(_record("a1", [right_phrase]), "train", "g1")])
+
+    aggregate = compare_variants(left, right, tmp_path / "comparison")
+    common = aggregate["common_content_comparison"]["by_kind"]["melodic"]
+    assert aggregate["semantic_phrase_changes"]["melodic"]["changed_source_ids"] == ["a1"]
+    for metric in (
+        "ordered_prototypes",
+        "prototype_multiset",
+        "top1_prototype",
+        "ordered_recurrence_intervals",
+    ):
+        assert common[metric] == {"changed_source_count": 0, "changed_source_ids": []}
+    raw = json.loads((tmp_path / "comparison" / "raw_results.json").read_text())
+    assert raw["common_content_changes"] == []
+
+
+def test_common_content_reports_rank_pitch_tick_and_occurrence_drift(tmp_path: Path) -> None:
+    first = _phrase("melodic", "first", rank=1)
+    second = _phrase("melodic", "second", rank=2, note_count=3)
+    right_first = json.loads(json.dumps(first))
+    right_second = json.loads(json.dumps(second))
+    right_first["pitches"][0] += 1
+    right_first["start_tick"] = 120
+    right_second["occurrences"][0]["start_tick"] += 60
+    left, right = tmp_path / "left", tmp_path / "right"
+    _write_build(left, "aligned_indexed", [(_record("a1", [first, second]), "train", "g1")])
+    _write_build(right, "aligned_closed", [(_record("a1", [right_first, right_second]), "train", "g1")])
+
+    aggregate = compare_variants(left, right, tmp_path / "comparison")
+    common = aggregate["common_content_comparison"]["by_kind"]["melodic"]
+    assert common["ordered_prototypes"]["changed_source_ids"] == ["a1"]
+    assert common["prototype_multiset"]["changed_source_ids"] == ["a1"]
+    assert common["top1_prototype"]["changed_source_ids"] == ["a1"]
+    assert common["ordered_recurrence_intervals"]["changed_source_ids"] == ["a1"]
+
+    changes = json.loads(
+        (tmp_path / "comparison" / "raw_results.json").read_text()
+    )["common_content_changes"]
+    assert changes[0]["kinds"]["melodic"]["prototype_multiset_delta"] == {
+        "left_only_count": 1,
+        "right_only_count": 1,
+    }
+
+
+def test_common_content_preserves_duplicate_multiset_counts(tmp_path: Path) -> None:
+    duplicate_a = _phrase("melodic", "a", rank=1)
+    duplicate_b = json.loads(json.dumps(duplicate_a))
+    duplicate_b["family_id"] = "b"
+    left, right = tmp_path / "left", tmp_path / "right"
+    _write_build(left, "aligned_indexed", [(_record("a1", [duplicate_a, duplicate_b]), "train", "g1")])
+    _write_build(right, "aligned_closed", [(_record("a1", [duplicate_a]), "train", "g1")])
+
+    aggregate = compare_variants(left, right, tmp_path / "comparison")
+    common = aggregate["common_content_comparison"]["by_kind"]["melodic"]
+    assert common["prototype_multiset"]["changed_source_ids"] == ["a1"]
+    assert common["left_selected_prototype_count"] == 2
+    assert common["right_selected_prototype_count"] == 1
+    raw = json.loads((tmp_path / "comparison" / "raw_results.json").read_text())
+    assert raw["common_content_changes"][0]["kinds"]["melodic"]["prototype_multiset_delta"] == {
+        "left_only_count": 1,
+        "right_only_count": 0,
+    }
+
+
+def test_common_content_isolates_occurrence_interval_drift(tmp_path: Path) -> None:
+    left_phrase = _phrase("melodic", "same", rank=1)
+    right_phrase = json.loads(json.dumps(left_phrase))
+    right_phrase["occurrences"][0]["start_tick"] += 120
+    left, right = tmp_path / "left", tmp_path / "right"
+    _write_build(left, "aligned_indexed", [(_record("a1", [left_phrase]), "train", "g1")])
+    _write_build(right, "aligned_closed", [(_record("a1", [right_phrase]), "train", "g1")])
+
+    aggregate = compare_variants(left, right, tmp_path / "comparison")
+    common = aggregate["common_content_comparison"]["by_kind"]["melodic"]
+    assert common["ordered_prototypes"] == {
+        "changed_source_count": 0,
+        "changed_source_ids": [],
+    }
+    assert common["prototype_multiset"] == {
+        "changed_source_count": 0,
+        "changed_source_ids": [],
+    }
+    assert common["top1_prototype"] == {
+        "changed_source_count": 0,
+        "changed_source_ids": [],
+    }
+    assert common["ordered_recurrence_intervals"]["changed_source_ids"] == ["a1"]
+
+
+def test_common_content_rank_order_changes_top1_but_not_multiset(tmp_path: Path) -> None:
+    first = _phrase("melodic", "first", rank=1)
+    second = _phrase("melodic", "second", rank=2, note_count=3)
+    left, right = tmp_path / "left", tmp_path / "right"
+    _write_build(left, "aligned_indexed", [(_record("a1", [first, second]), "train", "g1")])
+    right_first = json.loads(json.dumps(second))
+    right_second = json.loads(json.dumps(first))
+    right_first["rank_in_file"] = 1
+    right_second["rank_in_file"] = 2
+    _write_build(right, "aligned_closed", [(_record("a1", [right_first, right_second]), "train", "g1")])
+
+    aggregate = compare_variants(left, right, tmp_path / "comparison")
+    common = aggregate["common_content_comparison"]["by_kind"]["melodic"]
+    assert common["ordered_prototypes"]["changed_source_ids"] == ["a1"]
+    assert common["top1_prototype"]["changed_source_ids"] == ["a1"]
+    assert common["ordered_recurrence_intervals"]["changed_source_ids"] == ["a1"]
+    assert common["prototype_multiset"] == {
+        "changed_source_count": 0,
+        "changed_source_ids": [],
+    }
 
 
 def test_comparison_separates_kinds_and_records_selection_deltas(tmp_path: Path) -> None:

@@ -13,7 +13,8 @@ from samuged.dataset import atomic_json
 from samuged.experiment import complete_experiment, prepare_experiment, receipt_links, sha256_json
 
 
-VERSION = "algorithm-variant-comparison-v2"
+VERSION = "algorithm-variant-comparison-v3"
+CONTENT_PROJECTION_VERSION = "common-content-projection-v1"
 KINDS = ("melodic", "percussion")
 PHRASE_EXCLUSIONS = frozenset({"phrase_id", "midi_path", "rank_in_file"})
 MANIFEST_ONLY_FIELDS = frozenset({"split", "split_group"})
@@ -57,6 +58,26 @@ REQUIRED_FILES = (
     "requirements-research.lock",
 )
 
+COMMON_PROTOTYPE_FIELDS = (
+    "kind",
+    "part_index",
+    "source_track",
+    "channel",
+    "program",
+    "start_tick",
+    "end_tick",
+    "ticks_per_beat",
+    "pitches",
+    "onsets_beats",
+    "durations_beats",
+    "velocities",
+)
+COMMON_OCCURRENCE_FIELDS = (
+    "start_tick",
+    "end_tick",
+    "transpose_semitones",
+)
+
 
 def _hash_file(path: Path) -> dict[str, Any]:
     digest = sha256()
@@ -71,6 +92,40 @@ def _hash_file(path: Path) -> dict[str, Any]:
 def semantic_phrase(phrase: dict[str, Any]) -> dict[str, Any]:
     """Exclude build identifiers, artifact paths and the cross-kind global rank."""
     return {key: value for key, value in phrase.items() if key not in PHRASE_EXCLUSIONS}
+
+
+def prototype_projection(phrase: dict[str, Any]) -> dict[str, Any]:
+    """Return the common musical prototype fields shared by both algorithms.
+
+    Selection scores, family identifiers, rank metadata and matcher evidence are
+    deliberately absent.  This projection is therefore suitable for asking
+    whether the selected note content changed independently of why it was
+    selected.
+    """
+    return {field: phrase.get(field) for field in COMMON_PROTOTYPE_FIELDS}
+
+
+def _occurrence_sort_key(row: dict[str, Any]) -> tuple[Any, ...]:
+    """Sort interval coordinates while remaining deterministic for malformed rows."""
+    return tuple(
+        (value is None, value if value is not None else 0)
+        for value in (row.get(field) for field in COMMON_OCCURRENCE_FIELDS)
+    )
+
+
+def recurrence_projection(phrase: dict[str, Any]) -> dict[str, Any]:
+    """Return prototype content plus sorted occurrence interval coordinates.
+
+    Only occurrence start/end ticks and transposition are retained.  Similarity,
+    edit counts, matched pairs and other matcher paths are intentionally excluded.
+    """
+    occurrences = [
+        {field: occurrence.get(field) for field in COMMON_OCCURRENCE_FIELDS}
+        for occurrence in phrase.get("occurrences", [])
+        if isinstance(occurrence, dict)
+    ]
+    occurrences.sort(key=_occurrence_sort_key)
+    return {**prototype_projection(phrase), "occurrences": occurrences}
 
 
 def semantic_phrases(record: dict[str, Any], kind: str) -> list[dict[str, Any]]:
@@ -158,6 +213,94 @@ def global_rank_shifts(
                 "right_rank_in_file": other.get("rank_in_file"),
             })
     return shifts
+
+
+def _projection_multiset(projections: list[dict[str, Any]]) -> Counter[str]:
+    """Hash projections into a duplicate-preserving multiset."""
+    return Counter(sha256_json(projection) for projection in projections)
+
+
+def _multiset_delta(left: Counter[str], right: Counter[str]) -> dict[str, int]:
+    return {
+        "left_only_count": sum((left - right).values()),
+        "right_only_count": sum((right - left).values()),
+    }
+
+
+def _common_content_field_definitions() -> dict[str, Any]:
+    return {
+        "projection_version": CONTENT_PROJECTION_VERSION,
+        "prototype_fields": list(COMMON_PROTOTYPE_FIELDS),
+        "recurrence_fields": list(COMMON_OCCURRENCE_FIELDS),
+        "recurrence_sort_order": list(COMMON_OCCURRENCE_FIELDS),
+        "excluded_prototype_fields": [
+            "family_id",
+            "phrase_id",
+            "rank_in_file",
+            "midi_path",
+            "recurrence_score",
+            "score_components",
+            "matcher_flags",
+            "part_stats",
+        ],
+        "excluded_occurrence_fields": [
+            "similarity",
+            "edit_count",
+            "inserted_note_indices",
+            "deleted_prototype_note_indices",
+            "substituted_note_pairs",
+            "matched_note_pairs",
+            "max_timing_error_beats",
+            "max_duration_error_beats",
+            "source_verified",
+        ],
+    }
+
+
+def _common_content_comparison(
+    left_phrases: list[dict[str, Any]], right_phrases: list[dict[str, Any]]
+) -> tuple[dict[str, Any], bool]:
+    """Compare ordered, multiset, top-one and recurrence projections for one source."""
+    left_prototypes = [prototype_projection(phrase) for phrase in left_phrases]
+    right_prototypes = [prototype_projection(phrase) for phrase in right_phrases]
+    left_recurrences = [recurrence_projection(phrase) for phrase in left_phrases]
+    right_recurrences = [recurrence_projection(phrase) for phrase in right_phrases]
+    left_multiset = _projection_multiset(left_prototypes)
+    right_multiset = _projection_multiset(right_prototypes)
+    ordered_prototypes_changed = left_prototypes != right_prototypes
+    prototype_multiset_changed = left_multiset != right_multiset
+    top1_left = left_prototypes[0] if left_prototypes else None
+    top1_right = right_prototypes[0] if right_prototypes else None
+    top1_prototype_changed = top1_left != top1_right
+    ordered_recurrence_changed = left_recurrences != right_recurrences
+    changed = any(
+        (
+            ordered_prototypes_changed,
+            prototype_multiset_changed,
+            top1_prototype_changed,
+            ordered_recurrence_changed,
+        )
+    )
+    return (
+        {
+            "ordered_prototypes_changed": ordered_prototypes_changed,
+            "prototype_multiset_changed": prototype_multiset_changed,
+            "top1_prototype_changed": top1_prototype_changed,
+            "ordered_recurrence_intervals_changed": ordered_recurrence_changed,
+            "left_prototype_count": len(left_prototypes),
+            "right_prototype_count": len(right_prototypes),
+            "prototype_multiset_delta": _multiset_delta(left_multiset, right_multiset),
+            "left_ordered_prototypes_sha256": sha256_json(left_prototypes),
+            "right_ordered_prototypes_sha256": sha256_json(right_prototypes),
+            "left_prototype_multiset_sha256": sha256_json(dict(sorted(left_multiset.items()))),
+            "right_prototype_multiset_sha256": sha256_json(dict(sorted(right_multiset.items()))),
+            "left_top1_prototype": top1_left,
+            "right_top1_prototype": top1_right,
+            "left_ordered_recurrence_intervals_sha256": sha256_json(left_recurrences),
+            "right_ordered_recurrence_intervals_sha256": sha256_json(right_recurrences),
+        },
+        changed,
+    )
 
 
 def _principal_inventory(dataset: Path, side: str) -> list[dict[str, Any]]:
@@ -479,6 +622,8 @@ def compare_variants(left: Path, right: Path, output: Path) -> dict[str, Any]:
         "record_count": len(record_names["left"]),
         "input_inventory_sha256": inventory_sha256,
         "phrase_exclusions": sorted(PHRASE_EXCLUSIONS),
+        "common_content_projection_version": CONTENT_PROJECTION_VERSION,
+        "common_content_field_definitions": _common_content_field_definitions(),
         "result_artifacts": [
             "aggregate.json",
             "input_inventory.json",
@@ -496,6 +641,8 @@ def compare_variants(left: Path, right: Path, output: Path) -> dict[str, Any]:
         "compare_rank_order_within_kind": True,
         "report_cross_kind_global_rank_separately": True,
         "semantic_phrase_exclusions": sorted(PHRASE_EXCLUSIONS),
+        "common_content_projection_version": CONTENT_PROJECTION_VERSION,
+        "common_content_field_definitions": _common_content_field_definitions(),
     }
     receipt = prepare_experiment(
         output,
@@ -571,6 +718,20 @@ def compare_variants(left: Path, right: Path, output: Path) -> dict[str, Any]:
     outcome_transitions: Counter[str] = Counter()
     outcome_changes: list[dict[str, Any]] = []
     rank_shifts = {kind: [] for kind in KINDS}
+    common_content_changes: list[dict[str, Any]] = []
+    common_content_changed_ids = {
+        kind: {
+            "ordered_prototypes": [],
+            "prototype_multiset": [],
+            "top1_prototype": [],
+            "ordered_recurrence_intervals": [],
+        }
+        for kind in KINDS
+    }
+    common_content_counts = {
+        kind: {side: 0 for side in ("left", "right")}
+        for kind in KINDS
+    }
 
     for index, name in enumerate(sorted(record_names["left"])):
         source_id = name.removesuffix(".json")
@@ -623,11 +784,30 @@ def compare_variants(left: Path, right: Path, output: Path) -> dict[str, Any]:
             "source_path": pair["left"].get("source_path"),
             "kinds": {},
         }
+        source_content_change: dict[str, Any] = {}
         for kind in KINDS:
             left_raw = [row for row in pair["left"].get("phrases", []) if row.get("kind") == kind]
             right_raw = [row for row in pair["right"].get("phrases", []) if row.get("kind") == kind]
             left_phrases = semantic_phrases(pair["left"], kind)
             right_phrases = semantic_phrases(pair["right"], kind)
+            common_content_counts[kind]["left"] += len(left_phrases)
+            common_content_counts[kind]["right"] += len(right_phrases)
+            content_detail, content_changed = _common_content_comparison(
+                left_phrases, right_phrases
+            )
+            for metric, changed_key in (
+                ("ordered_prototypes_changed", "ordered_prototypes"),
+                ("prototype_multiset_changed", "prototype_multiset"),
+                ("top1_prototype_changed", "top1_prototype"),
+                (
+                    "ordered_recurrence_intervals_changed",
+                    "ordered_recurrence_intervals",
+                ),
+            ):
+                if content_detail[metric]:
+                    common_content_changed_ids[kind][changed_key].append(source_id)
+            if content_changed:
+                source_content_change[kind] = content_detail
             for shift in global_rank_shifts(left_raw, right_raw):
                 rank_shifts[kind].append({"source_id": source_id, **shift})
             selected_counts["left"][kind] += len(left_phrases)
@@ -648,6 +828,14 @@ def compare_variants(left: Path, right: Path, output: Path) -> dict[str, Any]:
                     "right_only_family_ids": sorted(set(right_families) - set(left_families)),
                     "family_order_equal": left_families == right_families,
                 }
+        if source_content_change:
+            common_content_changes.append(
+                {
+                    "source_id": source_id,
+                    "source_path": source_change["source_path"],
+                    "kinds": source_content_change,
+                }
+            )
         if source_change["kinds"]:
             changed.append(source_change)
         if (index + 1) % 1000 == 0:
@@ -665,8 +853,46 @@ def compare_variants(left: Path, right: Path, output: Path) -> dict[str, Any]:
         "phrase_exclusions": sorted(PHRASE_EXCLUSIONS),
         "source_outcome_changes": outcome_changes,
         "changed_sources": changed,
+        "common_content_changes": common_content_changes,
         "global_rank_shifts": rank_shifts,
     }
+    common_content = {
+        "projection_version": CONTENT_PROJECTION_VERSION,
+        "field_definitions": _common_content_field_definitions(),
+        "by_kind": {
+            kind: {
+                "ordered_prototypes": {
+                    "changed_source_count": len(common_content_changed_ids[kind]["ordered_prototypes"]),
+                    "changed_source_ids": common_content_changed_ids[kind]["ordered_prototypes"],
+                },
+                "prototype_multiset": {
+                    "changed_source_count": len(common_content_changed_ids[kind]["prototype_multiset"]),
+                    "changed_source_ids": common_content_changed_ids[kind]["prototype_multiset"],
+                },
+                "top1_prototype": {
+                    "changed_source_count": len(common_content_changed_ids[kind]["top1_prototype"]),
+                    "changed_source_ids": common_content_changed_ids[kind]["top1_prototype"],
+                },
+                "ordered_recurrence_intervals": {
+                    "changed_source_count": len(
+                        common_content_changed_ids[kind]["ordered_recurrence_intervals"]
+                    ),
+                    "changed_source_ids": common_content_changed_ids[kind][
+                        "ordered_recurrence_intervals"
+                    ],
+                },
+                "left_selected_prototype_count": common_content_counts[kind]["left"],
+                "right_selected_prototype_count": common_content_counts[kind]["right"],
+                "selected_prototype_count_delta": (
+                    common_content_counts[kind]["right"]
+                    - common_content_counts[kind]["left"]
+                ),
+            }
+            for kind in KINDS
+        },
+        "claim_boundary": "common note and interval content differential only; no accuracy or perceptual claim",
+    }
+    raw["common_content_comparison"] = common_content
     aggregate = {
         **links,
         "version": VERSION,
@@ -710,6 +936,7 @@ def compare_variants(left: Path, right: Path, output: Path) -> dict[str, Any]:
             kind: {"count": len(rank_shifts[kind])}
             for kind in KINDS
         },
+        "common_content_comparison": common_content,
         "source_split_counts": dict(Counter(row["split"] for row in sources["left"].values())),
         "phrase_split_counts": {
             side: dict(indexes[side]["split_counts"])
