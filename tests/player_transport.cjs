@@ -40,6 +40,11 @@ for(const atlas of [false,true]){
   assert.equal(vm.runInContext(`${atlas?'ctx':'context'}.state`,t.box),'running');
   assert.match(t.node('status').textContent,/Looping/);
  });
+ test(`${label}: browser automatic resume restores the playback status`,async()=>{
+  const t=transport(atlas);const a=t.choose('a',false);await t.resolve('a');await a;
+  vm.runInContext(`const audio=${atlas?'ctx':'context'};audio.state='suspended';audio.onstatechange();audio.state='running';audio.onstatechange()`,t.box);
+  assert.match(t.node('status').textContent,/Looping/);assert.equal(t.sources.length,1);
+ });
  test(`${label}: keep old loop until replacement is ready and ignore stale selection`,async()=>{
   const t=transport(atlas);const a=t.choose('a',false);await t.resolve('a');await a;
   assert.equal(t.sources[0].loop,true);

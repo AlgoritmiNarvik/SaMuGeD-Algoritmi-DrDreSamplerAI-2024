@@ -74,7 +74,7 @@ async function play({replace=false}={}){
  document.getElementById('play').textContent='Stop loop';
  try{
   if(!context||context.state==='closed'){context=new AudioContext();gain=null;playing=null}
-  context.onstatechange=()=>{if(wantsPlayback&&['suspended','interrupted'].includes(context.state)){document.getElementById('status').textContent='Audio paused by the browser. Press Play loop to resume.';document.getElementById('play').textContent='Play loop'}};
+  context.onstatechange=()=>{if(wantsPlayback&&playing&&context.state==='running'&&document.getElementById('status').textContent.startsWith('Audio paused')){document.getElementById('status').textContent='Looping until stopped';document.getElementById('play').textContent='Stop loop'}if(wantsPlayback&&['suspended','interrupted'].includes(context.state)){document.getElementById('status').textContent='Audio paused by the browser. Press Play loop to resume.';document.getElementById('play').textContent='Play loop'}};
   await context.resume();
   if(current!==request)return;
   if(!gain){gain=context.createGain();gain.connect(context.destination)}
