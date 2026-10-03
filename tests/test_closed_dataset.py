@@ -7,6 +7,7 @@ import pytest
 from samuged.aligned import AlignedConfig
 from samuged.audit import audit
 from samuged.dataset import build
+from samuged.dataset import file_digest
 from samuged.evaluate import _build_case, _write_case
 from scripts.validate_schema import validate_dataset
 
@@ -29,6 +30,17 @@ def test_closed_build_exports_and_reextracts_replacements(tmp_path):
     assert checked["passed"], checked["failures"]
     schema = validate_dataset(output)
     assert schema["invalid_rows"] == 0, schema
+    # Refresh the ordinary manifest binding, so a failure must come from
+    # independently checking the replacement evidence rather than its hash.
+    row["selection_trace"][0]["replacement_score"] = 0.0
+    (output / "sources.jsonl").write_text(json.dumps(row) + "\n")
+    summary_path = output / "summary.json"
+    summary = json.loads(summary_path.read_text())
+    summary["source_manifest_sha256"] = file_digest(output / "sources.jsonl")
+    summary_path.write_text(json.dumps(summary))
+    tampered = audit(source, output, require_full=True)
+    assert not tampered["passed"]
+    assert any("per-step score margin" in item["reason"] for item in tampered["failures"])
 
 
 def test_closed_cli_rejects_reference_only_mode(tmp_path):

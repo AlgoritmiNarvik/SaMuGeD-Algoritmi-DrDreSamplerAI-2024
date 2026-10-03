@@ -13,6 +13,7 @@ import mido
 from .aligned import AlignedConfig, extract_aligned
 from .aligned_indexed import extract_indexed
 from .closed_patterns import extract_closed_patterns
+from .audit_closed import verify_closed_trace
 from .audit_alignment import (
     EXPECTED_MATCHER_FLAGS,
     validate_aligned_config,
@@ -446,6 +447,9 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
                         and isinstance(trace, list)
                         and record["closed_extension_count"] == len(trace), location,
                         "closed extension count differs from trace")
+                last_tick = max((note.end for part in song.parts for note in part.notes), default=0)
+                for problem in verify_closed_trace(record, config["config"], last_tick):
+                    require(False, location, problem)
             if reextract:
                 for problem in _reextract_record(song, record, config):
                     require(False, location, problem)
