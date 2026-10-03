@@ -257,7 +257,7 @@ def _safe_source(root: Path, relative: str) -> Path:
 
 def _load_manifest(path: Path) -> dict[str, dict[str, Any]]:
     rows = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8").split("\n"):
         if not line.strip():
             continue
         row = json.loads(line)

@@ -98,7 +98,7 @@ def _real_cohort(repository: Path) -> tuple[list[dict], list[dict]]:
     manifest = repository / REAL_MANIFEST
     records = [
         json.loads(line)
-        for line in manifest.read_text(encoding="utf-8").splitlines()
+        for line in manifest.read_text(encoding="utf-8").split("\n")
         if line
     ]
     if len(records) != REAL_SOURCE_COUNT:

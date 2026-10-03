@@ -35,7 +35,7 @@ _ALIGNED_ALGORITHMS = frozenset({"aligned", "aligned_indexed", "aligned_closed",
 
 
 def _read(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").split("\n")
             if line.strip()]
 
 

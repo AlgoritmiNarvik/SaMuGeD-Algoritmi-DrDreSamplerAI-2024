@@ -104,7 +104,7 @@ def package(dataset: Path, output: Path, *, allow_pilot=False, archive=False,
         "midi_excerpts_verified": audit.get("counts", {}).get("midi_verified", 0),
         "audit_sha256": file_digest(dataset / "audit.json"),
     }
-    rows = [json.loads(line) for line in (dataset/"phrases.jsonl").read_text().splitlines()]
+    rows = [json.loads(line) for line in (dataset/"phrases.jsonl").read_text().split("\n") if line.strip()]
     representatives, memberships = unique_views(rows)
     # Verify payloads before creating release metadata. Never trust a stale audit.
     payloads = {}

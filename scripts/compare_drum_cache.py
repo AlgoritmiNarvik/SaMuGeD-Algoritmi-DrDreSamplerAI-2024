@@ -32,7 +32,7 @@ def run(source: Path, manifest: Path, baseline: Path, candidate: Path,
     baseline = baseline.resolve()
     candidate = candidate.resolve()
     config = asdict(DrumConfig())
-    sources = [json.loads(line) for line in manifest.read_text().splitlines()]
+    sources = [json.loads(line) for line in manifest.read_text().split("\n") if line.strip()]
     cases = []
     if synthetic_development:
         cases.extend(("easy_development", case) for case in generate_cases(1000)

@@ -93,7 +93,7 @@ def select_real_cohort(
     control_count: int = REAL_CONTROL_CASES,
 ) -> tuple[list[dict], dict]:
     """Select all seed limited pilot rows and hash ordered unlimited controls."""
-    rows = [json.loads(line) for line in manifest.read_text().splitlines() if line.strip()]
+    rows = [json.loads(line) for line in manifest.read_text().split("\n") if line.strip()]
     if len({row.get("source_path") for row in rows}) != len(rows):
         raise ValueError("pilot manifest contains duplicate source paths")
     usable = [row for row in rows if row.get("status") == "ok"]

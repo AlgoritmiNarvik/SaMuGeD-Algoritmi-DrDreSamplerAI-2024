@@ -21,7 +21,7 @@ def run(source: Path, manifest: Path, baseline: Path, output: Path) -> dict:
     baseline = baseline.resolve(strict=True)
     baseline_relative = baseline.relative_to(repository).as_posix()
     cases = [case for case in generate_cases(1000) if case.split == "development"]
-    sources = [json.loads(line) for line in manifest.read_text().splitlines()]
+    sources = [json.loads(line) for line in manifest.read_text().split("\n") if line.strip()]
     files = [{"source_path": row["source_path"], "source_sha256": row["source_sha256"]} for row in sources]
     config = Config(top_k=10)
     receipt = prepare_experiment(output, design={

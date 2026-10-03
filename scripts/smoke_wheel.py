@@ -168,8 +168,8 @@ def run(output: Path, *, revision: str = "HEAD", algorithms: tuple[str, ...] = (
                     isolated, f"audit_{algorithm}"))
                 summary = json.loads((isolated / algorithm / "summary.json").read_text())
                 sources = {row["source_path"]: row for line in
-                           (isolated / algorithm / "sources.jsonl").read_text().splitlines()
-                           if (row := json.loads(line))}
+                           (isolated / algorithm / "sources.jsonl").read_text().split("\n")
+                           if line.strip() and (row := json.loads(line))}
                 repaired = {name for name, row in sources.items() if row.get("metadata_repairs")}
                 if repaired != {"invalid-key.mid"}:
                     raise ValueError("metadata recovery did not belong to the intended fixture")

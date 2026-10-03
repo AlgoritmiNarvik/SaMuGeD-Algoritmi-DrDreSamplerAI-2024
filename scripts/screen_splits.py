@@ -41,7 +41,7 @@ def _read_rows(path: Path, label: str) -> list[dict]:
     if not path.is_file():
         raise ValueError(f"missing screening artifact: {label}")
     rows = []
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
         if not line.strip():
             continue
         try:

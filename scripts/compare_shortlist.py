@@ -283,7 +283,7 @@ def run(
     cases = [case for case in generate_cases(case_count) if case.split == "development"]
     if case_count == 1000 and len(cases) != 500:
         raise ValueError("frozen development cohort must contain exactly 500 cases")
-    source_rows = [json.loads(line) for line in manifest.read_text(encoding="utf-8").splitlines() if line]
+    source_rows = [json.loads(line) for line in manifest.read_text(encoding="utf-8").split("\n") if line]
     if len(source_rows) != expected_real_sources:
         raise ValueError(f"expected {expected_real_sources} fixed real sources")
     if len({row["source_path"] for row in source_rows}) != len(source_rows):

@@ -33,7 +33,7 @@ def _file_sha256(path: Path) -> str:
 def _read_jsonl(path: Path) -> list[dict]:
     rows: list[dict] = []
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = path.read_text(encoding="utf-8").split("\n")
     except OSError as exc:
         raise ValueError(f"cannot read {path}: {exc}") from exc
     for line_number, line in enumerate(lines, 1):

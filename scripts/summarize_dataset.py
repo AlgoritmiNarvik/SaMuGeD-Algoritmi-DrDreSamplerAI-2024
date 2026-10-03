@@ -20,8 +20,8 @@ def distribution(values):
 
 
 def summarize(dataset: Path) -> dict:
-    sources = [json.loads(line) for line in (dataset/"sources.jsonl").read_text().splitlines()]
-    phrases = [json.loads(line) for line in (dataset/"phrases.jsonl").read_text().splitlines()]
+    sources = [json.loads(line) for line in (dataset/"sources.jsonl").read_text().split("\n") if line.strip()]
+    phrases = [json.loads(line) for line in (dataset/"phrases.jsonl").read_text().split("\n") if line.strip()]
     summary = json.loads((dataset/"summary.json").read_text())
     if file_digest(dataset/"sources.jsonl") != summary["source_manifest_sha256"] or file_digest(dataset/"phrases.jsonl") != summary["phrase_manifest_sha256"]:
         raise ValueError("manifest hash mismatch")

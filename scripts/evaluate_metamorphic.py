@@ -297,7 +297,7 @@ def run(
     source = source.resolve()
     manifest = manifest.resolve()
     manifest_sha256 = file_digest(manifest)
-    source_rows = [json.loads(line) for line in manifest.read_text(encoding="utf-8").splitlines() if line]
+    source_rows = [json.loads(line) for line in manifest.read_text(encoding="utf-8").split("\n") if line]
     if len(source_rows) != expected_sources:
         raise ValueError(f"expected {expected_sources} fixed real sources")
     if len({row["source_path"] for row in source_rows}) != len(source_rows):

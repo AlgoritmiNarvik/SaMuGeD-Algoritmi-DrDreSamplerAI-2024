@@ -199,7 +199,7 @@ def _read_real_cohort(repository: Path, limit: int) -> list[dict]:
     if limit < 1:
         raise ValueError("real limit must be positive")
     manifest = repository / REAL_MANIFEST
-    records = [json.loads(line) for line in manifest.read_text(encoding="utf-8").splitlines() if line]
+    records = [json.loads(line) for line in manifest.read_text(encoding="utf-8").split("\n") if line]
     if len(records) < limit:
         raise ValueError(f"real manifest has {len(records)} rows, fewer than requested {limit}")
     cohort = []
