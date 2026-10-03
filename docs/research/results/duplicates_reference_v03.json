@@ -1,0 +1,95 @@
+{
+  "artifact": "duplicates_reference_v03",
+  "inputs": {
+    "phrase_manifest": {
+      "bytes": 283579743,
+      "path": "research_local/lakh_phrases_v02/phrases.jsonl",
+      "sha256": "31b586ca1e9880ede1e007ab85f359c5e82bd8766e959dd82588f2fd42d3a718"
+    },
+    "source_manifest": {
+      "bytes": 370252960,
+      "path": "research_local/lakh_phrases_v02/sources.jsonl",
+      "sha256": "fa4c3010b8b17fdd8fbd58c87257281c01abf4a7325f94481fd9b5dfd3380823"
+    }
+  },
+  "limitations": [
+    "265 source parse errors produced no fingerprints and were not searched for duplicate evidence.",
+    "The shingle method is heuristic and does not establish song identity or complete corpus coverage.",
+    "The report has no candidate generation, verification or report cap reached."
+  ],
+  "provenance_artifacts": {
+    "design": {
+      "bytes": 2796,
+      "path": "research_local/duplicates_full_v03_provenance/design.json",
+      "sha256": "562fbf5072dc3074c4d2a80d8fdb91311f3993a3424951e1ff83c20aa1ff44a2"
+    },
+    "fingerprint_receipt": {
+      "bytes": 4613723,
+      "path": "research_local/duplicates_full_v03_provenance/fingerprint_receipt.jsonl",
+      "sha256": "a92d49a9d0606e6d4b554e3a29a49745611cad0a08d8b458aecf269fb6a234ac"
+    },
+    "input_sources": {
+      "bytes": 1173360,
+      "path": "research_local/duplicates_full_v03_provenance/input_sources.jsonl",
+      "sha256": "398a12c49c9f1520056998b0513e744047372b5d212d7c65a696b7d03a0d8918"
+    },
+    "snapshot_files": {
+      "pyproject.toml": "d5897d0cff42229be83e5c3759f24f874ffe71d1b76018b81092e8c9583ec746",
+      "requirements-research.lock": "854aa992b063efbb5e4f4513273e96a47ecbfb40e1cfc54eac635421782dc2e6",
+      "samuged/dataset.py": "101acc58450c878e20f07017d7d28f9d91fbcf6c3ea11b54d2b731580d8e05f9",
+      "samuged/midi.py": "5d6086f0d5563a056a2e696f44a4c89e3039a655de6406425e1f686dfc68597d",
+      "samuged/phrases.py": "ff5095d4bb95a35eafbdd6026aff9bc9af0cc7974e93f4d4b1dc7774c89c8c84",
+      "scripts/audit_duplicates.py": "a29de6974cb23a8fc8b1a35f4618fdd27839ac947018f925c58b9f554303bb81"
+    }
+  },
+  "schema_version": "samuged-duplicate-screening-metadata-v1",
+  "source_report": {
+    "bytes": 110022138,
+    "cache_hits": 0,
+    "cache_method_key_counts": {
+      "400abafc32565c632785dd7ccc8cdc7ab2c29654e0917ae6e0cb28b592a7c66b": 16967
+    },
+    "candidate_counts": {
+      "cross_split": 30667,
+      "exact_arrangement": 2235,
+      "exact_bytes": 0,
+      "near_duplicate_cross_split": 77,
+      "reported": 105113,
+      "shared_pattern_candidate": 98960,
+      "shared_pattern_cross_split": 30590,
+      "symbolic_near_duplicate": 6153
+    },
+    "fingerprint_code_sha256": "267e0a745ba502cb284884c927b56c8ed8be635c097816130dcb3d9351c32e73",
+    "fingerprint_method_key_counts": {
+      "400abafc32565c632785dd7ccc8cdc7ab2c29654e0917ae6e0cb28b592a7c66b": 17232
+    },
+    "generation": {
+      "candidate_report_limit_reached": false,
+      "document_frequency_limit": 32,
+      "documents": 16967,
+      "eligible_rare_shingles": 2275655,
+      "pair_events_generated": 7644656,
+      "pair_generation_limit_reached": false,
+      "pair_verification_limit_reached": false,
+      "pairs_verified": 1026114,
+      "pairs_with_shared_shingles": 1026114,
+      "saturated_inverted_buckets": 0,
+      "source_unique_shingle_total": 13886030,
+      "ubiquitous_shingles_excluded": 1888,
+      "unique_shingles": 9861707
+    },
+    "input_files": 17232,
+    "manifest_sha256": "fa4c3010b8b17fdd8fbd58c87257281c01abf4a7325f94481fd9b5dfd3380823",
+    "method": "transposition-invariant interval and median-normalized rhythm shingles",
+    "method_key": "400abafc32565c632785dd7ccc8cdc7ab2c29654e0917ae6e0cb28b592a7c66b",
+    "path": "research_local/duplicates_full_v03.json",
+    "schema_version": 2,
+    "script_sha256": "a29de6974cb23a8fc8b1a35f4618fdd27839ac947018f925c58b9f554303bb81",
+    "selected_sources_sha256": "398a12c49c9f1520056998b0513e744047372b5d212d7c65a696b7d03a0d8918",
+    "sha256": "149e3fdc9d89746d742b204c4a2d24882c0859b6bcb0b5f03cdaa1d9c2945635",
+    "status_counts": {
+      "error": 265,
+      "ok": 16967
+    }
+  }
+}

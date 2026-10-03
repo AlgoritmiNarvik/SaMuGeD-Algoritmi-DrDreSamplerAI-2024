@@ -1,0 +1,77 @@
+{
+  "artifact": "screened_splits_reference_v01",
+  "inputs": {
+    "duplicate_report": {
+      "bytes": 110022138,
+      "path": "research_local/duplicates_full_v03.json",
+      "sha256": "149e3fdc9d89746d742b204c4a2d24882c0859b6bcb0b5f03cdaa1d9c2945635"
+    },
+    "phrase_manifest": {
+      "bytes": 283579743,
+      "path": "research_local/lakh_phrases_v02/phrases.jsonl",
+      "sha256": "31b586ca1e9880ede1e007ab85f359c5e82bd8766e959dd82588f2fd42d3a718"
+    },
+    "source_manifest": {
+      "bytes": 370252960,
+      "path": "research_local/lakh_phrases_v02/sources.jsonl",
+      "sha256": "fa4c3010b8b17fdd8fbd58c87257281c01abf4a7325f94481fd9b5dfd3380823"
+    }
+  },
+  "limitations": [
+    "This is a supplementary leakage sensitivity view over heuristic candidate edges.",
+    "It preserves the original manifests and split labels; consumers must join phrase_id to screened_split explicitly."
+  ],
+  "schema_version": "samuged-duplicate-screening-metadata-v1",
+  "screening_artifacts": {
+    "candidate_edges.jsonl": {
+      "bytes": 1997848,
+      "path": "research_local/screened_splits_reference_v01/candidate_edges.jsonl",
+      "sha256": "d5406eb580bc27d283e66e560a72977381f039f82bf643aecb378a694b968fe5"
+    },
+    "phrase_splits.jsonl": {
+      "bytes": 23487555,
+      "path": "research_local/screened_splits_reference_v01/phrase_splits.jsonl",
+      "sha256": "fa1528c7eff52791ea811dfa04e33dba3b3b4a90debe9043f0a4a3507bcb469a"
+    },
+    "source_splits.jsonl": {
+      "bytes": 5710612,
+      "path": "research_local/screened_splits_reference_v01/source_splits.jsonl",
+      "sha256": "ab5e2395667e46f646351d95e58c3264c928d117a466a939d9334eb1607fb38a"
+    }
+  },
+  "source_summary": {
+    "already_family_excluded_phrases_in_quarantined_groups": 350,
+    "bytes": 1486,
+    "candidate_edges": 6157,
+    "claim_boundary": "supplementary leakage sensitivity view based on heuristic melodic duplicate candidates",
+    "duplicate_method_key": "400abafc32565c632785dd7ccc8cdc7ab2c29654e0917ae6e0cb28b592a7c66b",
+    "duplicate_report_sha256": "149e3fdc9d89746d742b204c4a2d24882c0859b6bcb0b5f03cdaa1d9c2945635",
+    "excluded_source_groups": 44,
+    "newly_excluded_phrase_counts": {
+      "test": 2126,
+      "validation": 1739
+    },
+    "path": "research_local/screened_splits_reference_v01/summary.json",
+    "phrase_manifest_sha256": "31b586ca1e9880ede1e007ab85f359c5e82bd8766e959dd82588f2fd42d3a718",
+    "phrase_split_counts": {
+      "duplicate_excluded": 3865,
+      "overlap_excluded": 478,
+      "test": 6104,
+      "train": 77327,
+      "validation": 7037
+    },
+    "policy": "quarantine whole original groups in later splits; train before validation before test",
+    "retained_cross_split_candidate_edges": 0,
+    "run_key": "cb208cc6875b628d5d31d21054ac838fa18f1ec1baa2ce464f079d10746e00a6",
+    "schema_version": "samuged-split-screening-v1",
+    "script_sha256": "57b59251b3ceb210941377b49b3866084dfd3514faa657c0ce92ead90117eb39",
+    "sha256": "53c5c3dcf2c2f803dfd69269aca127c5fc30cba9c6827ef1665eee9ada475200",
+    "source_manifest_sha256": "fa4c3010b8b17fdd8fbd58c87257281c01abf4a7325f94481fd9b5dfd3380823",
+    "source_split_counts": {
+      "duplicate_excluded": 766,
+      "test": 1148,
+      "train": 13966,
+      "validation": 1352
+    }
+  }
+}

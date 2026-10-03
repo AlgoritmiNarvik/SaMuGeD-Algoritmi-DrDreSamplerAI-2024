@@ -1,0 +1,42 @@
+{
+  "already_family_excluded_phrases_in_quarantined_groups": 350,
+  "artifacts": {
+    "candidate_edges.jsonl": "a792ec7c968946f1e7807a87e503e1bc1a787a70da173dc875265fdc3e7b86d6",
+    "duplicate_report.json": "2077800af8e1df96609aece44a9f217f3ac29e24ba40ded124dbe1c55e7cc299",
+    "phrase_splits.jsonl": "fef3376bf83dbefb7fe0f06da0710b131acebd29badca97df43c16e51ec6883a",
+    "source_splits.jsonl": "ab5e2395667e46f646351d95e58c3264c928d117a466a939d9334eb1607fb38a"
+  },
+  "candidate_edges": 6168,
+  "claim_boundary": "supplementary leakage sensitivity view based on heuristic melodic duplicate candidates",
+  "duplicate_method_key": "818e13be7a44762592a2473d3f2253880f52a71d81f704d3c162dceb842be011",
+  "duplicate_report_sha256": "2077800af8e1df96609aece44a9f217f3ac29e24ba40ded124dbe1c55e7cc299",
+  "excluded_source_groups": 44,
+  "newly_excluded_phrase_counts": {
+    "test": 2126,
+    "validation": 1742
+  },
+  "phrase_manifest_sha256": "f7a1ccff7483bb70a07c0c3f04b7cd6d5090942b524272eac942d0ee3739160e",
+  "phrase_split_counts": {
+    "duplicate_excluded": 3868,
+    "overlap_excluded": 480,
+    "test": 6113,
+    "train": 77445,
+    "validation": 7044
+  },
+  "policy": "quarantine whole original groups in later splits; train before validation before test",
+  "retained_cross_split_candidate_edges": 0,
+  "run_key": "95f9733b8098731b813476102cced7c8790581db9992d7dc4c6634da409aa828",
+  "schema_version": "samuged-split-screening-v1",
+  "script_provenance": {
+    "path": "scripts/screen_splits.py",
+    "sha256": "3627469302a46df882904dab8aa50f9b06b9ec8231eb4281558ab48841af0134",
+    "status": "unverified_creation_metadata"
+  },
+  "source_manifest_sha256": "062691ad29739cd58bdfb8c55258d63d72868d3ee3e4c30badeceaa917c8c76f",
+  "source_split_counts": {
+    "duplicate_excluded": 766,
+    "test": 1148,
+    "train": 13966,
+    "validation": 1352
+  }
+}
