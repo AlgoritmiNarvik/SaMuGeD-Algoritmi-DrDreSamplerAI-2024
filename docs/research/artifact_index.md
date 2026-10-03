@@ -46,9 +46,11 @@ The six song Theme Transformer input audit is [`research_local/theme_annotation_
 
 The prepared role cohort is [`research_local/external/pop909_role_v01`](../../research_local/external/pop909_role_v01). Its selection manifest has SHA256 `298475990757d9e8574e121f58dff14aaf35d5696963e6baa143de917db4d956`, its source manifest has SHA256 `076bbad7b4cecb1a274c5bb5148e5b34b44ecf222b2964902541dce2d9992f67` and its download receipt has SHA256 `66d8900ae247eaec76dc6a6c164fa7fdfb8dc01c0052cb150398dc24a77e083e`. The cohort contains 180 strict parsed sources, 60 development and 120 heldout IDs, selected under `samuged-pop909-role-v1` from official commit `d83e6edba6872a704f5d3b8b32f5cb540088dae6`; it excludes `065`, `284`, `310`, `422`, `449` and `464`. `MELODY`, `BRIDGE` and `PIANO` are source track metadata used for role analysis, not human labels.
 
-## Current paper draft
+## Archived scientific draft
 
-The current local paper output is [`output/pdf/samuged_recurring_phrases.pdf`](../../output/pdf/samuged_recurring_phrases.pdf), six pages, SHA256 `10ef7decc9ac551c51efd1c080744a58517ab0c054e2e0629ecba24dd4649eb6`. Its input receipt is [`samuged_recurring_phrases.inputs.json`](../../output/pdf/samuged_recurring_phrases.inputs.json), SHA256 `aa0b4f24e3a436c57a8be3f63c6862b82ecb45d88c0dbc3cc3037dc9d14febd5`; all 132 paths and hashes matched during pause closeout. The generator SHA256 is `536bf43707424043394a7a8cfafc2cdf9d77aee8c50b981960e448b9c0a893c3`. All six pages were rendered and visually checked. The paper binds the reference corpus, audited indexed and closed comparisons and complete reference selection replay. It excludes the unvalidated full melody corpus and remains a local scientific draft without human phrase-quality labels. Human validation is optional follow-up research, not a gate for the algorithmic release. The previous promoted PDF and receipt remain preserved under `research_local/samuged_recurring_phrases.pre_pause_checkpoint_v01.*`.
+The current [published research note](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/paper/samuged_recurring_phrases.pdf) is distributed with the dataset. The receipt below identifies the earlier scientific draft.
+
+The archived scientific draft is [`output/pdf/samuged_recurring_phrases.pdf`](../../output/pdf/samuged_recurring_phrases.pdf), six pages, SHA256 `10ef7decc9ac551c51efd1c080744a58517ab0c054e2e0629ecba24dd4649eb6`. Its input receipt is [`samuged_recurring_phrases.inputs.json`](../../output/pdf/samuged_recurring_phrases.inputs.json), SHA256 `aa0b4f24e3a436c57a8be3f63c6862b82ecb45d88c0dbc3cc3037dc9d14febd5`; all 132 paths and hashes matched during verification. The generator SHA256 is `536bf43707424043394a7a8cfafc2cdf9d77aee8c50b981960e448b9c0a893c3`. All six pages were rendered and visually checked. The paper binds the reference corpus, audited indexed and closed comparisons and complete reference selection replay. It excludes the unvalidated full melody corpus and remains a local scientific draft without human phrase-quality labels. Human validation is optional follow-up research, not a gate for the algorithmic release.
 
 ## Additional completed evidence
 
@@ -101,11 +103,11 @@ at [`selection_sample_indexed_v02`](../../research_local/selection_sample_indexe
 all 16,995 successful sources passed with zero discrepancies. Completion receipt
 SHA256 is `8b2c75f94017767d1b8da6a253b9330712ddea13a53601e4e012b0c2b09a3830`.
 The historical directory name does not change the actual `all_successful` mode.
-Root verified exact coverage and canonical source records, then separately
+Verification checked exact coverage and canonical source records, then separately
 matched all five bound dataset files including the complete source manifest.
 Its release package has not been built.
 
-The `aligned_melody` full build also completed naturally before the pause.
+The `aligned_melody` full build also completed.
 Its source and phrase manifests reconcile 17,232 inputs and 95,077 phrases
 (50,566 melodic and 44,511 percussion). Their SHA256 values are
 `e7a7bc1888f2522a4f61d0a596d869b374b93f53fa5e32866a46bd8bab04d1e4`
@@ -115,12 +117,6 @@ The corrected [build inventory](../../research_local/melody_pause_inventory_v02.
 checks all 29 files against the actual frozen runner directory. The first private
 inventory's mismatch claim was a wrong-base-path error, not changed frozen code.
 
-The user requested a pause. Automatic continuation is `PAUSED`, downstream
-waiters are stopped and no research computation remains active. The
-[pause checkpoint](PAUSE_CHECKPOINT.md) records the final boundary and commands.
-The [presentation](../../output/presentations/samuged_status_2026-10-03.pptx)
-and its [PDF copy](../../output/pdf/samuged_status_2026-10-03.pdf) give the status
-in Russian, including metric denominators and unfinished publication work.
 
 ## Claim limits
 

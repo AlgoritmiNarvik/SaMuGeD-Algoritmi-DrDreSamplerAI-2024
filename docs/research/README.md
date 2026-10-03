@@ -137,16 +137,16 @@ Add `--selection-replay PATH` to include a completed [selection replay](selectio
 
 Use `python scripts/verify_release.py --release PATH --archive ARCHIVE --output NEW_REPORT.json` to verify a metadata directory and its sibling archive without the original corpus. Omit `--archive` for metadata only. The [portable verifier](release_verification.md) checks exact file sets, hashes, manifest counts, audit bindings and included screening or replay evidence. It does not repeat extraction or authenticate the publisher.
 
-The paper generator is `scripts/make_paper.py`. Its PDF input receipt records the exact dataset and evaluation artifacts used. Published claims must be limited to the measurements represented by those artifacts. The live [work log](WORK_LOG.md) distinguishes completed builds, experimental results and pending validation.
+The paper generator is `scripts/make_paper.py`. Its PDF input receipt records the exact dataset and evaluation artifacts used. Published claims must be limited to the measurements represented by those artifacts. The [release summary](DELIVERY.md) identifies published outputs and the [artifact index](artifact_index.md) records experimental evidence.
 
 POP909, Theme Transformer and JKU are external evaluation inputs. They are not distributed with the public dataset. The publication includes their reported results and citations only; users must obtain the external inputs from their official sources.
 
 ## Evidence and remaining publication work
 
-See [legacy audit](legacy_audit.md), [primary sources](sources.md) and [work log](WORK_LOG.md). Controlled planted motifs test known invariances and failure cases. They do not estimate precision or recall on real popular music. The unchanged legacy detector exports prototypes without occurrence coordinates, so its occurrence F1 is deliberately not reported.
+See [legacy audit](legacy_audit.md), [primary sources](sources.md) and [artifact index](artifact_index.md). Controlled planted motifs test known invariances and failure cases. They do not estimate precision or recall on real popular music. The unchanged legacy detector exports prototypes without occurrence coordinates, so its occurrence F1 is deliberately not reported.
 
 For a public dataset release, inspect near duplicates and retain the redistribution rights notice. The repository code is MIT licensed. The [official Lakh page](https://colinraffel.com/projects/lmd/) labels the distributed collection CC BY 4.0 and requests citation of that page and [Raffel's 2016 thesis](https://colinraffel.com/publications/thesis.pdf). Attribution for the underlying compositions and arrangements is incomplete, so this project makes no independent clearance claim. Listener ratings and human phrase labels are optional follow-up research, not a publication gate for this algorithmic recurrence dataset. The release does not claim perceptual quality or validated earworm detection.
 
 ## Listening case study
 
-The [Tool collection](tool_motifs.md) explores saved melodic and drum patterns from nine available MIDI songs. It is a personal listening case study with documented source limits.
+The [Tool collection](tool_motifs.md) explores saved melodic and drum patterns from 28 source songs, including separate interface supplements. It is a personal listening case study with documented source limits.
