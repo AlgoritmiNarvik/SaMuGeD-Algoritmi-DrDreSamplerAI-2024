@@ -16,7 +16,7 @@ search limited through seed bucket saturation. A larger labelled evaluation
 is needed before exposing it as an optional method.
 
 The v01 short-key replacement should not be promoted. It lost 27 existing
-development recoveries and 24 v01 fresh-seed recoveries. The v02 union was a
+development recoveries and 24 recoveries on the reused v01 seed cohort. The v02 union was a
 separate frozen experiment designed after that result and retains the terminal
 composite keys rather than replacing them.
 
@@ -67,15 +67,25 @@ The design and all inputs were frozen before detector execution.
 | Known no-match regressions | 3 | Development cause and target-window diagnostic |
 | Existing synthetic development | 500 | Existing `generate_cases(1000)` development half |
 | Fixed real pilot | 128 | Paired unlabelled output and workload diagnostic |
-| Fresh synthetic seeds, v01 | 500 | Same generator, seed namespace 30,000,000 through 30,000,499 |
+| Reused synthetic seeds, v01 | 500 | Same generator, seed namespace 30,000,000 through 30,000,499, previously observed in the closed-pattern study |
 | Fresh synthetic seeds, v02 | 500 | Same generator, seed namespace 40,000,000 through 40,000,499 |
 
-Each fresh namespace is disjoint from the existing development namespace and
-from the other study. Each was frozen and run in one invocation without an
-edit or result-inspection boundary. The 30 million namespace was observed
-before the union design, so v02 uses the new 40 million namespace. Both remain
-synthetic cases from the same generator and are not an external heldout
-corpus.
+Both namespaces are disjoint from the existing 10 million development
+namespace and from each other. Each seed rescue run was frozen before its own
+detector execution, but that alone does not make its cases fresh. A later
+cross-study audit found that all 500 v01 cases in the 30 million namespace had
+already been used in `closed_patterns_v01_replication`. Their frozen metadata
+is identical after removing cohort and case labels. The v01 `fresh_seed_500`
+field is therefore a historical mislabel: these are reused development
+diagnostics, not fresh heldout evidence for seed rescue.
+
+The v02 40 million namespace has no overlap with those two prior cohorts.
+It was frozen and executed without an edit or result-inspection boundary.
+It remains a synthetic sample from the same generator, not an external
+heldout corpus. The correction is recorded in
+`research_local/seed_rescue_namespace_audit_v01.json`; original receipts and
+results remain unchanged. The earlier closed-pattern study's original use
+of 30 million seeds is unaffected by their later reuse.
 
 ## Known regressions
 

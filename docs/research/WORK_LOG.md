@@ -284,3 +284,9 @@ The new immutable `reference_v04` archive includes the full replay, the consumer
 Commit `8c78bb6` records two bounded seed rescue studies. Replacing short-window keys loses insertion/deletion recoveries and is rejected. A separately frozen union avoids those synthetic losses and recovers two of three exact named regression targets, but changes 19 unlabelled real outputs and adds one saturation-limited source. No production detector changes. Root replays all three methods on 16 targeted cases with exact non-runtime output agreement. All 566 current tests pass in 95.22 seconds.
 
 The closed full build is complete with 50,566 melodic and 44,511 percussion candidates. Its ordinary audit is running before packaging and full-corpus comparisons. Indexed all-successful replay and the melody full build remain active. Continue local work until 12:46:15 UTC, with no push or publication.
+
+## 12:43 Oslo checkpoint: closed artifact audit and cohort identity correction
+
+The closed full artifact audit passes all 95,077 exported MIDI excerpts and 16,995 successfully parsed sources, reproducing all 237 input errors with no audit failures. Schema validation and a separate 256-source selection replay follow in the frozen wrapper. Full-corpus closed comparison, duplicate screening and a 64-pair blinded review packet are now being prepared.
+
+Cross-study seed checking found a naming error in the rejected seed-rescue v01 experiment. Its `fresh_seed_500` cohort uses exactly the same 500 seeds and generated metadata as the previously observed closed-pattern study. The v01 seed-rescue cohort is now described as reused development evidence; frozen receipt names and numbers are preserved. The separate union v02 cohort at 40 million has no seed overlap with either prior cohort. This correction does not invalidate the original closed-pattern experiment or change any detector output. The root evidence is `research_local/seed_rescue_namespace_audit_v01.json`.
