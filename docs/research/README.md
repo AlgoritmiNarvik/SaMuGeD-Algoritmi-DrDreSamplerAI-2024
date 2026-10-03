@@ -131,6 +131,8 @@ Add `--screening PATH` for a validated supplementary split view. Add `--archive`
 
 Add `--selection-replay PATH` to include a completed [selection replay](selection_sample_audit.md), bound to the exact primary manifests and audit. The package distinguishes a bounded sample from explicit replay of every successfully parsed source. Parse errors remain outside that successful-source replay and stay visible in the primary artifact audit. The [paired ratings analyzer](paired_ratings_analysis.md) validates future listening exports while retaining missing responses as null; it does not create human labels.
 
+Use `python scripts/verify_release.py --release PATH --archive ARCHIVE --output NEW_REPORT.json` to verify a metadata directory and its sibling archive without the original corpus. Omit `--archive` for metadata only. The [portable verifier](release_verification.md) checks exact file sets, hashes, manifest counts, audit bindings and included screening or replay evidence. It does not repeat extraction or authenticate the publisher.
+
 The paper generator is `scripts/make_paper.py`. Its PDF input receipt records the exact dataset and evaluation artifacts used. Published claims must be limited to the measurements represented by those artifacts. The live [work log](WORK_LOG.md) distinguishes completed builds, experimental results and pending validation.
 
 ## Evidence and remaining publication work
