@@ -58,6 +58,10 @@ Use a new output directory. Add `--limit 128` for a pilot. Source MIDI is not bu
 
 [Methods and verification](docs/research/README.md) · [Publication and rendering](docs/publication/README.md) · [Release status](docs/research/DELIVERY.md) · [Consumer guide](docs/research/consumer_guide.md) · [Familiar song selection](docs/research/familiar_hooks.md)
 
+## Inspiration
+
+[![Watch the video](https://img.youtube.com/vi/eiknHyeNCpY/0.jpg)](https://www.youtube.com/watch?v=eiknHyeNCpY)
+
 ## Authors
 
 | Author | Contact |
