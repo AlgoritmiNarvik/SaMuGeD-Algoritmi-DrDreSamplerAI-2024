@@ -2025,6 +2025,25 @@ def render(
         ["Nonoverlapping occurrences", *[displayed(profiles[k]["occurrences"]) for k in ("melodic", "percussion")]],
     ], [250, 115, 115])
 
+    if algorithm == "reference" and (aligned or closed or part_ranking):
+        heading("Evaluated extensions")
+        if aligned:
+            p("Indexed alignment searches 6 to 32 note windows. It verifies a constant pitch shift and "
+              "bounded onset and duration differences while allowing internal note edits: at most four and "
+              "at most 15% of the prototype length, rounded down. It does not warp tempo or allow terminal "
+              "gaps. Indexed anchors reduce pair enumeration but can miss valid repetitions.", "SmallLocal")
+        if closed:
+            p("Closed exact selection can replace a shorter family with a containing longer family. Both "
+              "must have the same support of at least three exact occurrences, with one-to-one containment "
+              "and a shared endpoint. The recurrence score may decrease by at most 0.02 per replacement "
+              "step. This can recover full repeated phrases, but periodic passages can also be extended "
+              "beyond a listener's preferred boundary.", "SmallLocal")
+        if part_ranking:
+            p("The optional melody selector uses a part prior of 0.65 × onset monophony + 0.35 × voice "
+              "independence. It ranks candidates by recurrence score + 0.08 × (prior - 0.5) before closed "
+              "selection. Track names and instrument programs are not features. The original recurrence "
+              "score is retained separately.", "SmallLocal")
+
     page()
     heading("3. Controlled evaluation")
     p("Synthetic songs contain planted motifs with known intervals and negative controls. Development and test use "

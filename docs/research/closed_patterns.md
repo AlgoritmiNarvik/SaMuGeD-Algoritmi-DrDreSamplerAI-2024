@@ -28,7 +28,7 @@ Both the aligned and aligned indexed generators were evaluated. Each generator r
 
 ## Fresh synthetic results
 
-Both candidate generators produced the same semantic result.
+Both candidate generators produced the same semantic result. The intervals in this table use the `aligned` bootstrap stream. The `aligned_indexed` stream independently resamples the same cases and has the same point estimates; its occurrence F1 interval is +0.036719 to +0.091781. The paper uses that indexed interval. This small interval difference comes from finite bootstrap resampling, not different predictions.
 
 | Metric | Original | Closed exact extension | Paired difference, closed minus original | 95% case bootstrap interval |
 | --- | ---: | ---: | ---: | ---: |
