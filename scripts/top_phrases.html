@@ -56,14 +56,16 @@ document.getElementById('volume').oninput=e=>{if(gain)gain.gain.value=Number(e.t
 async function play(r,mode,button,{replace=false}={}){
  const a=data.audio?.[r.phrase_id];if(!a){stop('Rendered audio is available in the published Space.');return}
  const variant=mode==='piano'?a.piano:mode==='paired'?a.with_drums:mode==='drums'?a.drums_only:a,url=variant.wav;
- if(wantsPlayback&&playingUrl===url&&!replace){stop('Playback stopped');return}
+ if(wantsPlayback&&playingUrl===url&&!replace&&ctx?.state==='running'){stop('Playback stopped');return}
  wantsPlayback=true;playingUrl=url;const t=++token;
  document.getElementById('status').textContent='Loading selected loop';
  for(const b of document.querySelectorAll('.loop-play'))b.textContent=b.dataset.label;
  button.textContent='Stop loop';
  for(const link of document.querySelectorAll('[data-audio-download]'))link.href=variant[link.dataset.audioDownload];
  try{
-  ctx=ctx||new AudioContext({sampleRate:48000});await ctx.resume();if(t!==token)return;
+  if(!ctx||ctx.state==='closed'){ctx=new AudioContext();gain=null;playing=null}
+  ctx.onstatechange=()=>{if(wantsPlayback&&playing&&ctx.state==='running'&&document.getElementById('status').textContent.startsWith('Audio paused')){document.getElementById('status').textContent='Looping until stopped';button.textContent='Stop loop'}if(wantsPlayback&&['suspended','interrupted'].includes(ctx.state)){document.getElementById('status').textContent='Audio paused by the browser. Press Play loop to resume.';for(const b of document.querySelectorAll('.loop-play'))b.textContent=b.dataset.label}};
+  await ctx.resume();if(t!==token)return;
   if(!gain){gain=ctx.createGain();gain.connect(ctx.destination)}gain.gain.value=Number(document.getElementById('volume').value);
   let buffer=audioCache.get(url);if(!buffer){const response=await fetch(url);if(!response.ok)throw new Error('Audio request failed');buffer=await ctx.decodeAudioData(await response.arrayBuffer());audioCache.set(url,buffer);while(audioCache.size>4)audioCache.delete(audioCache.keys().next().value)}
   if(t!==token)return;
