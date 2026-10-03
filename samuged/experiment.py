@@ -254,7 +254,8 @@ def complete_experiment(
     A study may replace that set only by declaring ``design.result_artifacts``
     before execution.  A caller-provided list must equal the frozen set exactly.
 
-    This proves byte integrity and provenance links only. It does not certify
+    JSON results carry provenance links; declared binary or text artifacts are
+    bound by their exact bytes. This proves integrity and provenance links only. It does not certify
     metric correctness, evaluation design quality or a promotion decision.
     """
     output = output.resolve()
@@ -277,9 +278,10 @@ def complete_experiment(
         if relative in {"experiment_receipt.json", "source_snapshot.json", "completion_receipt.json"}:
             raise ValueError("completion artifact must be a result file")
         data = _contained_artifact(output, relative).read_bytes()
-        result = json.loads(data)
-        if not isinstance(result, dict) or any(result.get(key) != value for key, value in links.items()):
-            raise ValueError(f"result provenance links mismatch: {relative}")
+        if PurePosixPath(relative).suffix == ".json":
+            result = json.loads(data)
+            if not isinstance(result, dict) or any(result.get(key) != value for key, value in links.items()):
+                raise ValueError(f"result provenance links mismatch: {relative}")
         entries[relative] = {"sha256": sha256_bytes(data), "bytes": len(data)}
     completion = {
         "schema_version": "samuged-experiment-completion-v1", "status": "completed",
@@ -314,7 +316,8 @@ def verify_completed_experiment(output: Path) -> dict[str, Any]:
         data = _contained_artifact(output, relative).read_bytes()
         if len(data) != entry["bytes"] or sha256_bytes(data) != entry["sha256"]:
             raise ValueError(f"completed result changed: {relative}")
-        result = json.loads(data)
-        if any(result.get(key) != value for key, value in receipt_links(receipt).items()):
-            raise ValueError(f"completed result links mismatch: {relative}")
+        if PurePosixPath(relative).suffix == ".json":
+            result = json.loads(data)
+            if not isinstance(result, dict) or any(result.get(key) != value for key, value in receipt_links(receipt).items()):
+                raise ValueError(f"completed result links mismatch: {relative}")
     return completion

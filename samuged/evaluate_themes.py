@@ -580,6 +580,8 @@ def run(input_root: Path, audit_path: Path, output: Path) -> dict[str, Any]:
     }
     repository = Path(__file__).resolve().parent.parent
     required_files = [
+        "samuged/__init__.py",
+        "samuged/metadata_recovery.py",
         "samuged/evaluate_themes.py",
         "samuged/experiment.py",
         "samuged/midi.py",

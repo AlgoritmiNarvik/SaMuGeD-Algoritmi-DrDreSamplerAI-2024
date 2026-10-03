@@ -8,6 +8,7 @@ from jsonschema import Draft202012Validator
 
 from samuged.aligned import AlignedConfig
 from samuged.dataset import _work, finalize
+from samuged.phrases import Config
 from scripts.validate_schema import validate_dataset, validate_manifest
 
 
@@ -310,6 +311,30 @@ def aligned_worker_manifests(tmp_path, algorithm="aligned", *, percussion=False,
     return sources, phrases
 
 
+def reference_worker_manifests(tmp_path):
+    source = tmp_path / "source.mid"
+    output = tmp_path / "reference"
+    write_repeated_midi(source)
+    row = _work(
+        (
+            str(source),
+            "Artist/source.mid",
+            str(output),
+            asdict(Config()),
+            "a" * 64,
+            True,
+            False,
+            "reference",
+            False,
+        )
+    )
+    assert row["status"] == "ok" and row["phrases"]
+    finalize([row], output, {})
+    sources = [json.loads(line) for line in (output / "sources.jsonl").read_text().splitlines()]
+    phrases = [json.loads(line) for line in (output / "phrases.jsonl").read_text().splitlines()]
+    return sources, phrases
+
+
 def metadata_repair():
     return {
         "kind": "invalid_key_signature_retyped_as_sequencer_specific",
@@ -353,6 +378,15 @@ def test_schemas_accept_actual_melodic_and_percussion_shapes():
     assert not list(validator("source").iter_errors(source_row()))
     assert not list(validator("phrase").iter_errors(melodic_phrase()))
     assert not list(validator("phrase").iter_errors(percussion_phrase()))
+
+
+def test_reference_worker_cache_stats_validate(tmp_path):
+    sources, phrases = reference_worker_manifests(tmp_path)
+
+    assert sources[0]["part_stats"][0]["exact_cache_hits"] > 0
+    assert not list(validator("source").iter_errors(sources[0]))
+    assert phrases
+    assert all(not list(validator("phrase").iter_errors(row)) for row in phrases)
 
 
 def test_source_without_optional_phrase_or_drum_stats_is_valid():

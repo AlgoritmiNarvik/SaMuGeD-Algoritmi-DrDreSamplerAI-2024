@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 from itertools import product
 import json
 import math
 from pathlib import Path
 import random
+import sys
 
 from . import evaluate_themes as evaluation
 from .experiment import sha256_bytes, sha256_json, verify_completed_experiment
@@ -18,12 +20,12 @@ _REPLAY_SOURCE_FILES = frozenset(
         "requirements-research.lock",
         "samuged/aligned.py",
         "samuged/aligned_indexed.py",
-        "samuged/evaluate_themes.py",
         "samuged/midi.py",
         "samuged/phrases.py",
     }
 )
-_SNAPSHOT_FILES = _REPLAY_SOURCE_FILES | {"samuged/experiment.py"}
+_SNAPSHOT_FILES = _REPLAY_SOURCE_FILES | {"samuged/experiment.py", "samuged/evaluate_themes.py"}
+_IMPORT_CLOSURE_FILES = frozenset({"samuged/__init__.py", "samuged/metadata_recovery.py"})
 
 
 def _same(actual, expected, label: str) -> None:
@@ -169,6 +171,14 @@ def verify(output: Path, input_root: Path, input_audit: Path, *, replay: bool = 
     receipt = json.loads((output / "experiment_receipt.json").read_text())
     raw = json.loads((output / "raw_results.json").read_text())
     aggregate = json.loads((output / "aggregate.json").read_text())
+    # Use the recorded adapter for input reconstruction and detector dispatch.
+    # Its relative core imports are checked against their saved hashes below.
+    frozen_path = output / "source_snapshot/samuged/evaluate_themes.py"
+    module_name = "samuged._theme_audit_frozen_adapter"
+    specification = importlib.util.spec_from_file_location(module_name, frozen_path)
+    evaluation = importlib.util.module_from_spec(specification)
+    sys.modules[module_name] = evaluation
+    specification.loader.exec_module(evaluation)
     for value in (receipt["design"], raw, aggregate):
         _same(value.get("schema_version"), evaluation.EVALUATION_VERSION, "schema version")
     cases, input_receipts = evaluation.load_cases(input_root, input_audit)
@@ -184,12 +194,15 @@ def verify(output: Path, input_root: Path, input_audit: Path, *, replay: bool = 
     _same(aggregate["song_count"], len(cases), "song count")
     _same(aggregate["annotation_views"], len(cases) * len(evaluation.ANNOTATORS), "annotation count")
 
+    snapshot = json.loads((output / "source_snapshot.json").read_text())
+    saved_hashes = {row["path"]: row["sha256"] for row in snapshot["files"]}
+    closure_complete = _IMPORT_CLOSURE_FILES.issubset(saved_hashes)
+    expected_files = _SNAPSHOT_FILES | (_IMPORT_CLOSURE_FILES if closure_complete else frozenset())
+    _same(set(saved_hashes), expected_files, "source snapshot file set")
     if replay:
-        snapshot = json.loads((output / "source_snapshot.json").read_text())
-        saved_hashes = {row["path"]: row["sha256"] for row in snapshot["files"]}
-        _same(set(saved_hashes), _SNAPSHOT_FILES, "source snapshot file set")
         repository = Path(__file__).resolve().parents[1]
-        for relative in sorted(_REPLAY_SOURCE_FILES):
+        replay_files = _REPLAY_SOURCE_FILES | (_IMPORT_CLOSURE_FILES if closure_complete else frozenset())
+        for relative in sorted(replay_files):
             _same(sha256_bytes((repository / relative).read_bytes()), saved_hashes[relative],
                   f"replay executable {relative}")
 
@@ -301,6 +314,7 @@ def verify(output: Path, input_root: Path, input_audit: Path, *, replay: bool = 
     return {
         "schema_version": "samuged-theme-audit-v1", "passed": True,
         "detector_replayed": replay, "song_count": len(cases), "detector_runs": len(runs),
+        "frozen_local_import_closure_complete": closure_complete,
         "classification_rows": len(expected_rows),
         "raw_results_sha256": sha256_bytes((output / "raw_results.json").read_bytes()),
         "aggregate_sha256": sha256_bytes((output / "aggregate.json").read_bytes()),

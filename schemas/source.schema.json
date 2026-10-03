@@ -1003,6 +1003,9 @@
           "comparisons": {
             "$ref": "#/$defs/nonNegativeInteger"
           },
+          "exact_cache_hits": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
           "input_notes": {
             "$ref": "#/$defs/nonNegativeInteger"
           },

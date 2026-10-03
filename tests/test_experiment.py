@@ -76,7 +76,7 @@ def test_receipt_cohort_matches_reproducible_synthetic_cases(tmp_path):
     assert receipt["case_cohort"] == expected
     raw = json.loads((output / "raw_results.json").read_text())
     assert [
-        {key: value for key, value in case.items() if key not in {"methods", "midi_path"}}
+        {key: value for key, value in case.items() if key not in {"methods", "midi_path", "midi_sha256"}}
         for case in raw["cases"]
     ] == expected
 
@@ -217,3 +217,24 @@ def test_source_snapshot_directory_must_remain_inside_experiment(tmp_path):
 
     with pytest.raises(ValueError, match="directory escapes output directory"):
         verify_start_receipt(output)
+
+
+def test_generated_midi_is_bound_to_completion_receipt(tmp_path):
+    run_benchmark(tmp_path, seeds=2, legacy_limit=0, bootstrap_iterations=1)
+    completion = verify_completed_experiment(tmp_path)
+    assert len(completion["artifacts"]) == 4
+    raw = json.loads((tmp_path / "raw_results.json").read_text())
+    case = raw["cases"][0]
+    midi = tmp_path / case["midi_path"]
+    assert sha256(midi.read_bytes()).hexdigest() == case["midi_sha256"]
+    midi.write_bytes(midi.read_bytes() + b"changed")
+    with pytest.raises(ValueError, match="completed result changed"):
+        verify_completed_experiment(tmp_path)
+
+
+@pytest.mark.parametrize("iterations", [0, -1, True, 1.5])
+def test_invalid_bootstrap_count_rejected_before_output(tmp_path, iterations):
+    output = tmp_path / "invalid"
+    with pytest.raises(ValueError, match="bootstrap_iterations"):
+        run_benchmark(output, seeds=1, legacy_limit=0, bootstrap_iterations=iterations)
+    assert not output.exists()
