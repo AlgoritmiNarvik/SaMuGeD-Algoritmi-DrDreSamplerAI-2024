@@ -232,6 +232,302 @@ def validate_themes(path: Path, input_root: Path, input_audit: Path) -> tuple[di
     return read(directory / "aggregate.json"), inputs
 
 
+def _selection_theme_groups(rows: list[dict]) -> dict:
+    from samuged.evaluate_themes import ANNOTATORS, SONG_IDS
+    methods = ("aligned_indexed", "aligned_closed", "aligned_melody")
+    groups = {}
+    for method in methods:
+        for view in ("top1", "top3"):
+            selected = [row for row in rows if row.get("method") == method and row.get("view") == view]
+            per_song = {}
+            for song in SONG_IDS:
+                song_rows = [row for row in selected if row.get("song_id") == song]
+                if len(song_rows) != len(ANNOTATORS):
+                    raise ValueError("selection Theme annotation coverage mismatch")
+                per_song[song] = {
+                    metric: sum(row["metrics"][metric] for row in song_rows) / len(song_rows)
+                    for metric in ("precision", "recall", "f1")
+                }
+            groups[f"{method}/{view}"] = {
+                "song_count": len(per_song),
+                "annotation_views": len(selected),
+                "per_song_mean_over_annotators": per_song,
+                "macro_over_songs": {
+                    metric: sum(per_song[song][metric] for song in SONG_IDS) / len(SONG_IDS)
+                    for metric in ("precision", "recall", "f1")
+                },
+            }
+    return groups
+
+
+def _selection_jku_groups(rows: list[dict]) -> dict:
+    from samuged.evaluate_jku import EXPECTED_PIECES
+    methods = ("aligned_indexed", "aligned_closed", "aligned_melody")
+    groups = {}
+    for variant in ("monophonic", "polyphonic"):
+        for method in methods:
+            selected = [
+                row for row in rows
+                if row.get("variant") == variant and row.get("method") == method
+            ]
+            if len(selected) != len(EXPECTED_PIECES):
+                raise ValueError("selection JKU work coverage mismatch")
+            metric_names = tuple(selected[0]["metrics"])
+            groups[f"{variant}/{method}"] = {
+                "works": len(selected),
+                "macro_metrics": {
+                    metric: sum(row["metrics"][metric] for row in selected) / len(selected)
+                    for metric in metric_names
+                },
+                "search_limited_works": sum(
+                    row["telemetry"]["search_limited"] for row in selected
+                ),
+                "curation_truncated_works": sum(
+                    row["telemetry"]["curation_truncated"] for row in selected
+                ),
+                "runtime_seconds": sum(row["runtime_seconds"] for row in selected),
+            }
+    return groups
+
+
+def validate_selection_external(
+    path: Path, input_root: Path, input_audit: Path,
+) -> tuple[dict, dict[str, Path]]:
+    """Reconstruct selector metrics from frozen coordinates and official inputs."""
+    aggregate, raw, receipt, inputs = _load_pair(path)
+    if receipt is None or aggregate.get("schema_version") != "selection-external-v1":
+        raise ValueError("selection external receipt or schema is invalid")
+    if "completion_receipt" not in inputs:
+        raise ValueError("selection external requires a completed experiment")
+    if raw.get("schema_version") != "selection-external-v1":
+        raise ValueError("selection external raw schema is invalid")
+    methods = ("aligned_indexed", "aligned_closed", "aligned_melody")
+    if aggregate.get("methods") != list(methods) or receipt.get("config", {}).get("methods") != list(methods):
+        raise ValueError("selection external method declaration mismatch")
+    cohort = receipt.get("case_cohort")
+    if not isinstance(cohort, list) or len(cohort) != 16:
+        raise ValueError("selection external frozen cohort must contain 16 inputs")
+    cohort_counts = Counter(row.get("dataset") for row in cohort)
+    if cohort_counts != {"theme": 6, "jku": 10} or len({row.get("case_id") for row in cohort}) != 16:
+        raise ValueError("selection external frozen cohort coverage mismatch")
+
+    from samuged.evaluate_themes import (
+        ANNOTATORS, SONG_IDS, bootstrap_song_macro, classification_metrics,
+        load_cases, prediction_indices,
+    )
+    theme_cases, _theme_receipts = load_cases(Path(input_root), Path(input_audit))
+    expected_theme_cases = [case.receipt_metadata() for case in theme_cases]
+    _same(raw.get("theme_cases"), expected_theme_cases, "selection.theme_cases")
+    theme_by_id = {case.song_id: case for case in theme_cases}
+    theme_runs = raw.get("theme_runs")
+    if not isinstance(theme_runs, list):
+        raise ValueError("selection external Theme runs are missing")
+    expected_theme_keys = {(song, method) for song in SONG_IDS for method in methods}
+    actual_theme_keys = [(row.get("case_id"), row.get("method")) for row in theme_runs]
+    if len(actual_theme_keys) != 18 or len(set(actual_theme_keys)) != 18 or set(actual_theme_keys) != expected_theme_keys:
+        raise ValueError("selection external Theme method coverage mismatch")
+    expected_metric_rows = []
+    theme_runs_by_key = {}
+    for row in theme_runs:
+        song_id, method = row["case_id"], row["method"]
+        case = theme_by_id[song_id]
+        phrases = row.get("selected_phrases")
+        if not isinstance(phrases, list) or row.get("phrase_output_sha256") != _sha256_json(phrases):
+            raise ValueError("selection external Theme phrase binding mismatch")
+        predictions = {}
+        for view, top_n in (("top1", 1), ("top3", 3)):
+            predicted = prediction_indices(
+                case.song, phrases, top_n=top_n,
+                onset_merge_beats=receipt["config"]["aligned_config"]["onset_merge_beats"],
+                require_source_verified=True,
+            )
+            predictions[view] = sorted(predicted)
+            for annotator in ANNOTATORS:
+                expected_metric_rows.append({
+                    "song_id": song_id,
+                    "method": method,
+                    "view": view,
+                    "annotator": annotator,
+                    "truth_positive_notes": len(case.labels[str(annotator)]),
+                    "predicted_positive_notes": len(predicted),
+                    "metrics": classification_metrics(case.labels[str(annotator)], predicted),
+                })
+        _same(row.get("predicted_source_note_indices"), predictions,
+              f"selection.theme.{song_id}.{method}.predictions")
+        theme_runs_by_key[(song_id, method)] = row
+    _same(raw.get("theme_note_classification"), expected_metric_rows,
+          "selection.theme_note_classification")
+    theme_groups = _selection_theme_groups(expected_metric_rows)
+    _same(aggregate.get("theme", {}).get("method_views"), theme_groups,
+          "selection.theme.method_views")
+    for song_id in SONG_IDS:
+        closed = theme_runs_by_key[(song_id, "aligned_closed")]["selected_phrases"]
+        melody = theme_runs_by_key[(song_id, "aligned_melody")]["selected_phrases"]
+        if closed != melody:
+            raise ValueError("selection single-Part closed and melody outputs differ")
+    if aggregate.get("theme", {}).get("single_part_closed_equals_melody") is not True:
+        raise ValueError("selection single-Part restriction is not recorded")
+    theme_changes = {
+        method: sum(
+            theme_runs_by_key[(song, method)]["phrase_output_sha256"]
+            != theme_runs_by_key[(song, "aligned_indexed")]["phrase_output_sha256"]
+            for song in SONG_IDS
+        )
+        for method in ("aligned_closed", "aligned_melody")
+    }
+    _same(aggregate["theme"].get("selection_changes_from_indexed"), theme_changes,
+          "selection.theme.selection_changes_from_indexed")
+    paired = {}
+    for method in ("aligned_closed", "aligned_melody"):
+        for view in ("top1", "top3"):
+            baseline = theme_groups[f"aligned_indexed/{view}"]["per_song_mean_over_annotators"]
+            selected = theme_groups[f"{method}/{view}"]["per_song_mean_over_annotators"]
+            differences = {
+                song: {
+                    metric: selected[song][metric] - baseline[song][metric]
+                    for metric in ("precision", "recall", "f1")
+                }
+                for song in SONG_IDS
+            }
+            paired[f"{method}_minus_aligned_indexed/{view}"] = {
+                "per_song_mean_over_annotators": differences,
+                "cluster_bootstrap_by_song": bootstrap_song_macro(
+                    differences, samples=10_000, seed=20261031
+                ),
+            }
+    _same(aggregate["theme"].get("paired_selector_differences"), paired,
+          "selection.theme.paired_selector_differences")
+
+    repository = Path(__file__).resolve().parent.parent
+    jku_root = repository / "research_local" / "external" / "jkupdd"
+    if not jku_root.is_dir():
+        raise ValueError("selection external JKU source is unavailable")
+    design_jku = receipt.get("design", {}).get("datasets", {}).get("jku", {})
+    source_files = _jku_source_files(jku_root)
+    if design_jku.get("source_files_sha256") != _sha256_json(source_files):
+        raise ValueError("selection external JKU source bytes differ from the receipt")
+    from samuged.evaluate_jku import (
+        EXPECTED_PIECES, load_piece, metrics as jku_metrics,
+        prediction_points, verify_published_examples,
+    )
+    expected_cohort = [
+        {"case_id": f"theme:{case['song_id']}", "dataset": "theme", **case}
+        for case in expected_theme_cases
+    ]
+    for piece in EXPECTED_PIECES:
+        for variant in ("monophonic", "polyphonic"):
+            prefix = f"groundTruth/{piece}/{variant}/"
+            subset = {name: value for name, value in source_files.items() if name.startswith(prefix)}
+            expected_cohort.append({
+                "case_id": f"jku:{piece}/{variant}", "dataset": "jku",
+                "piece": piece, "variant": variant,
+                "source_subset_sha256": digest(subset), "source_file_count": len(subset),
+            })
+    _same(cohort, expected_cohort, "selection.frozen_cohort")
+    golden = verify_published_examples(jku_root)
+    for field in (
+        "passed", "examples", "reference_patterns", "verified_metric_names",
+        "metric_provenance", "mir_eval_version",
+    ):
+        _same(raw.get("jku_published_metric_examples", {}).get(field), golden.get(field),
+              f"selection JKU published golden.{field}")
+    jku_runs = raw.get("jku_runs")
+    expected_jku_keys = {
+        (f"{piece}/{variant}", method)
+        for piece in EXPECTED_PIECES
+        for variant in ("monophonic", "polyphonic")
+        for method in methods
+    }
+    if not isinstance(jku_runs, list):
+        raise ValueError("selection external JKU runs are missing")
+    actual_jku_keys = [(row.get("case_id"), row.get("method")) for row in jku_runs]
+    if len(actual_jku_keys) != 30 or len(set(actual_jku_keys)) != 30 or set(actual_jku_keys) != expected_jku_keys:
+        raise ValueError("selection external JKU method coverage mismatch")
+    for piece in EXPECTED_PIECES:
+        for variant in ("monophonic", "polyphonic"):
+            song, reference, provenance = load_piece(jku_root / "groundTruth" / piece / variant)
+            point_lookup = provenance.pop("_point_lookup")
+            for method in methods:
+                row = next(
+                    item for item in jku_runs
+                    if item["case_id"] == f"{piece}/{variant}" and item["method"] == method
+                )
+                phrases = row.get("selected_phrases")
+                if not isinstance(phrases, list) or row.get("phrase_output_sha256") != _sha256_json(phrases):
+                    raise ValueError("selection external JKU phrase binding mismatch")
+                prediction = prediction_points(
+                    song, phrases, provenance["offset_beats"], point_lookup
+                )
+                prediction_json = json.loads(json.dumps(prediction))
+                _same(row.get("prediction_patterns"), prediction_json,
+                      f"selection.jku.{piece}.{variant}.{method}.prediction")
+                if row.get("prediction_output_sha256") != _sha256_json(prediction_json):
+                    raise ValueError("selection external JKU prediction hash mismatch")
+                _same(row.get("metrics"), jku_metrics(reference, prediction),
+                      f"selection.jku.{piece}.{variant}.{method}.metrics")
+                if row.get("ground_truth_points_verified_in_score") is not True:
+                    raise ValueError("selection external JKU annotations were not source verified")
+    jku_groups = _selection_jku_groups(jku_runs)
+    _same(aggregate.get("jku", {}).get("groups"), jku_groups,
+          "selection.jku.groups")
+    jku_by_key = {(row["case_id"], row["method"]): row for row in jku_runs}
+    jku_case_ids = [
+        f"{piece}/{variant}"
+        for piece in EXPECTED_PIECES for variant in ("monophonic", "polyphonic")
+    ]
+    jku_changes = {
+        method: sum(
+            jku_by_key[(case_id, method)]["phrase_output_sha256"]
+            != jku_by_key[(case_id, "aligned_indexed")]["phrase_output_sha256"]
+            for case_id in jku_case_ids
+        )
+        for method in ("aligned_closed", "aligned_melody")
+    }
+    _same(aggregate["jku"].get("selection_changes_from_indexed"), jku_changes,
+          "selection.jku.selection_changes_from_indexed")
+
+    if sum(bool(row.get("telemetry", {}).get("curation_truncated")) for row in theme_runs + jku_runs) != 48:
+        raise ValueError("selection external did not record all 48 truncated shortlists")
+    if any(row.get("telemetry", {}).get("search_limited") for row in theme_runs + jku_runs):
+        raise ValueError("selection external unexpectedly contains search-limited runs")
+    prior = raw.get("prior_indexed_regression")
+    _same(aggregate.get("prior_indexed_regression"), prior,
+          "selection.prior_indexed_regression")
+    frozen_prior = receipt.get("design", {}).get("prior_indexed_artifacts")
+    if not isinstance(prior, dict) or not isinstance(frozen_prior, dict):
+        raise ValueError("selection external prior regression binding is missing")
+    for name in ("theme", "jku"):
+        result = prior.get(name, {})
+        if result.get("passed") is not True or result.get("comparable") is not True or result.get("mismatches") != []:
+            raise ValueError(f"selection external {name} prior regression did not pass")
+        if result.get("prior_artifact_hashes") != frozen_prior.get(name):
+            raise ValueError(f"selection external {name} prior hashes differ from receipt")
+        prior_root = Path(result.get("prior_path", "")).resolve(strict=True)
+        if not prior_root.is_relative_to(repository):
+            raise ValueError("selection external prior path escapes the repository")
+        if name == "theme":
+            from samuged.experiment import verify_completed_experiment
+            verify_completed_experiment(prior_root)
+        else:
+            verify_start_receipt(prior_root)
+            prior_aggregate = read(prior_root / "aggregate.json")
+            if prior_aggregate.get("raw_results_sha256") != file_digest(prior_root / "raw_results.json"):
+                raise ValueError("selection external legacy JKU result binding mismatch")
+        for filename, expected in frozen_prior[name].items():
+            artifact = prior_root / filename
+            if not artifact.is_file() or file_digest(artifact) != expected:
+                raise ValueError(f"selection external prior artifact changed: {name}/{filename}")
+            inputs[f"prior_{name}_{filename}"] = artifact
+    inputs["theme_input_audit"] = Path(input_audit)
+    inputs["theme_download_receipts"] = Path(input_root) / "download_receipts.json"
+    return {
+        "theme": {"method_views": theme_groups, "paired": paired, "changes": theme_changes},
+        "jku": {"groups": jku_groups, "changes": jku_changes},
+        "all_runs_truncated": True,
+        "run_count": 48,
+    }, inputs
+
+
 def validate_melody(path: Path) -> tuple[dict, dict | None, dict[str, Path]]:
     aggregate, raw, receipt, inputs = _load_pair(path)
     cases = raw.get("cases")
@@ -1359,6 +1655,7 @@ def render(
     part_ranking_audit_path: Path | None = None,
     certified_drums_path: Path | None = None,
     certified_drums_audit_path: Path | None = None,
+    selection_external_path: Path | None = None,
 ) -> None:
     dataset_info = validate_dataset(dataset)
     summary, audit, build = dataset_info["summary"], dataset_info["audit"], dataset_info["build"]
@@ -1397,6 +1694,13 @@ def render(
             raise ValueError("certified drum evidence requires its independent audit")
         certified_drums, certified_drums_inputs = validate_certified_drums(
             certified_drums_path, certified_drums_audit_path,
+        )
+    selection_external, selection_external_inputs = None, {}
+    if selection_external_path is not None:
+        if theme_input_root is None or theme_input_audit is None:
+            raise ValueError("external selector evidence requires Theme input root and audit")
+        selection_external, selection_external_inputs = validate_selection_external(
+            selection_external_path, theme_input_root, theme_input_audit,
         )
     paper_date, date_source = resolve_report_date(report_date, melody_receipt)
     algorithm = dataset_info["algorithm"]
@@ -1690,10 +1994,24 @@ def render(
                            f"{ci['ci95_low']:.3f} to {ci['ci95_high']:.3f}",
                            f"{third['macro_over_songs']['f1']:.3f}"])
         table(values, [130, 110, 130, 110])
-        p("Theme Transformer annotations share exact note universes across three annotators. Annotation partitions "
-          "are removed before detection. These scores classify notes, not the authors' beat regions. Agreement "
-          "varies substantially and includes negative kappa. All 24 runs reached the candidate shortlist cap. "
-          "Top three expands coverage and is a sensitivity view. No parameter was tuned on these songs.", "SmallLocal")
+        if selection_external:
+            indexed = selection_external["jku"]["groups"]["polyphonic/aligned_indexed"]["macro_metrics"]
+            prior = selection_external["jku"]["groups"]["polyphonic/aligned_melody"]["macro_metrics"]
+            p(
+                "The selector diagnostic reuses these six songs and the five JKU development works. Theme uses "
+                "one neutral Part, so the melody prior equals closed selection and cannot test part-role choice; "
+                "all note F1 values were unchanged. Closed selection changed none of ten JKU outputs. The melody "
+                f"prior changed three polyphonic outputs: establishment F1 {indexed['F_est']:.6f} to "
+                f"{prior['F_est']:.6f}, while occurrence F1 at 0.75 stayed {indexed['F_occ.75']:.6f}. All 48 "
+                "shortlists were truncated at 80 candidates. This is reused development evidence, not a fresh "
+                "heldout test or evidence of memorability.",
+                "SmallLocal",
+            )
+        else:
+            p("Theme Transformer annotations share exact note universes across three annotators. Annotation partitions "
+              "are removed before detection. These scores classify notes, not the authors' beat regions. Agreement "
+              "varies substantially and includes negative kappa. All 24 runs reached the candidate shortlist cap. "
+              "Top three expands coverage and is a sensitivity view. No parameter was tuned on these songs.", "SmallLocal")
 
     if metamorphic:
         heading("Symbolic invariance")
@@ -1761,6 +2079,7 @@ def render(
         ("themes", theme_inputs),
         ("part_ranking", part_ranking_inputs),
         ("certified_drums", certified_drums_inputs),
+        ("selection_external", selection_external_inputs),
     ):
         inputs.update({f"{prefix}_{name}": path for name, path in values.items()})
     receipt = {
@@ -1800,6 +2119,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--part-ranking-audit", type=Path)
     parser.add_argument("--certified-drum-evaluation", type=Path)
     parser.add_argument("--certified-drum-audit", type=Path)
+    parser.add_argument("--selection-external-evaluation", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     render(
@@ -1821,6 +2141,7 @@ def main(argv: list[str] | None = None) -> None:
         part_ranking_audit_path=args.part_ranking_audit,
         certified_drums_path=args.certified_drum_evaluation,
         certified_drums_audit_path=args.certified_drum_audit,
+        selection_external_path=args.selection_external_evaluation,
     )
     print(args.output.resolve())
 

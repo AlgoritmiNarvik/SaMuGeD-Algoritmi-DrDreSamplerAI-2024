@@ -27,6 +27,7 @@ def test_documented_direct_script_entrypoint_imports():
     assert "--closed-evaluation" in completed.stdout
     assert "--part-ranking-audit" in completed.stdout
     assert "--certified-drum-audit" in completed.stdout
+    assert "--selection-external-evaluation" in completed.stdout
 
 
 def _write(path: Path, value) -> None:
@@ -475,3 +476,141 @@ def test_certified_drums_rejects_audit_source_binding_tampering(
 
     with pytest.raises(ValueError, match="audit artifact changed"):
         make_paper.validate_certified_drums(study, audit)
+
+
+def _selection_inputs() -> tuple[Path, Path, Path]:
+    return (
+        ROOT / "research_local" / "selection_external_v01" / "aggregate.json",
+        ROOT / "research_local" / "external" / "theme_transformer",
+        ROOT / "research_local" / "theme_annotation_input_audit.json",
+    )
+
+
+def test_external_selection_recomputes_theme_and_jku_metrics() -> None:
+    aggregate, theme_root, theme_audit = _selection_inputs()
+    if not aggregate.is_file():
+        pytest.skip("external selector evidence is not available")
+
+    result, inputs = make_paper.validate_selection_external(
+        aggregate, theme_root, theme_audit,
+    )
+
+    assert result["run_count"] == 48
+    assert result["all_runs_truncated"] is True
+    assert result["theme"]["changes"] == {
+        "aligned_closed": 1, "aligned_melody": 1,
+    }
+    assert result["jku"]["changes"] == {
+        "aligned_closed": 0, "aligned_melody": 3,
+    }
+    indexed = result["jku"]["groups"]["polyphonic/aligned_indexed"]["macro_metrics"]
+    melody = result["jku"]["groups"]["polyphonic/aligned_melody"]["macro_metrics"]
+    assert indexed["F_est"] == pytest.approx(0.2392285097)
+    assert melody["F_est"] == pytest.approx(0.2372137943)
+    assert melody["F_occ.75"] == indexed["F_occ.75"]
+    assert "prior_theme_completion_receipt.json" in inputs
+    assert "prior_jku_raw_results.json" in inputs
+
+
+def test_external_selection_rejects_missing_method_row(tmp_path: Path) -> None:
+    aggregate, theme_root, theme_audit = _selection_inputs()
+    target = _frozen_copy(aggregate.parent, tmp_path, "selector")
+    raw_path = target / "raw_results.json"
+    raw = json.loads(raw_path.read_text(encoding="utf-8"))
+    raw["theme_runs"].pop()
+    _write(raw_path, raw)
+    _rebind_completed_artifact(target, "raw_results.json")
+
+    with pytest.raises(ValueError, match="Theme method coverage"):
+        make_paper.validate_selection_external(
+            target / "aggregate.json", theme_root, theme_audit,
+        )
+
+
+def test_external_selection_requires_completion_receipt(tmp_path: Path) -> None:
+    aggregate, theme_root, theme_audit = _selection_inputs()
+    target = _frozen_copy(aggregate.parent, tmp_path, "selector-unfinished")
+    (target / "completion_receipt.json").unlink()
+    with pytest.raises(ValueError, match="completed experiment"):
+        make_paper.validate_selection_external(
+            target / "aggregate.json", theme_root, theme_audit,
+        )
+
+
+def test_external_selection_checks_frozen_source_cohort(monkeypatch) -> None:
+    aggregate, theme_root, theme_audit = _selection_inputs()
+    if not aggregate.is_file():
+        pytest.skip("external selector evidence is not available")
+    original = make_paper._load_pair
+
+    def altered(*args, **kwargs):
+        result, raw, receipt, inputs = original(*args, **kwargs)
+        receipt["case_cohort"][-1]["source_subset_sha256"] = "0" * 64
+        return result, raw, receipt, inputs
+
+    monkeypatch.setattr(make_paper, "_load_pair", altered)
+    with pytest.raises(ValueError, match="selection.frozen_cohort"):
+        make_paper.validate_selection_external(aggregate, theme_root, theme_audit)
+
+
+def test_external_selection_rejects_rebound_prediction_tampering(tmp_path: Path) -> None:
+    aggregate, theme_root, theme_audit = _selection_inputs()
+    target = _frozen_copy(aggregate.parent, tmp_path, "selector-prediction")
+    raw_path = target / "raw_results.json"
+    raw = json.loads(raw_path.read_text(encoding="utf-8"))
+    raw["theme_runs"][0]["predicted_source_note_indices"]["top1"] = []
+    _write(raw_path, raw)
+    _rebind_completed_artifact(target, "raw_results.json")
+
+    with pytest.raises(ValueError, match="predictions"):
+        make_paper.validate_selection_external(
+            target / "aggregate.json", theme_root, theme_audit,
+        )
+
+
+def test_external_selection_rejects_rebound_jku_metric_tampering(tmp_path: Path) -> None:
+    aggregate, theme_root, theme_audit = _selection_inputs()
+    target = _frozen_copy(aggregate.parent, tmp_path, "selector-jku")
+    raw_path = target / "raw_results.json"
+    raw = json.loads(raw_path.read_text(encoding="utf-8"))
+    raw["jku_runs"][0]["metrics"]["F_est"] = 1.0
+    _write(raw_path, raw)
+    _rebind_completed_artifact(target, "raw_results.json")
+
+    with pytest.raises(ValueError, match=r"metrics\.F_est differs"):
+        make_paper.validate_selection_external(
+            target / "aggregate.json", theme_root, theme_audit,
+        )
+
+
+def test_external_selection_rejects_rebound_golden_tampering(tmp_path: Path) -> None:
+    aggregate, theme_root, theme_audit = _selection_inputs()
+    target = _frozen_copy(aggregate.parent, tmp_path, "selector-golden")
+    raw_path = target / "raw_results.json"
+    raw = json.loads(raw_path.read_text(encoding="utf-8"))
+    raw["jku_published_metric_examples"]["examples"]["algo1"]["scores"]["F"] = 123.456
+    _write(raw_path, raw)
+    _rebind_completed_artifact(target, "raw_results.json")
+
+    with pytest.raises(ValueError, match="published golden"):
+        make_paper.validate_selection_external(
+            target / "aggregate.json", theme_root, theme_audit,
+        )
+
+
+def test_external_selection_rejects_rebound_prior_regression_tampering(
+    tmp_path: Path,
+) -> None:
+    aggregate, theme_root, theme_audit = _selection_inputs()
+    target = _frozen_copy(aggregate.parent, tmp_path, "selector-prior")
+    for filename in ("raw_results.json", "aggregate.json"):
+        path = target / filename
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["prior_indexed_regression"]["theme"]["passed"] = False
+        _write(path, payload)
+        _rebind_completed_artifact(target, filename)
+
+    with pytest.raises(ValueError, match="prior regression did not pass"):
+        make_paper.validate_selection_external(
+            target / "aggregate.json", theme_root, theme_audit,
+        )
