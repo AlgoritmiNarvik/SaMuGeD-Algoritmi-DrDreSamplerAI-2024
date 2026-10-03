@@ -1,0 +1,80 @@
+{
+  "artifact_sha256": "2077800af8e1df96609aece44a9f217f3ac29e24ba40ded124dbe1c55e7cc299",
+  "cache_hit_method_key_counts": {},
+  "cache_hits": 0,
+  "cache_method_key_counts": {
+    "818e13be7a44762592a2473d3f2253880f52a71d81f704d3c162dceb842be011": 16995
+  },
+  "candidate_counts": {
+    "cross_split": 30649,
+    "exact_arrangement": 2238,
+    "exact_bytes": 0,
+    "near_duplicate_cross_split": 77,
+    "reported": 105123,
+    "shared_pattern_candidate": 98959,
+    "shared_pattern_cross_split": 30572,
+    "symbolic_near_duplicate": 6164
+  },
+  "config": {
+    "max_bucket": 64,
+    "max_document_fraction": 0.01,
+    "max_document_frequency": 32,
+    "max_generated_pairs": 20000000,
+    "max_reported_candidates": 400000,
+    "max_shingle_attempts_per_source": 100000,
+    "max_sources": 50000,
+    "max_total_unique_shingles": 20000000,
+    "max_unique_shingles_per_source": 50000,
+    "max_verified_pairs": 2000000,
+    "min_containment": 0.8,
+    "min_interval_diversity": 3,
+    "min_jaccard": 0.6,
+    "min_pattern_shared": 4,
+    "min_shared": 20,
+    "onset_merge_beats": 0.041666666666666664,
+    "recover_invalid_keys": true,
+    "rhythm_bins": 8,
+    "shingle_notes": 8
+  },
+  "design": "duplicates_recovered_v01_provenance/design.json",
+  "design_sha256": "f43158fd0a723e9d6a8f6efc78ae02741d78f62b07a5782f83b87bcb0f673675",
+  "fingerprint_code_sha256": "ffa486eed3f0354267ae0894177b3badddf34f1189bc9a5d41446daf598f5dbe",
+  "fingerprint_method_key_counts": {
+    "818e13be7a44762592a2473d3f2253880f52a71d81f704d3c162dceb842be011": 17232
+  },
+  "fingerprint_receipt": "duplicates_recovered_v01_provenance/fingerprint_receipt.jsonl",
+  "fingerprint_receipt_sha256": "b1f3c2e49a655ff4547be439ebe4b4af47d2c07d9ae3b6dd24d644831486a1bd",
+  "generation": {
+    "candidate_report_limit_reached": false,
+    "document_frequency_limit": 32,
+    "documents": 16995,
+    "eligible_rare_shingles": 2278272,
+    "pair_events_generated": 7649316,
+    "pair_generation_limit_reached": false,
+    "pair_verification_limit_reached": false,
+    "pairs_verified": 1026277,
+    "pairs_with_shared_shingles": 1026277,
+    "saturated_inverted_buckets": 0,
+    "source_unique_shingle_total": 13900574,
+    "ubiquitous_shingles_excluded": 1895,
+    "unique_shingles": 9872266
+  },
+  "input_files": 17232,
+  "interpretation": "heuristic duplicate candidates for review, not known ground truth and not automatic merges",
+  "manifest": "/Volumes/C/Algoritmi/SaMuGeD-Algoritmi-DrDreSamplerAI-2024/research_local/lakh_phrases_v03/sources.jsonl",
+  "manifest_sha256": "062691ad29739cd58bdfb8c55258d63d72868d3ee3e4c30badeceaa917c8c76f",
+  "metadata_recovered_events": 124,
+  "metadata_recovered_files": 28,
+  "method": "transposition-invariant interval and median-normalized rhythm shingles",
+  "method_key": "818e13be7a44762592a2473d3f2253880f52a71d81f704d3c162dceb842be011",
+  "provenance_directory": "duplicates_recovered_v01_provenance",
+  "schema_version": 2,
+  "script_sha256": "438104696291c4495c8d54683aa28b436d715a532f22918b86d3e437890309c3",
+  "selected_sources_sha256": "398a12c49c9f1520056998b0513e744047372b5d212d7c65a696b7d03a0d8918",
+  "shingle_limited_files": 0,
+  "source_root": "/Volumes/C/Algoritmi/SaMuGeD-Algoritmi-DrDreSamplerAI-2024/datasets/Lakh MIDI Clean",
+  "status_counts": {
+    "error": 237,
+    "ok": 16995
+  }
+}

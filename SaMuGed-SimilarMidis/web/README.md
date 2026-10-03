@@ -1,120 +1,67 @@
-# SaMuGed Web - MIDI Pattern Finder Web Application
+# SaMuGed web application
 
-This is a web-based version of the SaMuGed (Similar MIDI Generator & Editor) application, allowing for cross-platform access to MIDI pattern similarity search functionality.
+This is the archived Flask interface for the SimilarMidis feature similarity workflow. It is retained for historical use and does not implement the current audited recurrence extractor.
 
-## Features
-
-- Web-based interface accessible from any device with a browser
-- MIDI file upload and analysis
-- Feature-based similarity search with adjustable weights
-- Piano roll visualization of MIDI patterns
-- In-browser MIDI playback
-- Dockerized deployment for cross-platform compatibility
+The current research guide is [one level up in docs/research](../../docs/research/README.md). The public releases are the [recurring phrases dataset](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases) and the [earworm loops Space](https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops).
 
 ## Requirements
 
-To run the containerized web application, you need:
+For Docker, install Docker and Docker Compose.
 
-- Docker
-- Docker Compose
+For a direct run, use Python 3.9 or later, FluidSynth with its development libraries and the Python packages in `requirements.txt`.
 
-Or to run it directly:
+## Run with Docker
 
-- Python 3.9+
-- FluidSynth and its development libraries
-- Python dependencies (see requirements.txt)
+From the repository root:
 
-## Getting Started with Docker
+```bash
+cd SaMuGed-SimilarMidis
+docker-compose up -d
+```
 
-The easiest way to run SaMuGed Web is through Docker:
+Open http://localhost:5000.
 
-1. Make sure you have Docker and Docker Compose installed
+## Run without Docker
 
-2. Navigate to the project root directory:
-   ```bash
-   cd SaMuGed-SimilarMidis
-   ```
+On Ubuntu or Debian, the historical system setup was:
 
-3. Build and start the container:
-   ```bash
-   docker-compose up -d
-   ```
+```bash
+sudo apt-get update
+sudo apt-get install -y fluidsynth libfluidsynth-dev
+```
 
-4. Access the application in your browser:
-   ```
-   http://localhost:5000
-   ```
+From the repository root, activate the legacy Python environment and start Flask:
 
-## Getting Started without Docker
+```bash
+cd SaMuGed-SimilarMidis
+pip install -r requirements.txt
+PYTHONPATH=. flask --app web/app.py run
+```
 
-1. Install system dependencies (example for Ubuntu/Debian):
-   ```bash
-   sudo apt-get update
-   sudo apt-get install -y fluidsynth libfluidsynth-dev
-   ```
+Open http://localhost:5000.
 
-2. Install Python dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+## Historical dataset
 
-3. Navigate to the project directory and run:
-   ```bash
-   cd SaMuGed-SimilarMidis
-   PYTHONPATH=. flask --app web/app.py run
-   ```
-
-4. Access the application in your browser:
-   ```
-   http://localhost:5000
-   ```
-
-## Dataset Setup
-
-The application requires a MIDI dataset for similarity search. Place your MIDI dataset in:
+Place the MIDI dataset at:
 
 ```
 SaMuGed-SimilarMidis/datasets/Lakh_MIDI_Clean_Patterns_v1/
 ```
 
-For best results, use the Lakh MIDI Clean Patterns v1 dataset.
+The [historical dataset scripts](../../testing_tools/test_scripts/asle_scripts/README.md) describe the earlier pattern creation workflow. They do not define the current recurrence dataset.
 
-If you're interested in understanding how the Lakh_MIDI_Clean_Patterns_v1 dataset was created, detailed documentation is available in the [dataset creation scripts directory](../testing_tools/test_scripts/asle_scripts/README.md). This documentation explains the pattern detection algorithm and process used to extract and organize musical patterns from the original MIDI files.
+## Soundfont
 
-## Soundfont Setup
-
-For proper MIDI playback, you need a soundfont. Place it in:
+The legacy application expects:
 
 ```
 SaMuGed-SimilarMidis/soundfonts/FluidR3_GM.sf2
 ```
 
-## Usage
+This filename is historical. The file embeds MS_General v0.1. Publication rendering uses a separately obtained authentic FluidR3 soundfont and records that font SHA256 in the publication rendering receipt.
 
-1. **Upload a MIDI File**: Click the "Load MIDI" button to upload a query MIDI file.
+## Historical controls
 
-2. **Adjust Feature Weights**: Use the sliders to adjust the importance of different musical features.
+The web interface supports MIDI upload, feature weight controls, similarity search, piano roll display and browser playback. These controls describe the archived SimilarMidis workflow.
 
-3. **Search**: Click the "Search Again" button after adjusting weights to find similar patterns.
-
-4. **View Results**: Browse through similar MIDI patterns in the results panel.
-
-5. **Playback**: Use the playback controls to listen to the query MIDI or any similar pattern.
-
-## Development
-
-To modify the web application:
-
-1. Edit the Flask application code in `web/app.py`
-2. Modify templates in `web/templates/`
-3. Restart the application to apply changes
-
-## Troubleshooting
-
-- **No sound**: Make sure your browser supports HTML5 audio and MIDI playback
-- **Search not working**: Verify that your MIDI dataset is properly placed in the datasets directory
-- **Docker issues**: Check Docker logs with `docker-compose logs`
-
-## License
-
-This project is maintained under the same license as the original SaMuGed application. 
+See the [main archival guide](../README.md), the [historical notebook](../docs/Clustering_repeated_motifs_v040_clean.ipynb) and the [progress log](../docs/PROGRESS.md) for context.

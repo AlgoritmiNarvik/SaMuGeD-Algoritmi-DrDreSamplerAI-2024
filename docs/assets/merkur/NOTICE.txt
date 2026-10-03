@@ -1,0 +1,12 @@
+SaMuGeD Earworms wordmark
+
+Set in Merkur by Malwin Béla Hürkey.
+Source: https://www.fontspace.com/merkur-font-f11606
+License: Freeware, Non-Commercial.
+Font license text: Only for noncommercial use! For commercial use contact me: malwin.huerkey@gmx.net
+
+The SVG contains the outlines of this wordmark. The font file is not distributed.
+This wordmark is not covered by the repository MIT license. Commercial use needs permission from the designer.
+Font source SHA256: d3424ed1d86fa5b4f7c16c069811d92a4337b450839f89cde212c40f3e2fdff2
+
+Wordmark outlines simplify redundant midpoint vertices into straight triangle edges.

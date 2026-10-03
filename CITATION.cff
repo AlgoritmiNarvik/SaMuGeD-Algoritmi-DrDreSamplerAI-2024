@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: Please cite this dataset when using SaMuGeD Earworms.
+type: dataset
+title: SaMuGeD Earworms (Ostinato / Catchy musical hooks)
+version: '0.1'
+date-released: '2026-10-03'
+url: https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases
+repository-code: https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSamplerAI-2024
+license: CC-BY-4.0
+authors:
+  - family-names: Wu
+    given-names: Peiyi
+    email: pewu10205@uit.no
+  - family-names: Øren
+    given-names: Asle Fjæran
+    email: asleoren@gmail.com
+  - family-names: Dadman
+    given-names: Shayan
+    email: shayan.dadman@uit.no
+  - family-names: Ermilov
+    given-names: Almaz
+    email: almaz.ermilov@uit.no

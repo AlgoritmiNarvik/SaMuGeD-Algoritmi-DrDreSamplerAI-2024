@@ -1,0 +1,23 @@
+{
+  "midi_paths": 17232,
+  "bytes": 798944905,
+  "unique_sha256": 17232,
+  "duplicate_bytes_extra": 0,
+  "bad_headers": [
+    "Bryan_Adams/Everything_I_Do_I_Do_It_For_You.7.mid",
+    "Daft_Punk/Da_Funk.mid",
+    "Jackson_Michael/Smooth_Criminal.mid",
+    "Jennifer_Lopez/If_You_Had_My_Love.mid",
+    "Phish/Taste.mid",
+    "R.E.M./Nightswimming.mid",
+    "Sting/Fields_of_Gold.1.mid",
+    "The_Cranberries/Promises.1.mid",
+    "The_Offspring/No_Hero.mid",
+    "Third_Eye_Blind/Semi-Charmed_Life.1.mid",
+    "Third_Eye_Blind/Semi-Charmed_Life.mid",
+    "Tool/Flood.mid",
+    "U2/Walk_On.mid"
+  ],
+  "inventory_sha256": "deda7ea2e3452c764e64e0f7e28fc63d8cb1fa8d5d26bbd5a2d7c9579474bd60",
+  "header_check_scope": "bad_headers lists files whose first four bytes are not MThd, including valid RIFF RMID wrappers; it is not a parser failure list"
+}

@@ -1,0 +1,140 @@
+{
+  "artifacts": {
+    "aggregate.json": {
+      "bytes": 22414,
+      "sha256": "3c000815a6bfd2a4722a9769f3d9910f70a051c088ba8df2b4be63fc30a836a4"
+    },
+    "completion_receipt.json": {
+      "bytes": 1005,
+      "sha256": "42fb1e8c02eb33d3b106b8bcfb24c4129bc58aa08ece00a3a9ffc6193e2c3413"
+    },
+    "experiment_receipt.json": {
+      "bytes": 427660,
+      "sha256": "896300214e5bf5602559d2456865eac1847894e9826f8a5b482c77c45eae0814"
+    },
+    "raw_results.json": {
+      "bytes": 979628,
+      "sha256": "c4a0cecd53a614d1207191e6b088ce08752812142c30800c96ff52ab84af8055"
+    },
+    "source_snapshot.json": {
+      "bytes": 1903,
+      "sha256": "ea66fd6f77c25296a6a050a30ddba1acc07c9f11e1288ce4cb0bcd04fed5df90"
+    }
+  },
+  "case_cohort_sha256": "5c46d67ac6ac0b7517ce0549392c39fe6db8ca2a793eddd9ca541b57b75d9068",
+  "claim_boundary": "pairwise symbolic admissibility only; no human annotation, musical quality, negative truth or real corpus accuracy claim",
+  "compact_status": "preferred",
+  "config": {
+    "detector": {
+      "bar_counts": [
+        1,
+        2,
+        4
+      ],
+      "hit_error_fraction": 0.1,
+      "max_bucket": 64,
+      "max_candidates": 80,
+      "max_comparisons": 60000,
+      "max_hits": 100000,
+      "max_window_hits": 4096,
+      "max_windows": 12000,
+      "min_hits": 8,
+      "min_pitches": 2,
+      "mode": "tolerant",
+      "timing_tolerance_beats": 0.08333333333333333,
+      "top_k": 3
+    },
+    "oracle": {
+      "allowed_edits": "floor(0.10 * max(left_hits, right_hits))",
+      "bar_counts": [
+        1,
+        2,
+        4
+      ],
+      "edit_count": "left_hits + right_hits - 2 * maximum_cardinality_matches",
+      "hit_error_fraction": [
+        1,
+        10
+      ],
+      "max_pair_comparisons_per_case": 250000,
+      "min_hits": 8,
+      "min_pitches": 2,
+      "nonoverlap": "half-open source tick intervals must not intersect",
+      "same_geometry": "bar_count, meter numerator and meter denominator",
+      "timing_tolerance_beats": [
+        1,
+        12
+      ]
+    }
+  },
+  "config_sha256": "974e9a7176376cc5b4b261bca0ee4725fc5dd02a60b3de6bbd0579bc97c054ef",
+  "experiment": "drum_oracle_v02",
+  "family_pair_boundary": "the detector matches every occurrence to one prototype, so pairwise admissibility is not transitive; inadmissible cross-occurrence family pairs do not imply an invalid prototype match",
+  "oracle_inadmissible_direct_edge_cases": 0,
+  "pair_budget_reached_cases": 0,
+  "real_clips": {
+    "cases": 16,
+    "detector_candidate_limit_cases": 0,
+    "detector_directly_verified_edges": 157,
+    "detector_reported_unique_pairs": 807,
+    "detector_runtime_seconds": 0.13103016596869566,
+    "detector_search_limited_cases": 0,
+    "detector_top_k_reached_cases": 7,
+    "directly_verified_edge_admissibility": 1.0,
+    "eligible_windows": 1034,
+    "miss_boundaries": {
+      "candidate_presence_not_observable_after_top3_and_diversity_selection": 14,
+      "not_returned_without_reported_search_limit": 1
+    },
+    "missed_pair_endpoint_status": {
+      "both_endpoints_absent_from_selected_families": 1986,
+      "endpoints_partitioned_across_selected_families": 53,
+      "one_endpoint_absent_from_selected_families": 409
+    },
+    "oracle_admissible_directly_verified_edges": 157,
+    "oracle_inadmissible_directly_verified_edges": 0,
+    "oracle_inadmissible_reported_pairs": 10,
+    "oracle_pair_count": 3245,
+    "oracle_runtime_seconds": 0.13066862392588519,
+    "pair_budget_reached_cases": 0,
+    "pair_comparisons": 11558,
+    "reported_pair_admissibility": 0.9876084262701363,
+    "selected_pair_coverage": 0.2456086286594761,
+    "valid_reported_pairs": 797
+  },
+  "receipt_sha256": "896300214e5bf5602559d2456865eac1847894e9826f8a5b482c77c45eae0814",
+  "scope": "bounded independent symbolic pair admissibility diagnostic",
+  "selection_boundary": "coverage uses only the detector's selected top three families; the public result does not reveal whether a missed oracle pair existed before ranking or diversity pruning",
+  "source_snapshot_sha256": "879706f1749df154a69847691921e5c6174742a20cef2ad9776281556beac81e",
+  "synthetic_development": {
+    "cases": 240,
+    "detector_candidate_limit_cases": 0,
+    "detector_directly_verified_edges": 589,
+    "detector_reported_unique_pairs": 1199,
+    "detector_runtime_seconds": 3.429459917737404,
+    "detector_search_limited_cases": 0,
+    "detector_top_k_reached_cases": 12,
+    "directly_verified_edge_admissibility": 1.0,
+    "eligible_windows": 20093,
+    "miss_boundaries": {
+      "candidate_presence_not_observable_after_top3_and_diversity_selection": 125,
+      "not_returned_without_reported_search_limit": 3
+    },
+    "missed_pair_endpoint_status": {
+      "both_endpoints_absent_from_selected_families": 4303,
+      "endpoints_partitioned_across_selected_families": 1,
+      "one_endpoint_absent_from_selected_families": 15
+    },
+    "oracle_admissible_directly_verified_edges": 589,
+    "oracle_inadmissible_directly_verified_edges": 0,
+    "oracle_inadmissible_reported_pairs": 205,
+    "oracle_pair_count": 5313,
+    "oracle_runtime_seconds": 2.933534880023217,
+    "pair_budget_reached_cases": 0,
+    "pair_comparisons": 280533,
+    "reported_pair_admissibility": 0.8290241868223519,
+    "selected_pair_coverage": 0.18708827404479578,
+    "valid_reported_pairs": 994
+  },
+  "version": "drum-pair-oracle-v1"
+}
