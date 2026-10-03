@@ -25,7 +25,11 @@ def digest(path: Path) -> str:
 
 def public_card(release: dict) -> str:
     replay = release.get("selection_replay", {})
-    return f"""# SaMuGeD recurring phrases
+    return f"""# SaMuGeD Earworms (Ostinato / Catchy musical hooks)
+
+Recurring melodic phrases and separate drum patterns.
+
+Authors: Peiyi Wu (pewu10205@uit.no), Asle Fjæran Øren (asleoren@gmail.com), Shayan Dadman (shayan.dadman@uit.no) and Almaz Ermilov (almaz.ermilov@uit.no).
 
 Research release from the processed Lakh MIDI Clean snapshot.
 
@@ -69,7 +73,7 @@ def repackage(metadata: Path, archive: Path, output: Path, name: str) -> dict:
     (target / "DATASET_CARD.md").write_text(public_card(release))
     review = target / "review.html"
     if review.exists():
-        review.write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>SaMuGeD demo</title><h1>SaMuGeD recurring phrases</h1><p><a href="https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops">Open the loop player</a></p><p>Listener labels are not part of this release.</p></html>')
+        review.write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>SaMuGeD Earworms</title><h1>SaMuGeD Earworms</h1><p>Ostinato / Catchy musical hooks.</p><p><a href="https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops">Open the loop player</a></p><p>Listener labels are not part of this release.</p></html>')
     metadata_files = {p.relative_to(target).as_posix(): p for p in target.rglob("*") if p.is_file() and p.name != "SHA256SUMS"}
     metadata_hashes = {n: digest(p) for n, p in metadata_files.items()}
     (target / "SHA256SUMS").write_text("".join(f"{v}  {n}\n" for n, v in sorted(metadata_hashes.items())))

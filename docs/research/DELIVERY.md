@@ -1,16 +1,18 @@
-# Research status and publication
+# SaMuGeD Earworms research status and publication
 
 This page separates the current publication from the research pause recorded on 2026-10-03. The pause checkpoint remains an archival record of the stopped computations, saved hashes and continuation commands. The public dataset and demo below were published on 3 October 2026.
 
-The dataset is [Hugging Face: `AlmazErmilov/samuged-recurring-phrases`](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases). The demo is [Hugging Face Space: `AlmazErmilov/samuged-earworm-loops`](https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops). The demo uses real source loop cycles and a separate song-level evidence view for familiar-hook selection. These views provide algorithmic evidence and contain no listener labels.
+The dataset is [Hugging Face: `AlmazErmilov/samuged-recurring-phrases`](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases). The demo is [Hugging Face Space: `AlmazErmilov/samuged-earworm-loops`](https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops). The demo has 219 unique rendered loops across three top 50 collections, ten familiar song selections and 27 Tool riffs and 14 drum patterns from nine source songs, plus 20 aligned riff and drum versions. Popular songs is first and opens by default. It uses real source loop cycles and a separate song level evidence view for familiar hook selection. These views provide algorithmic evidence and contain no listener labels.
 
 The bounded top-50 analytics remain an algorithmic recurrence result. Listener ratings were excluded from the current scope and are not a release gate. The local recurrence atlas and its ignored generated files remain documented in [top50_analytics.md](top50_analytics.md) for the local checkout.
 
 ## Published release
 
-The public archives retain the original musical payloads and update the presentation metadata. Primary archive SHA256 is `52157d9f94a754eb3987a735591ecfead2646f12783ee0c8c7b0a5f235fcf1cb`. Reference archive SHA256 is `f4c896b2c0d58cf52eb95ae650e3ddedc005e0259e0d666995481ae24dd4809c`. Both public archives passed portable verification. The public PDF was regenerated with 132 matching input hashes. [Read the PDF](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/paper/samuged_recurring_phrases.pdf).
+The public name is SaMuGeD Earworms, with the subtitle Ostinato / Catchy musical hooks. Separate drum patterns are included. This title describes the project scope and does not add listener labels. The dataset and Space URLs remain stable.
 
-Dataset commit is `257d12889d44f3ecfcb8a6db73cf89d6b2b8d477`. Space commit is `a63f0e01dbc15cfb1de9deebd28b9d29abafb6bb`. The [publication guide](../publication/README.md) explains preparation and rendering.
+The public archives retain the original musical payloads and update the presentation metadata. Primary archive SHA256 is `d4147e67af63694793906a624bbac487004cb200d851df6b2b0cbfb895c113bc`. Reference archive SHA256 is `de04606b364b3bb7b3cbd747209a2e7764bd342bb2df422546d551012c43cf2b`. Both public archives passed portable verification. The public PDF was regenerated with 132 matching input hashes. [Read the PDF](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/paper/samuged_recurring_phrases.pdf).
+
+Dataset commit is `771831c3758db3631150025e37b03b4c14019def`. Space commit is `290cf666bdafb17e96640607640b04d4cf75d41b`. The [publication guide](../publication/README.md) explains preparation and rendering.
 
 ## Historical local packages
 

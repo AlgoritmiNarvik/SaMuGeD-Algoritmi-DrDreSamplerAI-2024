@@ -385,7 +385,7 @@ _HTML_TEMPLATE = r'''<!doctype html>
 </style>
 </head>
 <body><main>
-<h1>SaMuGeD recurring phrase review</h1>
+<h1>SaMuGeD Earworms phrase review</h1>
 <p class="notice"><strong>Listening disclosure.</strong> Playback is a simple browser synthesis of symbolic MIDI notes. It is not source audio and does not reproduce the original instruments, production or mix. Timing follows the source MIDI tempo map.</p>
 <p>Review each blind ID from the piano rolls and synthesized snippets. “Same phrase” asks about musical recurrence only. It does not ask whether a phrase is memorable or an earworm. This file makes no network requests. Ratings are downloaded only to your computer.</p>
 <div class="toolbar"><label>Annotator ID <input id="annotator-id" type="text" autocomplete="off" placeholder="for example A1"></label><button id="stop-all">Stop playback</button><button class="primary" id="export">Export ratings JSON</button><span id="status" class="muted" role="status" aria-live="polite"></span></div>
@@ -521,7 +521,7 @@ def build_packet(
         "candidates": candidates,
     }
     rendered = _HTML_TEMPLATE.replace(
-        "__TITLE__", html.escape("SaMuGeD recurring phrase review", quote=True)
+        "__TITLE__", html.escape("SaMuGeD Earworms phrase review", quote=True)
     ).replace("__PACKET_JSON__", script_safe_json(packet))
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)

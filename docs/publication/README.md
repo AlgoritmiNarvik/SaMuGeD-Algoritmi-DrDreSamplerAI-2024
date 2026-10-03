@@ -1,7 +1,9 @@
-# Publication and loop rendering
+# SaMuGeD Earworms publication and loop rendering
+
+Ostinato / Catchy musical hooks. Separate drum patterns are included.
 
 The public dataset contains the audited closed corpus and a reference baseline.
-The static Space adds 40 source derived audio loops and the five top 50 views.
+The static Space adds 219 unique source derived audio loops, including 20 paired Tool versions and the five top 50 views. Three groups contain 50 selections each, familiar songs contain ten and the Tool case study contains 27 riffs and 14 drum patterns. Popular songs is the default view.
 The ten familiar song selections have separate song level research evidence.
 They are not listener validated fragment labels.
 
@@ -76,8 +78,9 @@ MP3 is optional export only, it is not used for canonical looping.
 ## Assemble and publish
 
 The Space builder expects `recurrence_selection.json`, `familiar/`,
-`recurrence_audio/`, `familiar_audio/` and the font package under its base directory.
-Both audio directories must contain completed render manifests and receipts.
+`recurrence_audio/`, `familiar_audio/`, optional `tool_selection_expanded.json`, `tool_audio_expanded/` and `tool_layers/`, plus the font package under its base directory.
+All audio directories must contain completed render manifests and receipts.
+See the Tool case study for the selection and aligned layer rendering commands.
 
 ```sh
 python -m scripts.build_loop_space --base PUBLICATION_BASE --output NEW_SPACE_DIR
@@ -94,3 +97,5 @@ copies used for archive verification are excluded from the upload.
 Verify the hosted dataset, Parquet row counts, archive checksums and Space
 playback after upload. The research continuation remains paused. Publication
 does not restart the unfinished melody variant or require new listener ratings.
+
+The [Tool case study](../research/tool_motifs.md) retains bass riffs and separate percussion. The interface uses square edges, dark gray panels and the Inter font. Its SIL OFL license is under `docs/assets/inter/`. Two Mermaid charts in the root README describe the method and outputs.

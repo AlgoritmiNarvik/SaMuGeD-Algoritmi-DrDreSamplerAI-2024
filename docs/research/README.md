@@ -146,3 +146,7 @@ POP909, Theme Transformer and JKU are external evaluation inputs. They are not d
 See [legacy audit](legacy_audit.md), [primary sources](sources.md) and [work log](WORK_LOG.md). Controlled planted motifs test known invariances and failure cases. They do not estimate precision or recall on real popular music. The unchanged legacy detector exports prototypes without occurrence coordinates, so its occurrence F1 is deliberately not reported.
 
 For a public dataset release, inspect near duplicates and retain the redistribution rights notice. The repository code is MIT licensed. The [official Lakh page](https://colinraffel.com/projects/lmd/) labels the distributed collection CC BY 4.0 and requests citation of that page and [Raffel's 2016 thesis](https://colinraffel.com/publications/thesis.pdf). Attribution for the underlying compositions and arrangements is incomplete, so this project makes no independent clearance claim. Listener ratings and human phrase labels are optional follow-up research, not a publication gate for this algorithmic recurrence dataset. The release does not claim perceptual quality or validated earworm detection.
+
+## Listening case study
+
+The [Tool collection](tool_motifs.md) explores saved melodic and drum patterns from nine available MIDI songs. It is a personal listening case study with documented source limits.

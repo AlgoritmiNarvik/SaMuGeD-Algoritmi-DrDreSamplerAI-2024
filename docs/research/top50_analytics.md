@@ -2,7 +2,7 @@
 
 The top 50 analytics are algorithmic recurrence annotations. They do not use listener ratings and do not infer perceptual earworm labels. The archived browser atlas contains five 50-row CSV views, copied MIDI excerpts and a machine-readable input/output receipt. Its browser audio is a symbolic MIDI synthesis preview, not an original recording.
 
-The public dataset is [SaMuGeD recurring phrases](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases), and the rendered loop demo is the [SaMuGeD earworm loops Space](https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops). Both are public.
+The public dataset is [SaMuGeD Earworms](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases), and the rendered loop demo is the [SaMuGeD Earworms Space](https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops). Both are public.
 
 The primary release is `closed_v01` with 95,077 phrases, including 50,566 melodic and 44,511 percussion phrases. `reference_v04` contains 94,950 phrases, including 50,439 melodic and 44,511 percussion phrases. Neither release includes listener labels.
 

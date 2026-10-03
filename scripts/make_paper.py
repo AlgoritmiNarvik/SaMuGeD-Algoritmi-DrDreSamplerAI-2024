@@ -1926,18 +1926,18 @@ def _footer(canvas, doc) -> None:
     canvas.line(20 * mm, 17 * mm, A4[0] - 20 * mm, 17 * mm)
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(MUTED)
-    canvas.drawString(20 * mm, 12 * mm, "SaMuGeD | recurring phrase dataset | no listener labels")
+    canvas.drawString(20 * mm, 12 * mm, "SaMuGeD Earworms | recurring phrases | no listener labels")
     canvas.drawRightString(A4[0] - 20 * mm, 12 * mm, str(doc.page))
     canvas.restoreState()
 
 
-def _build_pdf(output: Path, story: list, title: str = "SaMuGeD recurring phrase candidates") -> None:
+def _build_pdf(output: Path, story: list, title: str = "SaMuGeD Earworms (Ostinato / Catchy musical hooks)") -> None:
     """Build a byte reproducible PDF from a newly constructed story."""
     output.parent.mkdir(parents=True, exist_ok=True)
     document = SimpleDocTemplate(
         str(output), pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm,
         topMargin=18 * mm, bottomMargin=23 * mm, title=title,
-        author="SaMuGeD project", subject="Audited recurring phrase candidate dataset",
+        author="Peiyi Wu, Asle Fjæran Øren, Shayan Dadman and Almaz Ermilov", subject="Audited recurring phrase candidate dataset",
         creator="SaMuGeD make_paper.py", producer="ReportLab",
         pageCompression=1, invariant=1,
     )
@@ -2048,8 +2048,10 @@ def render(
     def page() -> None:
         story.append(PageBreak())
 
-    p("SaMuGeD recurring<br/>phrase candidates", "TitleLocal")
-    p("An audited MIDI dataset with separate melodic and percussion tracks", "Deck")
+    p("SaMuGeD Earworms", "TitleLocal")
+    p("Ostinato / Catchy musical hooks", "Deck")
+    p("Peiyi Wu, Asle Fjæran Øren, Shayan Dadman and Almaz Ermilov", "SmallLocal")
+    p("pewu10205@uit.no, asleoren@gmail.com<br/>shayan.dadman@uit.no, almaz.ermilov@uit.no", "SmallLocal")
     p(f"Research note · {paper_date} · {scope} · {method_title} · Research release", "SmallLocal")
     heading("Abstract")
     p("This note describes a reproducible pipeline for finding recurring symbolic phrases in multitrack MIDI. "

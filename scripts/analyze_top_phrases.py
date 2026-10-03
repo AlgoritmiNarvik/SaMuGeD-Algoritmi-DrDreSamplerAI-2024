@@ -203,6 +203,10 @@ def build(dataset, source_root, chart_path, output, count=50):
     for key, rows in views.items():
         write_csv(output / f"top50_{key}.csv", rows)
     template = Path(__file__).with_name("top_phrases.html").read_text(encoding="utf-8")
+    font_root = Path(__file__).resolve().parents[1] / "docs" / "assets" / "inter"
+    shutil.copytree(font_root, output / "fonts")
+    for path in sorted(font_root.iterdir()):
+        receipt["inputs"][str(path.resolve())] = {"sha256": _file_sha256(path), "bytes": path.stat().st_size}
     (output / "index.html").write_text(template.replace("__DATA__", script_safe_json(packet)), encoding="utf-8")
     (output / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     receipt["outputs"] = {str(path.relative_to(output)): {"sha256": _file_sha256(path), "bytes": path.stat().st_size} for path in sorted(output.rglob("*")) if path.is_file()}

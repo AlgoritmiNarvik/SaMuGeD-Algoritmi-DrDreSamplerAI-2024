@@ -446,7 +446,11 @@ def package(dataset: Path, output: Path, *, allow_pilot=False, archive=False,
         shutil.copytree(repository/"schemas", output/"schemas")
     shutil.copyfile(repository/"LICENSE", output/"SOFTWARE_LICENSE.txt")
     shutil.copyfile(repository / "docs/research/consumer_guide.md", output / "CONSUMER_GUIDE.md")
-    card = f"""# SaMuGeD recurring phrase candidates
+    card = f"""# SaMuGeD Earworms (Ostinato / Catchy musical hooks)
+
+Recurring melodic phrases and separate drum patterns.
+
+Authors: Peiyi Wu (pewu10205@uit.no), Asle Fjæran Øren (asleoren@gmail.com), Shayan Dadman (shayan.dadman@uit.no) and Almaz Ermilov (almaz.ermilov@uit.no).
 
 Local candidate release, unpublished. Scope: {'full local corpus' if full else 'pilot only'}.
 
@@ -492,7 +496,7 @@ Artist keys, normalized title variants, exact bytes and exact normalized arrange
 
 The project software uses the existing repository MIT licence, reproduced in `SOFTWARE_LICENSE.txt`. It does not grant rights to source compositions or MIDI arrangements. The upstream Lakh page states CC BY 4.0 and notes inconsistent source attribution: https://colinraffel.com/projects/lmd/
 
-No content has been published or uploaded. Before public release, resolve musical redistribution rights, confirm author and citation metadata, collect independent human labels and review unresolved duplicate groups. No DOI, venue acceptance or human evaluation is claimed.
+This local packaging command performs no upload. The public dataset and demo are documented in the project README. Underlying musical attribution and unresolved duplicate groups remain limitations. Listener labels are outside this release. No DOI, venue acceptance or human evaluation is claimed.
 
 ## Integrity
 
