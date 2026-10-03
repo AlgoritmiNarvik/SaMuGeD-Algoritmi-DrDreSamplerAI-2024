@@ -53,6 +53,24 @@ def test_seed_changes_selection_and_drum_limits_are_included() -> None:
     assert sample._limited({"search_limited": False, "drum_stats": {"search_limited": True}})
 
 
+def test_all_successful_selects_every_success_and_records_scope() -> None:
+    rows = _rows()
+    first, meta = sample._select_records(rows, None, seed=17, all_successful=True)
+    second, second_meta = sample._select_records(list(reversed(rows)), None, seed=17, all_successful=True)
+
+    assert [row["source_id"] for row in first] == [row["source_id"] for row in second]
+    assert meta == second_meta
+    assert len(first) == 10
+    assert {row["source_id"] for row in first} == {f"source-{index}" for index in range(10)}
+    assert meta["selection_mode"] == "all_successful"
+    assert meta["selection_covers_all_successful_sources"] is True
+    assert meta["total_manifest_sources"] == 11
+    assert meta["successful_source_count"] == 10
+    assert meta["error_source_count"] == 1
+    assert meta["eligible_search_limited"] == 4
+    assert meta["eligible_not_search_limited"] == 6
+
+
 def test_run_one_accounts_for_detector_evidence_tampering(tmp_path: Path, monkeypatch) -> None:
     path = tmp_path / "song.mid"
     data = b"midi fixture"
@@ -217,3 +235,24 @@ def test_cli_returns_nonzero_when_sample_has_failures(monkeypatch, capsys) -> No
     monkeypatch.setattr(sample, "run_sample", lambda *args, **kwargs: {"failure_count": 1})
     assert sample.main(["--dataset", "d", "--source", "s", "--output", "o"]) == 1
     assert '"failure_count": 1' in capsys.readouterr().out
+
+
+def test_cli_rejects_count_with_all_successful() -> None:
+    with pytest.raises(SystemExit) as error:
+        sample.main([
+            "--dataset", "d", "--source", "s", "--output", "o",
+            "--all-successful", "--count", "2",
+        ])
+    assert error.value.code == 2
+
+
+def test_all_successful_rejects_malformed_success_instead_of_silently_skipping() -> None:
+    rows = _rows()
+    rows[0]["source_sha256"] = "invalid"
+    with pytest.raises(ValueError, match="malformed"):
+        sample._select_records(rows, None, all_successful=True)
+
+
+def test_all_successful_rejects_empty_scope() -> None:
+    with pytest.raises(ValueError, match="no successful"):
+        sample._select_records([_rows()[-1]], None, all_successful=True)

@@ -1,6 +1,6 @@
 """Re-extract a deterministic, receipt-bound sample from a full dataset build.
 
-This is a bounded spot check of saved successful source records. It requires a
+This replays a bounded sample or every saved successful source record. It requires a
 passed full manifest audit with current bound inputs before selecting cases and
 writes a separate experiment receipt, so it does not change the dataset's own
 audit artifact.
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from hashlib import sha256
 import json
 from pathlib import Path, PurePosixPath
@@ -26,7 +26,7 @@ VERSION = "selection-sample-audit-v1"
 DEFAULT_COUNT = 256
 DEFAULT_WORKERS = 4
 DEFAULT_SEED = 20261003
-MAX_COUNT = 10000
+MAX_COUNT = 50000
 MAX_WORKERS = 32
 MAX_FAILURE_REASONS = 16
 MAX_REASON_LENGTH = 240
@@ -51,7 +51,7 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     rows = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8").split("\n"):
         if line.strip():
             value = json.loads(line)
             if not isinstance(value, dict):
@@ -194,26 +194,42 @@ def _limited(record: dict[str, Any]) -> bool:
 
 
 def _select_records(
-    records: list[dict[str, Any]], count: int, seed: int = DEFAULT_SEED
+    records: list[dict[str, Any]], count: int | None, seed: int = DEFAULT_SEED,
+    *, all_successful: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= MAX_COUNT:
+    if not all_successful and (isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= MAX_COUNT):
         raise ValueError(f"count must be between 1 and {MAX_COUNT}")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise ValueError("seed must be an integer")
+    successful_count = sum(row.get("status") == "ok" for row in records)
+    error_count = sum(row.get("status") == "error" for row in records)
     eligible = [
         row for row in records
         if row.get("status") == "ok"
         and row.get("outcome") in {"matched", "no_match"}
         and isinstance(row.get("source_sha256"), str)
+        and len(row["source_sha256"]) == 64
+        and all(char in "0123456789abcdef" for char in row["source_sha256"])
     ]
+    if all_successful and (len(eligible) != successful_count or successful_count + error_count != len(records)):
+        raise ValueError("all-successful scope contains malformed or unsupported manifest rows")
+    if all_successful and not eligible:
+        raise ValueError("all-successful scope has no successful sources")
+    if all_successful and len(eligible) > MAX_COUNT:
+        raise ValueError(f"all-successful cohort exceeds the {MAX_COUNT} source cap")
     ordered = sorted(eligible, key=lambda row: _record_key(row, seed))
+    if all_successful:
+        count = len(ordered)
+    assert count is not None
     recovered = [row for row in ordered if bool(row.get("metadata_repairs"))]
-    selected = list(recovered[:count])
+    selected = list(ordered if all_successful else recovered[:count])
     remaining = count - len(selected)
-    pool = [row for row in ordered if row not in selected]
-    limited = [row for row in pool if _limited(row)]
-    unlimited = [row for row in pool if not _limited(row)]
-    if remaining:
+    selected_ids = {row["source_id"] for row in selected}
+    pool = [] if all_successful else [row for row in ordered if row["source_id"] not in selected_ids]
+    strata_pool = ordered if all_successful else pool
+    limited = [row for row in strata_pool if _limited(row)]
+    unlimited = [row for row in strata_pool if not _limited(row)]
+    if remaining and not all_successful:
         take_limited = min(len(limited), (remaining + 1) // 2)
         take_unlimited = min(len(unlimited), remaining - take_limited)
         if take_limited + take_unlimited < remaining:
@@ -234,6 +250,11 @@ def _select_records(
     return selected, {
         "seed": seed,
         "count": count,
+        "selection_mode": "all_successful" if all_successful else "bounded_sample",
+        "selection_covers_all_successful_sources": all_successful,
+        "total_manifest_sources": len(records),
+        "successful_source_count": successful_count,
+        "error_source_count": error_count,
         "eligible_successful_sources": len(eligible),
         "eligible_metadata_recovered": len(recovered),
         "eligible_search_limited": len(limited),
@@ -244,6 +265,9 @@ def _select_records(
             "sort successful source records by a deterministic hash of seed, source_sha256 "
             "and source_id; select metadata-recovered records first then fill remaining "
             "slots with a balanced search-limited/not-search-limited selection"
+            if not all_successful else
+            "replay every eligible successful source in deterministic hash order; manifest "
+            "error rows remain outside this cohort"
         ),
     }
 
@@ -330,14 +354,18 @@ def run_sample(
     source: Path,
     output: Path,
     *,
-    count: int = DEFAULT_COUNT,
+    count: int | None = DEFAULT_COUNT,
     workers: int = DEFAULT_WORKERS,
     seed: int = DEFAULT_SEED,
+    all_successful: bool = False,
 ) -> dict[str, Any]:
     if isinstance(workers, bool) or not isinstance(workers, int) or not 1 <= workers <= MAX_WORKERS:
         raise ValueError(f"workers must be between 1 and {MAX_WORKERS}")
     context = _validate_full_build(dataset, source)
-    records, selection_meta = _select_records(context["records"], count, seed)
+    records, selection_meta = _select_records(
+        context["records"], count, seed, all_successful=all_successful
+    )
+    count = selection_meta["count"]
     selected = []
     for row in records:
         source_path = _safe_source(context["source"], row.get("source_path"))
@@ -388,17 +416,24 @@ def run_sample(
         "percussion": context["config"].get("percussion", False),
         "recover_invalid_keys": context["config"].get("recover_invalid_keys", False),
     }
+    claim_boundary = (
+        "all successful sources re-extracted; parse errors excluded; no musical quality claim"
+        if all_successful else
+        "bounded selected-source re-extraction only; no full corpus or quality claim"
+    )
     config = {
         "version": VERSION,
         "seed": seed,
         "count": count,
+        "selection_mode": selection_meta["selection_mode"],
+        "all_successful": all_successful,
         "workers": workers,
         "dataset_run_key": context["config"].get("run_key"),
         "dataset_artifacts": context["artifacts"],
         "detector": detector_config,
         "required_detector_modules": list(context["required_modules"]),
         "selection_sha256": selection_sha256,
-        "claim_boundary": "bounded selected-source re-extraction only; no full corpus or quality claim",
+        "claim_boundary": claim_boundary,
     }
     design = {
         "version": VERSION,
@@ -409,7 +444,7 @@ def run_sample(
         "selection": selection_meta,
         "required_detector_modules": list(context["required_modules"]),
         "result_artifacts": ["aggregate.json", "design.json", "raw_results.json", "selection.json"],
-        "claim_boundary": "bounded selected-source re-extraction only; no full corpus or quality claim",
+        "claim_boundary": claim_boundary,
     }
     output = output.resolve()
     receipt = experiment.prepare_experiment(
@@ -428,12 +463,19 @@ def run_sample(
         (context["source"], by_id[item["source_id"]], context["config"], item["stratum"])
         for item in selected
     ]
+    rows = []
     if workers == 1:
-        rows = [_run_one(*task) for task in tasks]
+        for completed, task in enumerate(tasks, 1):
+            rows.append(_run_one(*task))
+            if completed % 100 == 0:
+                print(f"replayed {completed}/{len(tasks)} sources", flush=True)
     else:
         with ProcessPoolExecutor(max_workers=workers) as pool:
-            futures = [pool.submit(_run_one, *task) for task in tasks]
-            rows = [future.result() for future in futures]
+            futures = {pool.submit(_run_one, *task): index for index, task in enumerate(tasks)}
+            for completed, future in enumerate(as_completed(futures), 1):
+                rows.append(future.result())
+                if completed % 100 == 0:
+                    print(f"replayed {completed}/{len(tasks)} sources", flush=True)
     if _artifact_hashes(context["dataset"]) != context["artifacts"]:
         raise ValueError("dataset artifacts changed during sample re-extraction")
     _verify_current_detector_modules(context["dataset"], context["config"])
@@ -444,6 +486,8 @@ def run_sample(
         **links,
         "selection_sha256": selection_sha256,
         "count": count,
+        "selection_mode": selection_meta["selection_mode"],
+        "selection_covers_all_successful_sources": selection_meta["selection_covers_all_successful_sources"],
         "workers": workers,
         "cases": rows,
         "failure_count": len(failures),
@@ -454,6 +498,11 @@ def run_sample(
         **links,
         "selection_sha256": selection_sha256,
         "count": count,
+        "selection_mode": selection_meta["selection_mode"],
+        "selection_covers_all_successful_sources": selection_meta["selection_covers_all_successful_sources"],
+        "total_manifest_sources": selection_meta["total_manifest_sources"],
+        "successful_source_count": selection_meta["successful_source_count"],
+        "error_source_count": selection_meta["error_source_count"],
         "passed_count": len(rows) - len(failures),
         "failure_count": len(failures),
         "status_counts": dict(Counter(row["status"] for row in rows)),
@@ -482,11 +531,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--count", type=int, default=DEFAULT_COUNT)
+    parser.add_argument("--count", type=int, default=None)
+    parser.add_argument(
+        "--all-successful", action="store_true",
+        help="replay every successful source; cannot be combined with --count",
+    )
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     args = parser.parse_args(argv)
-    result = run_sample(args.dataset, args.source, args.output, count=args.count, workers=args.workers, seed=args.seed)
+    if args.all_successful and args.count is not None:
+        parser.error("--all-successful cannot be combined with --count")
+    count = DEFAULT_COUNT if args.count is None and not args.all_successful else args.count
+    result = run_sample(
+        args.dataset, args.source, args.output, count=count, workers=args.workers,
+        seed=args.seed, all_successful=args.all_successful,
+    )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 1 if result.get("failure_count") else 0
 

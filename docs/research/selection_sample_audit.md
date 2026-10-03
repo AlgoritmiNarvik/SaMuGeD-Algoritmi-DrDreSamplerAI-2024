@@ -12,11 +12,34 @@ python scripts/audit_selection_sample.py \
 python scripts/verify_experiment.py --experiment research_local/my_selection_sample
 ```
 
+To replay every successful source in a completed full build, use the explicit
+all-successful mode. Do not combine it with `--count`:
+
+```sh
+python scripts/audit_selection_sample.py \
+  --dataset research_local/lakh_aligned_indexed_v01 \
+  --source 'datasets/Lakh MIDI Clean' \
+  --output research_local/selection_sample_all_successful_v01 \
+  --all-successful --workers 6 --seed 20261003
+```
+
+This mode derives its cohort from every manifest row with `status: ok`, an
+outcome of `matched` or `no_match` and a source SHA256. It records the total
+manifest source count, successful source count, error source count and
+`selection_covers_all_successful_sources: true`. Error rows are excluded from the replay cohort and counted separately.
+Malformed successful rows fail the scope gate. The
+result therefore does not claim that parse errors were re-extracted.
+
 The gate requires a passed full audit bound to the current source manifest, phrase manifest, build configuration and summary. It verifies the source inventory, detector module bytes against the build provenance and Python/runtime compatibility. Only the selected sources are hashed and re-extracted again. Unselected source bytes are not reverified by this supplementary check.
 
 Selection orders successful records by SHA256 of the audit version, seed, source SHA256 and source ID. Metadata-recovered sources are taken first. The remaining slots balance sources with and without a melodic or percussion search limit. This is a targeted implementation audit, not a representative accuracy sample. A new seed changes the order; the recorded cohort, strata and exact detector evidence are frozen before replay.
 
 Each selected source is parsed under the recorded metadata policy, repair receipts and warnings are compared, and all detector outputs and telemetry are replayed. Closed traces and optional part ranking receive their existing additional checks. Source hashes are rechecked after each replay, with dataset manifests and core provenance rechecked before completion. Worker processes run independently; worker time and wall time are reported separately.
+
+The all-successful mode submits the same frozen cohort to the worker pool and
+uses completion-order collection for bounded progress messages every 100
+completed sources. Final raw rows are sorted by source hash and source ID, so
+worker scheduling does not change the receipt or aggregate ordering.
 
 The preferred reference run is `research_local/selection_sample_reference_v02`. All 256 selected sources passed, comprising all 28 metadata-recovered sources, 114 other search-limited sources and 114 non-limited sources. No failures occurred. Wall time was 37.734 seconds and summed worker time 147.143 seconds under concurrent corpus workloads. The frozen selection-record hash is `46a1d9a356d642234c9499afb96c2f3f5bad8ddab09f20dfc7a3242596f4b1b3`, receipt hash `782341430f4b163f2c994aa61706f89bdf3e9fb8c24e971b9ce2b8ddc9d4baed` and source snapshot hash `706682c884757146a0c7cfd42455d9a9055465610b69b81dbcfbb191f23666bb`.
 
