@@ -203,6 +203,7 @@ def _score(w: Window, occurrences, stream, part, song):
 def detect_part(song: MidiSong, part: Part, cfg: Config) -> tuple[list[dict], dict]:
     stats = {"part_index": part.index, "input_notes": len(part.notes), "skyline_notes": 0,
              "windows": 0, "comparisons": 0, "saturated_seed_buckets": 0,
+             "exact_cache_hits": 0,
              "comparison_limit_reached": False, "note_limit_reached": False,
              "raw_groups": 0, "repeat_groups": 0, "overlapping_occurrences_removed": 0,
              "windows_considered": 0, "window_limit_reached": False,
@@ -219,6 +220,7 @@ def detect_part(song: MidiSong, part: Part, cfg: Config) -> tuple[list[dict], di
     groups: list[list[tuple[Window, float, int]]] = []
     index: dict[tuple, list[int]] = defaultdict(list)
     strict_index: dict[str, int] = {}
+    exact_representatives: dict[tuple, int] = {}
     saturated: set[tuple] = set()
     ppq = song.ticks_per_beat
     for n in sorted(set(cfg.lengths), reverse=True):
@@ -246,6 +248,17 @@ def detect_part(song: MidiSong, part: Part, cfg: Config) -> tuple[list[dict], di
                     strict_index[key] = len(groups)
                     groups.append([(w, 1.0, 0)])
                 continue
+            # Cache only fixed representatives. Caching a near match could
+            # report the wrong prototype shift and quality on its later copies.
+            exact_key = (tuple(p-w.pitches[0] for p in w.pitches),
+                         tuple(note.start-w.start for note in w.notes),
+                         tuple(note.end-note.start for note in w.notes))
+            exact_gid = exact_representatives.get(exact_key)
+            if exact_gid is not None:
+                shift = w.pitches[0]-groups[exact_gid][0][0].pitches[0]
+                groups[exact_gid].append((w, 1.0, shift))
+                stats["exact_cache_hits"] += 1
+                continue
             seeds = tuple(_seeds(w))
             candidates = sorted(set(g for key in seeds for g in index[key]))
             best = None
@@ -265,6 +278,7 @@ def detect_part(song: MidiSong, part: Part, cfg: Config) -> tuple[list[dict], di
             else:
                 gid = len(groups)
                 groups.append([(w, 1.0, 0)])
+                exact_representatives.setdefault(exact_key, gid)
                 for key in seeds:
                     if len(index[key]) < cfg.max_bucket:
                         index[key].append(gid)

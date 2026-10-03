@@ -132,3 +132,30 @@ def test_disjoint_pitch_seeds_survive_allowed_mutations():
     left,right=window(a,0,24,480),window(b,0,24,480)
     assert match(left,right,Config()) is not None
     assert set(_seeds(left)) & set(_seeds(right))
+
+
+def test_exact_representative_cache_preserves_late_repeats_after_budget():
+    song = make_song(repeats=3, transpose=3)
+    result = extract(song, Config(lengths=(12,), max_comparisons=1))
+    phrase = target(result)
+    assert phrase is not None
+    assert phrase['occurrence_count'] == 3
+    assert [item['transpose_semitones'] for item in phrase['occurrences']] == [0, 3, 6]
+    assert result['part_stats'][0]['exact_cache_hits'] >= 2
+    assert result['part_stats'][0]['comparisons'] <= 1
+
+
+def test_cache_keeps_representative_shift_and_quality_for_near_match_copies():
+    song = make_song(repeats=3)
+    # Two identical near matches alter the first pitch only. Caching them as
+    # if they were the representative would report shift 1 and quality 1,
+    # violating the representative's pitch-error bound on the other 11 notes.
+    for i in (12, 24):
+        note = song.parts[0].notes[i]
+        song.parts[0].notes[i] = type(note)(note.start, note.end, note.pitch+1, note.velocity)
+    result = extract(song, Config(lengths=(12,)))
+    phrase = target(result)
+    assert phrase is not None
+    assert phrase['occurrence_count'] == 3
+    assert [item['transpose_semitones'] for item in phrase['occurrences']] == [0, 0, 0]
+    assert all(item['similarity'] < 1 for item in phrase['occurrences'][1:])
