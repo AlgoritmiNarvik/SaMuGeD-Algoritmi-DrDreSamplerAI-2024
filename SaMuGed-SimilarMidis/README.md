@@ -6,7 +6,7 @@ This directory contains the legacy SimilarMidis application. It searches saved M
 
 SimilarMidis is not the current recurrence extractor. Its feature vectors, nearest neighbour results and historical pattern dataset should not be presented as the audited recurrence rankings.
 
-The current research guide is [docs/research/README.md](../docs/research/README.md), with the [top 50 analytics guide](../docs/research/top50_analytics.md) as a focused reference. The public releases are the [recurring phrases dataset](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases) and the [earworm loops Space](https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops).
+The current research guide is [docs/research/README.md](../docs/research/README.md), with the [top 50 analytics guide](../docs/research/top50_analytics.md) as a focused reference. The public releases are the [recurring phrases dataset](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases) and the [earworm loops Space](https://huggingface.co/spaces/AlmazErmilov/samuged-earworms).
 
 ## Historical features
 
