@@ -1,14 +1,18 @@
 # Top 50 recurrence analytics
 
-The requested local analytics are available in [the listening atlas](../../research_local/top50_v01/final/index.html), with five 50-row CSV views, copied MIDI excerpts and a machine-readable input/output receipt. This scoped addition does not restart the paused corpus research or automatic continuation. Listener ratings are outside the current scope at the user's explicit request. The results are algorithmic recurrence annotations; no perceptual earworm labels are inferred.
+The top 50 analytics are algorithmic recurrence annotations. They do not use listener ratings and do not infer perceptual earworm labels. The archived browser atlas contains five 50-row CSV views, copied MIDI excerpts and a machine-readable input/output receipt. Its browser audio is a symbolic MIDI synthesis preview, not an original recording.
+
+The public dataset is [SaMuGeD recurring phrases](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases), and the rendered loop demo is the [SaMuGeD earworm loops Space](https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops). Both are public.
+
+The primary release is `closed_v01` with 95,077 phrases, including 50,566 melodic and 44,511 percussion phrases. `reference_v04` contains 94,950 phrases, including 50,439 melodic and 44,511 percussion phrases. Neither release includes listener labels.
 
 ## Views and ranking
 
-- [Melodic motifs](../../research_local/top50_v01/final/top50_motifs.csv): the most repeated saved candidates after the explicit structural filter.
-- [Popular songs](../../research_local/top50_v01/final/top50_popular.csv): the same ranking restricted to exactly matched UK million-selling singles.
-- [Raw melodic recurrence](../../research_local/top50_v01/final/top50_raw.csv): no structural filter, retaining simple ostinati and accompaniment.
-- [Shared families](../../research_local/top50_v01/final/top50_families.csv): saved melodic family signatures ranked by distinct normalized catalog identities.
-- [Percussion](../../research_local/top50_v01/final/top50_drums.csv): separate drum patterns ranked by nonoverlapping occurrences.
+- [Melodic motifs](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/analytics/top50_motifs.csv): the most repeated saved candidates after the explicit structural filter.
+- [Popular songs](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/analytics/top50_popular.csv): the same ranking restricted to exactly matched UK million-selling singles.
+- [Raw melodic recurrence](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/analytics/top50_raw.csv): no structural filter, retaining simple ostinati and accompaniment.
+- [Shared families](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/analytics/top50_families.csv): saved melodic family signatures ranked by distinct normalized catalog identities.
+- [Percussion](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/analytics/top50_drums.csv): separate drum patterns ranked by nonoverlapping occurrences.
 
 The source is the audited `aligned_closed` corpus, containing 50,566 melodic and 44,511 percussion rows across 17,232 input paths. Its saved candidate selection and source reconstruction have already passed the checks documented in [DELIVERY.md](DELIVERY.md). Rankings operate over these saved outputs, up to three selected candidates per kind and MIDI, rather than every possible musical fragment.
 
@@ -34,9 +38,9 @@ The raw leader has 100 occurrences and only three distinct pitches. The most rep
 
 All five views contain 50 positions. Across them there are 236 unique listening candidates from 208 source MIDI files. For every displayed candidate the builder checks occurrence-count equality, positive spans, nonoverlap, prototype inclusion, source byte identity, source-note coordinates of the prototype and up to two alternate snippets, and copied MIDI export hashes. The full manifest hashes must equal the audited dataset's summary hashes. The receipt additionally binds the helper code, chart snapshot, dataset audit, schemas, build configuration and every generated output. JSON and all five CSV files were checked for matching ordered IDs; all 244 output hashes matched after generation. The new ranking and existing review/Unicode tests pass 26 cases.
 
-A separate read-only reconstruction from the full phrase manifest reproduced all five ordered rankings. The final root check verifies all 13 input hashes and 244 output hashes and confirms that the final UI corrections did not change any ranking or source-derived snippet. The [offline ZIP](../../research_local/top50_v01/samuged_top50_analytics.zip) contains 245 files, is 668,686 bytes and passes ZIP integrity checking. Its SHA256 is `d9333aab1d78f5ead5eb386eca1ecc76bda7826faf145244dbe3c584a20bb6b2`. Final receipt SHA256 is `420df0affac7e9d5dd9abfc19358c4e2c244804e238c25e5ec782fcf4d0f45a6`. The [root verification](../../research_local/top50_v01/final_root_verification.json) records this boundary.
+A separate read-only reconstruction from the full phrase manifest reproduced all five ordered rankings. The final root check verifies all 13 input hashes and 244 output hashes and confirms that the final UI corrections did not change any ranking or source-derived snippet. The archived offline ZIP at `research_local/top50_v01/samuged_top50_analytics.zip` contains 245 files, is 668,686 bytes and passes ZIP integrity checking. Its SHA256 is `d9333aab1d78f5ead5eb386eca1ecc76bda7826faf145244dbe3c584a20bb6b2`. Final receipt SHA256 is `420df0affac7e9d5dd9abfc19358c4e2c244804e238c25e5ec782fcf4d0f45a6`. The archived root verification at `research_local/top50_v01/final_root_verification.json` records this boundary. These exact values are retained as historical evidence from the archived Russian snapshot.
 
-The browser interface supports search, all five views, a note plot, a recurrence timeline, source disclosure, CSV and MIDI downloads, prototype playback and alternate occurrences. Timing integrates the actual source MIDI tempo map. Audio is browser synthesis, not original audio or a General MIDI soundfont. Search-limit and candidate-truncation warnings remain visible on relevant results. The timeline runs from tick zero to the final saved occurrence, not necessarily the song's end.
+The archived browser interface supports search, all five views, a note plot, a recurrence timeline, source disclosure, CSV and MIDI downloads, prototype playback and alternate occurrences. Timing integrates the actual source MIDI tempo map. Its audio is a symbolic browser synthesis preview, not an original recording or a General MIDI soundfont. Forty rendered source cycles loop continuously in the linked Space. A separate song-level evidence view supports familiar-hook selection. Search-limit and candidate-truncation warnings remain visible on relevant results. The timeline runs from tick zero to the final saved occurrence, not necessarily the song's end.
 
 Open `http://127.0.0.1:8877/index.html` while the local preview runs. The HTML also opens directly as a self-contained file. To restart its preview:
 
@@ -57,4 +61,4 @@ python -m scripts.analyze_top_phrases \
   --output research_local/top50_v01/reproduction
 ```
 
-The generated datasets and analytics stay ignored and local. Publication remains a separate step with the earlier melody validation and redistribution questions still open. Listener ratings are optional future research, not a prerequisite imposed on this requested algorithmic analysis.
+The public release includes the algorithmic recurrence tables and source-derived evidence described above. External evaluation data such as POP909, Theme and JKU are not distributed. Their results and citations can be described separately. The hosted files and public player have been verified.

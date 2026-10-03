@@ -1926,7 +1926,7 @@ def _footer(canvas, doc) -> None:
     canvas.line(20 * mm, 17 * mm, A4[0] - 20 * mm, 17 * mm)
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(MUTED)
-    canvas.drawString(20 * mm, 12 * mm, "SaMuGeD | local research candidate | human validation pending")
+    canvas.drawString(20 * mm, 12 * mm, "SaMuGeD | recurring phrase dataset | no listener labels")
     canvas.drawRightString(A4[0] - 20 * mm, 12 * mm, str(doc.page))
     canvas.restoreState()
 
@@ -1937,7 +1937,7 @@ def _build_pdf(output: Path, story: list, title: str = "SaMuGeD recurring phrase
     document = SimpleDocTemplate(
         str(output), pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm,
         topMargin=18 * mm, bottomMargin=23 * mm, title=title,
-        author="SaMuGeD project", subject="Audited local recurring phrase candidate dataset",
+        author="SaMuGeD project", subject="Audited recurring phrase candidate dataset",
         creator="SaMuGeD make_paper.py", producer="ReportLab",
         pageCompression=1, invariant=1,
     )
@@ -2016,7 +2016,7 @@ def render(
     algorithm = dataset_info["algorithm"]
     method_title, method_text = method_description(algorithm, build.get("config", {}))
     full = summary["source_files"] == summary.get("discovered_source_files") and summary.get("cohort_limit") is None
-    scope = "Full local corpus" if full else "Pilot only"
+    scope = "Full processed corpus" if full else "Pilot only"
 
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle("TitleLocal", fontName="Helvetica-Bold", fontSize=25, leading=29, textColor=INK, spaceAfter=12))
@@ -2049,10 +2049,10 @@ def render(
         story.append(PageBreak())
 
     p("SaMuGeD recurring<br/>phrase candidates", "TitleLocal")
-    p("An audited local MIDI dataset with separate melodic and percussion tracks", "Deck")
-    p(f"Research note · {paper_date} · {scope} · {method_title} · Unpublished candidate release", "SmallLocal")
+    p("An audited MIDI dataset with separate melodic and percussion tracks", "Deck")
+    p(f"Research note · {paper_date} · {scope} · {method_title} · Research release", "SmallLocal")
     heading("Abstract")
-    p("This note describes a local pipeline for finding recurring symbolic phrases in multitrack MIDI. "
+    p("This note describes a reproducible pipeline for finding recurring symbolic phrases in multitrack MIDI. "
       "Melodic candidates are checked with pitch, onset and duration constraints. A separate percussion detector "
       "retains distinct simultaneous kit pitches and compares meter aware patterns without pitch transposition. Every "
       "output links to source coordinates and a checksum. Controlled planted patterns test the implemented rules. "
@@ -2408,7 +2408,7 @@ def render(
     p("The audit checks source and excerpt consistency within this repository, without external certification. "
       "Human phrase labels remain uncollected. Lakh is distributed under CC BY 4.0 but reports inconsistent MIDI "
       "attribution [1]. This audit does not establish rights to compositions, arrangements or excerpts. "
-      "The candidate release remains unpublished pending a separate rights review.")
+      "The release follows the upstream collection licence with source attribution. No independent clearance of underlying compositions or arrangements is claimed. Listener ratings are outside this release.")
     p(f"Run fingerprint: <font name='Courier'>{summary['run_key']}</font>", "SmallLocal")
     p(f"Source manifest SHA256: <font name='Courier'>{summary['source_manifest_sha256']}</font>", "SmallLocal")
     p(f"Phrase manifest SHA256: <font name='Courier'>{summary['phrase_manifest_sha256']}</font>", "SmallLocal")

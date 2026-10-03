@@ -1,20 +1,31 @@
-# SaMuGeD-24-midi-sampling
+# SaMuGeD-24 MIDI sampling notes
 
-### Our to-do list at this point
-#### - Refine Pattern Recognition Algorithm:
+This page is an archival planning note from the early SaMuGeD project. It records the ideas and setup that existed at that time. It does not describe the current audited recurrence dataset or its publication status. See the [current research guide](research/README.md) and [publication status](research/DELIVERY.md).
+
+## Historical to-do list
+
+### Refine pattern recognition
+
 Focus on identifying and clustering repetitive musical phrases.
 Experiment with MIDI toolkit to get time signatures and divide notes into bars.
-#### - SF Segmenter Enhancements:
+
+### SF segmenter enhancements
+
 Adjust parameters for better segmentation of smaller parts.
 Develop a user-friendly interface for parameter adjustments.
-#### - Clustering Approach:
+
+### Clustering approach
+
 Use histograms to analyze note frequencies within bars.
 Explore clustering algorithms to identify repetitive patterns.
-#### - User Input and Flexibility:
+
+### User input and flexibility
+
 Allow users to experiment with different segment lengths and configurations.
 Consider user settings for tolerable silence durations in samples.
 
-### Roadmap/Plan
+## Historical roadmap
+
 ![Roadmap for SaMuGeD](/docs/Roadmap_for_SaMuGeD.png) 
 
 ## Setup

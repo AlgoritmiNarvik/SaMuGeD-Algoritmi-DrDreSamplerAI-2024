@@ -1,20 +1,28 @@
-# Local delivery
+# Research status and publication
 
-This page is the entry point for the local SaMuGeD delivery at the user's requested pause on 2026-10-03. All research computations have stopped and automatic continuation is paused. Nothing described here has been pushed or published. See the [pause checkpoint](PAUSE_CHECKPOINT.md) for exact hashes and manual continuation commands, the [short Russian report](STATUS_REPORT_RU.md) for the status and the [presentation](../../output/presentations/samuged_status_2026-10-03.pptx) for the full illustrated report.
+This page separates the current publication from the research pause recorded on 2026-10-03. The pause checkpoint remains an archival record of the stopped computations, saved hashes and continuation commands. The public dataset and demo below were published on 3 October 2026.
 
-The user subsequently requested bounded top-50 analytics and explicitly excluded listener ratings from the current scope. The [recurrence atlas](../../research_local/top50_v01/final/index.html) now provides five ranked listening views, including exactly matched UK million-selling songs. See [top50_analytics.md](top50_analytics.md) for the ranking rules, results and verification. This addition does not restart the paused corpus experiments or automatic continuation. Ratings remain optional future work; the current result is an algorithmic recurrence dataset.
+The dataset is [Hugging Face: `AlmazErmilov/samuged-recurring-phrases`](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases). The demo is [Hugging Face Space: `AlmazErmilov/samuged-earworm-loops`](https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops). The demo uses real source loop cycles and a separate song-level evidence view for familiar-hook selection. These views provide algorithmic evidence and contain no listener labels.
 
-## Start here
+The bounded top-50 analytics remain an algorithmic recurrence result. Listener ratings were excluded from the current scope and are not a release gate. The local recurrence atlas and its ignored generated files remain documented in [top50_analytics.md](top50_analytics.md) for the local checkout.
 
-The preferred dataset is the [reference v04 release](../../research_local/releases/reference_v04). Its [dataset card](../../research_local/releases/reference_v04/DATASET_CARD.md) states the intended use and limits, while the [consumer guide](../../research_local/releases/reference_v04/CONSUMER_GUIDE.md) documents manifest joins, coordinates, splits and search-limit fields.
+## Published release
 
-The portable archive is [reference_v04.tar.gz](../../research_local/releases/reference_v04.tar.gz). It is 181,957,781 bytes with SHA256 `76bab9daf6ad75cc952bc361ee6f2b1badf6de106c52f9b9574d11a31de676a2`. The saved [portable verification](../../research_local/releases/reference_v04.portable_verification_v01.json) passed all 95,009 archive members. The separately [extracted copy](../../research_local/releases/reference_v04_extracted) also passed [recipient-side verification](../../research_local/releases/reference_v04.extracted_verification_v01.json).
+The public archives retain the original musical payloads and update the presentation metadata. Primary archive SHA256 is `52157d9f94a754eb3987a735591ecfead2646f12783ee0c8c7b0a5f235fcf1cb`. Reference archive SHA256 is `f4c896b2c0d58cf52eb95ae650e3ddedc005e0259e0d666995481ae24dd4809c`. Both public archives passed portable verification. The public PDF was regenerated with 132 matching input hashes. [Read the PDF](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/paper/samuged_recurring_phrases.pdf).
 
-The release accounts for 17,232 input paths. There are 16,995 successfully parsed sources, 237 recorded parse errors, 50,439 melodic phrase candidates and 44,511 percussion candidates. All 94,950 phrase rows have MIDI excerpts. The ordinary audit verifies manifests, provenance, source reconstruction and exported MIDI semantics. The included [all-source selection replay](../../research_local/selection_all_reference_v01) separately re-extracted all 16,995 successful sources with zero discrepancies.
+Dataset commit is `257d12889d44f3ecfcb8a6db73cf89d6b2b8d477`. Space commit is `a63f0e01dbc15cfb1de9deebd28b9d29abafb6bb`. The [publication guide](../publication/README.md) explains preparation and rendering.
 
-The completed [aligned closed corpus](../../research_local/lakh_aligned_closed_v01) is the easiest place to inspect the enhanced candidate variant now. Its full artifact audit and all 112,309 schema rows pass. Its [256 source selection replay](../../research_local/selection_sample_closed_v02) also passes with zero failures, including every one of the 28 metadata-recovered sources and balanced groups of 114 search-limited and 114 unlimited sources. Its [portable archive](../../research_local/releases/closed_v01.tar.gz) passes archive and extracted-recipient verification. The archive is 205,245,269 bytes with SHA256 `3c2fe6777a3155292baa6b35641a603681f4f32cb3cf97328838844eca5b0804`. See its [dataset card](../../research_local/releases/closed_v01/DATASET_CARD.md) and [verification report](../../research_local/releases/closed_v01.portable_verification_v01.json).
+## Historical local packages
 
-The current [six-page paper PDF](../../output/pdf/samuged_recurring_phrases.pdf) is the reviewed pause snapshot, SHA256 `10ef7decc9ac551c51efd1c080744a58517ab0c054e2e0629ecba24dd4649eb6`. It includes the reference corpus, the audited indexed and closed comparisons and the complete reference selection replay. All 132 input paths and hashes match the adjacent [input receipt](../../output/pdf/samuged_recurring_phrases.inputs.json), SHA256 `aa0b4f24e3a436c57a8be3f63c6862b82ecb45d88c0dbc3cc3037dc9d14febd5`. The unvalidated melody corpus is outside this paper's evidence boundary. This remains a local scientific draft without human phrase-quality labels.
+The conservative audited package is `reference_v04` under `research_local/releases/reference_v04` in the full checkout. Its local dataset card states the intended use and limits, while its local consumer guide documents manifest joins, coordinates, splits and search-limit fields.
+
+The local `reference_v04.tar.gz` archive is 181,957,781 bytes with SHA256 `76bab9daf6ad75cc952bc361ee6f2b1badf6de106c52f9b9574d11a31de676a2`. Its saved portable verification passed all 95,009 archive members. The separately extracted copy also passed recipient-side verification. These files are local archival artifacts until a public release is confirmed.
+
+The reference release accounts for 17,232 input paths. There are 16,995 successfully parsed sources, 237 recorded parse errors, 50,439 melodic phrase candidates and 44,511 percussion candidates. All 94,950 phrase rows have MIDI excerpts. The ordinary audit verifies manifests, provenance, source reconstruction and exported MIDI semantics. The local all-source selection replay separately re-extracted all 16,995 successful sources with zero discrepancies.
+
+The primary release is the completed `aligned_closed` corpus at `research_local/lakh_aligned_closed_v01`. Its full artifact audit and all 112,309 schema rows pass. Its 256-source selection replay also passes with zero failures, including all 28 metadata-recovered sources and balanced groups of 114 search-limited and 114 unlimited sources. Its local `closed_v01` archive passes archive and extracted-recipient verification. The archive is 205,245,269 bytes with SHA256 `3c2fe6777a3155292baa6b35641a603681f4f32cb3cf97328838844eca5b0804`. It contains 95,077 phrase rows: 50,566 melodic and 44,511 percussion. The dataset card and verification report remain local artifacts until publication is confirmed.
+
+The archived six page paper PDF is the reviewed pause snapshot, SHA256 `10ef7decc9ac551c51efd1c080744a58517ab0c054e2e0629ecba24dd4649eb6`. It includes the reference corpus, the audited indexed and closed comparisons and the complete reference selection replay. All 132 input paths and hashes match the adjacent input receipt, SHA256 `aa0b4f24e3a436c57a8be3f63c6862b82ecb45d88c0dbc3cc3037dc9d14febd5`. The unvalidated melody corpus is outside this paper's evidence boundary. This remains a local scientific draft without human phrase-quality labels.
 
 ## Algorithm choice
 
@@ -80,7 +88,7 @@ python scripts/verify_release.py \
   --output research_local/releases/reference_v04_delivery_copy.verification.json
 ```
 
-The archive has no enclosing top-level directory. Do not extract it over an existing release. Read [CONSUMER_GUIDE.md](../../research_local/releases/reference_v04/CONSUMER_GUIDE.md) before treating ticks as seconds, using split labels or filtering capped sources.
+The archive has no enclosing top-level directory. Do not extract it over an existing release. Read the local `CONSUMER_GUIDE.md` inside `research_local/releases/reference_v04` before treating ticks as seconds, using split labels or filtering capped sources.
 
 ## Run a new extraction
 
@@ -123,7 +131,7 @@ Run the same audit and schema commands against `research_local/my_closed_run`. F
 
 ## Inspect and listen to the 64-pair packet
 
-The [full paired review packet](../../research_local/paired_review_full_closed_v01) compares the top melodic candidate from `reference` and `aligned_closed` for 64 distinct source groups. Selection did not depend on whether the two alternatives differed. It contains 62 informative pairs and two identical rendered pairs. Side placement is balanced and hidden in the interface. The adjacent `blind_mapping.json` makes this reversible software blinding, so reviewers should not open it until ratings are locked.
+The local full paired review packet in `research_local/paired_review_full_closed_v01` compares the top melodic candidate from `reference` and `aligned_closed` for 64 distinct source groups. Selection did not depend on whether the two alternatives differed. It contains 62 informative pairs and two identical rendered pairs. Side placement is balanced and hidden in the interface. The adjacent `blind_mapping.json` makes this reversible software blinding, so reviewers should not open it until ratings are locked. This packet is an optional inspection aid and has no listener labels.
 
 Serve the self-contained packet locally:
 
@@ -162,10 +170,14 @@ bash research_local/render_paper_v02.sh \
   --comparison-dataset research_local/lakh_aligned_closed_v01
 ```
 
-Inspect the generated PDF and its `.inputs.json` receipt before considering it a replacement for [the current draft](../../output/pdf/samuged_recurring_phrases.pdf). Do not add the unfinished melody corpus until its build, audit and declared replay are complete.
+Inspect the generated PDF and its `.inputs.json` receipt before considering it a replacement for the current local draft. Do not add the unfinished melody corpus until its build, audit and declared replay are complete.
 
-## Publication gaps
+## Publication boundary
 
-This is a local unpublished candidate. The local Lakh snapshot is byte-bound by its 17,232-row source manifest, but its original upstream archive checksum and acquisition receipt are unavailable. The repository evidence does not settle rights for source compositions, MIDI arrangements, derived excerpts or external annotation files. POP909, Theme Transformer and JKU inputs have source citations and local byte receipts with the version and licence limits listed in [publication_inputs.md](publication_inputs.md), but redistribution scope still requires a decision. No human phrase-quality, hook, catchiness or memorability labels exist, and the user excludes listener ratings from current work. Publication can describe algorithmic recurrence annotations within that evidence boundary. Resolve rights and attribution, finish the relevant pending variant checks and generate a newly bound final paper before any public release.
+The publication plan is algorithmic. No human phrase-quality, hook, catchiness or memorability labels exist, and listener ratings are not required for this release. POP909, Theme Transformer and JKU are evaluation-only inputs. The public package includes results and citations, not those external datasets.
+
+The local Lakh snapshot is byte-bound by its 17,232-row source manifest, but its original upstream archive checksum and acquisition receipt are unavailable. The repository evidence does not settle rights for source compositions, MIDI arrangements or derived excerpts. The public documentation must retain the CC BY 4.0 attribution, the requested Lakh page and thesis citations and the statement that no independent clearance claim is made. See [publication_inputs.md](publication_inputs.md) for the detailed historical evidence boundary.
+
+The dataset and demo were published on 3 October 2026. The research pause and its unfinished variant checks remain archival facts and do not imply that listener ratings are a current publication requirement.
 
 For deeper provenance, see the [artifact index](artifact_index.md), [work log](WORK_LOG.md), [closed selector study](closed_patterns.md), [external selector diagnostic](selection_external.md) and [publication input audit](publication_inputs.md).

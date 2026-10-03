@@ -4,9 +4,11 @@ Work paused at 2026-10-03 13:58:34 CEST (11:58:34 UTC) at the user's explicit re
 
 The branch is `feature/recurring-phrase-dataset`. Research code before this documentation closeout is `69f5a7d1ef1baa7cdb271de0c17d4f1379524fab`. The commit containing this document records the final documentation boundary. `git pull --ff-only` succeeded before the research branch was created from `200c4a2`. All subsequent commits are local. No push, pull request, merge, dataset publication or collaborator message occurred.
 
+This file is an archival pause record. The current publication plan is maintained in [DELIVERY.md](DELIVERY.md) and does not change the historical state recorded above.
+
 ## Delivered materials
 
-The [25-slide report](../../output/presentations/samuged_status_2026-10-03.pptx) is editable PowerPoint. A [PDF copy](../../output/pdf/samuged_status_2026-10-03.pdf) supports direct reading. [The written report](STATUS_REPORT_RU.md) preserves the narrative and evidence references in Git. The separate [six-page scientific draft](../../output/pdf/samuged_recurring_phrases.pdf) uses 132 verified input files and its adjacent input receipt. See [DELIVERY.md](DELIVERY.md) for consumer instructions and [artifact_index.md](artifact_index.md) for experiment evidence.
+The [25-slide report](../../output/presentations/samuged_status_2026-10-03.pptx) is editable PowerPoint. A [PDF copy](../../output/pdf/samuged_status_2026-10-03.pdf) supports direct reading. [The written report](STATUS_REPORT.md) preserves the narrative and evidence references in Git. The separate [six-page scientific draft](../../output/pdf/samuged_recurring_phrases.pdf) uses 132 verified input files and its adjacent input receipt. See [DELIVERY.md](DELIVERY.md) for consumer instructions and [artifact_index.md](artifact_index.md) for experiment evidence.
 
 | Dataset | Build and artifact audit | Selection replay | Portable archive |
 | --- | --- | --- | --- |
@@ -59,7 +61,7 @@ python scripts/verify_release.py --release research_local/releases/indexed_v01_e
 
 Do not use the old automatic packaging wrapper unchanged: its one-shot root-check output already exists at this checkpoint. The package, extraction directory and verification output names above are reserved only while absent.
 
-After melody validation, complete its full comparison, duplicate screening and curation diagnostics, then consider packaging and a newly bound paper. Human phrase assessment and redistribution scope remain publication requirements. The 64-pair packet contains zero human ratings. Reusing disclosed evaluation cohorts does not create fresh heldout evidence.
+After melody validation, complete its full comparison, duplicate screening and curation diagnostics, then consider packaging and a newly bound paper. Human phrase assessment remains optional future research. Redistribution scope remains a publication rights boundary. The 64-pair packet contains zero human ratings. Reusing disclosed evaluation cohorts does not create fresh heldout evidence.
 
 ## Artifact hashes
 

@@ -30,9 +30,11 @@ Strict parsing is the default. The explicit `--recover-invalid-keys` option firs
 - `midi/melodic/` and `midi/percussion/` contain separate excerpt collections.
 - `build_config.json` and `provenance/` record parameters, source code, dependencies, interpreter and Git state.
 - `summary.json` reports counts, limits and manifest hashes. `audit.json` checks artifact integrity and declared matching rules, binding its result to the exact manifests, build configuration and summary bytes. A run key identifies code and configuration, not a unique corpus. A matching run key alone is insufficient audit evidence.
-- `review.html` provides a deterministic, blinded sample with actual source-derived occurrences and local rating export. Its basic synthesis is not the original song audio.
+- `review.html` provides a deterministic, blinded sample with actual source-derived occurrences and an optional rating export. Its basic synthesis is not the original song audio. Listener ratings are optional follow-up research and are not required to publish the algorithmic recurrence dataset.
 
 Bulk source data and experiment output are ignored by Git. Small reports and aggregate measurements belong in `docs/research/`.
+
+Some links in these notes point to ignored `research_local/` artifacts that exist only in a full local checkout. A public repository or release must publish the referenced artifact or replace the link with a public reference before relying on it as public evidence.
 
 ```mermaid
 flowchart LR
@@ -45,7 +47,7 @@ flowchart LR
     V --> G[Group sources and screen split overlap]:::action
     G --> A[Independent source and MIDI audit]:::action
     A --> L[Local dataset package]:::data
-    L --> H[Human labels and publication review]:::future
+    L --> H[Public package with provenance and rights notice]:::future
     classDef data fill:#e6f1eb,stroke:#47765a,color:#203a2a;
     classDef action fill:#e8f0f7,stroke:#426b8b,color:#20384b;
     classDef limited fill:#faecd9,stroke:#9b7136,color:#523a1c;
@@ -129,7 +131,7 @@ After the full audit passes, a local metadata package can be created with:
 python scripts/package_dataset.py --dataset research_local/my_reference_run --output research_local/my_local_package
 ```
 
-Add `--screening PATH` for a validated supplementary split view. Add `--archive` to create a deterministic local archive including extracted MIDI. The package checks current manifest bindings and MIDI hashes again, provides `SHA256SUMS` and refuses to overwrite an existing output. An old audit without manifest/configuration bindings must be rerun. These commands do not publish anything.
+Add `--screening PATH` for a validated supplementary split view. Add `--archive` to create a deterministic local archive including extracted MIDI. The package checks current manifest bindings and MIDI hashes again, provides `SHA256SUMS` and refuses to overwrite an existing output. An old audit without manifest/configuration bindings must be rerun. These commands create and verify package files; publication uses the resulting release artifacts.
 
 Add `--selection-replay PATH` to include a completed [selection replay](selection_sample_audit.md), bound to the exact primary manifests and audit. The package distinguishes a bounded sample from explicit replay of every successfully parsed source. Parse errors remain outside that successful-source replay and stay visible in the primary artifact audit. The [paired ratings analyzer](paired_ratings_analysis.md) validates future listening exports while retaining missing responses as null; it does not create human labels.
 
@@ -137,8 +139,10 @@ Use `python scripts/verify_release.py --release PATH --archive ARCHIVE --output 
 
 The paper generator is `scripts/make_paper.py`. Its PDF input receipt records the exact dataset and evaluation artifacts used. Published claims must be limited to the measurements represented by those artifacts. The live [work log](WORK_LOG.md) distinguishes completed builds, experimental results and pending validation.
 
+POP909, Theme Transformer and JKU are external evaluation inputs. They are not distributed with the public dataset. The publication includes their reported results and citations only; users must obtain the external inputs from their official sources.
+
 ## Evidence and remaining publication work
 
 See [legacy audit](legacy_audit.md), [primary sources](sources.md) and [work log](WORK_LOG.md). Controlled planted motifs test known invariances and failure cases. They do not estimate precision or recall on real popular music. The unchanged legacy detector exports prototypes without occurrence coordinates, so its occurrence F1 is deliberately not reported.
 
-Before a public dataset release, complete independent human phrase/boundary labels, inspect near duplicates and review redistribution rights. The official Lakh distribution states CC BY 4.0 and also explains inconsistent attribution of the underlying MIDI files. The local material is a research candidate release, not a claim of rights clearance, perceptual quality or validated earworm detection.
+For a public dataset release, inspect near duplicates and retain the redistribution rights notice. The repository code is MIT licensed. The [official Lakh page](https://colinraffel.com/projects/lmd/) labels the distributed collection CC BY 4.0 and requests citation of that page and [Raffel's 2016 thesis](https://colinraffel.com/publications/thesis.pdf). Attribution for the underlying compositions and arrangements is incomplete, so this project makes no independent clearance claim. Listener ratings and human phrase labels are optional follow-up research, not a publication gate for this algorithmic recurrence dataset. The release does not claim perceptual quality or validated earworm detection.

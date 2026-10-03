@@ -2,7 +2,7 @@
 
 ## Scope and claim boundary
 
-This note supports a local experiment that discovers repeated symbolic melodic phrase candidates in MIDI. It does not support calling those candidates hooks, catchy phrases or earworms. Repetition is an observable property of a score representation. A hook is a perceptually salient or memorable passage and involuntary musical imagery (INMI) is a listener's spontaneous mental experience. Those outcomes need separate human evidence.
+This note supports the SaMuGeD experiment that discovers repeated symbolic melodic phrase candidates in MIDI. It does not support calling those candidates hooks, catchy phrases or earworms. Repetition is an observable property of a score representation. A hook is a perceptually salient or memorable passage and involuntary musical imagery (INMI) is a listener's spontaneous mental experience. Those outcomes need separate human evidence. That evidence is outside the publication gate for the algorithmic recurrence dataset.
 
 The strongest defensible paper claim at this stage is: *the system detects and ranks recurring symbolic phrase candidates under stated pitch, timing and overlap invariances*. Any claim about musical salience, memorability or INMI must wait for a human study.
 
@@ -14,7 +14,7 @@ The local checkout contains 17,232 paths ending in `.mid` on 2026-10-03. Two are
 
 There are two further count conflicts to preserve in the paper's data statement. Raffel's official project page says 176,581 LMD-full files, while [Raffel's thesis](https://colinraffel.com/publications/thesis.pdf) and Choi et al. say 178,561. Use the count for the actual local manifest and identify the source and snapshot. Do not silently reconcile these published numbers.
 
-The official page applies CC BY 4.0 to the distributed dataset and asks users to cite the page and thesis. It also says Raffel did not transcribe the files and that MIDI copyright meta events are inconsistent, which makes attribution for each file infeasible. The collection licence therefore does not by itself establish permission to redistribute each underlying composition or arrangement. Keep the corpus and extracted phrases local. Publish aggregate measurements, code and derived metadata that cannot reconstruct the music only until a rights review approves any musical examples.
+The repository code is MIT licensed. The official page applies CC BY 4.0 to the distributed Lakh collection and asks users to cite the page and Raffel's 2016 thesis. It also says Raffel did not transcribe the files and that MIDI copyright metadata is inconsistent, which makes attribution for each file incomplete. The collection licence therefore does not by itself establish permission to redistribute each underlying composition or arrangement. The public release must retain this caveat and makes no independent clearance claim. Listener ratings are optional follow-up research and are not required to publish the algorithmic recurrence dataset.
 
 The word *Clean* must not be interpreted as validated notation, unique musical works, correct artist labels or copyright clearance. Choi et al. distinguish hard duplicates (nearly identical arrangements with changes such as tempo, offset, track order or small note edits) from soft duplicates (different arrangements preserving core musical content). They show why file hashes and random file splits are insufficient for leakage control.
 
@@ -36,7 +36,7 @@ The [MIREX Discovery of Repeated Themes and Sections specification](https://musi
 
 MIREX separates whether a system establishes that a pattern exists from whether it retrieves all occurrences. Relevant measures include establishment precision, recall and F1, occurrence precision, recall and F1, three layer measures and runtime. The annotation set can contain overlapping and nested patterns. SaMuGeD should borrow the metric separation and point level matching but should not present a small classical annotation set as representative of Lakh popular song arrangements.
 
-## Recommended local protocol
+## Recommended research protocol
 
 ### Corpus manifest and split control
 
@@ -121,3 +121,5 @@ In installed mir_eval 0.8.2, the evaluation wrapper supplies `thresh` while `occ
 The [Theme Transformer theme retrieval study](https://atosystem.github.io/ThemeTransformer/themeRetrieval.html) provides three human annotations for six POP909 songs. The annotators could choose boundaries away from bar lines and identify different themes in the same song. The authors report variable agreement and mixed strengths across retrieval methods. This is useful external evidence, but six songs cannot establish performance across Lakh.
 
 The [official POP909 repository](https://github.com/music-x-lab/POP909-Dataset) identifies separate `MELODY`, `BRIDGE` and `PIANO` tracks. Our input audit compared the six official melody tracks with the annotation files before evaluation. The human files share exact note universes with each other, but their timing differs from the original POP909 files. The local diagnostic therefore uses the common annotation domain, strips annotation track identity before detection and scores exact source notes. It does not reproduce the authors' beat-domain F1. See [input checks](theme_annotation_inputs.md) and [results](theme_evaluation.md).
+
+POP909, Theme Transformer and JKU remain evaluation-only inputs. They are not distributed with the public dataset. The publication includes their results and citations, while users obtain the external data from the official sources under their applicable terms.
