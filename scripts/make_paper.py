@@ -17,7 +17,7 @@ import os
 from pathlib import Path
 import random
 from statistics import mean, median
-from typing import Any
+from typing import Any, Iterator
 
 from reportlab.graphics.shapes import Drawing, Line, Polygon, Rect, String
 from reportlab.lib import colors
@@ -44,7 +44,17 @@ INK = colors.HexColor("#172d40")
 BLUE = colors.HexColor("#265e83")
 MUTED = colors.HexColor("#536272")
 PALE = colors.HexColor("#edf3f6")
-ALGORITHMS = {"reference", "aligned", "aligned_indexed", "aligned_closed"}
+ALGORITHMS = {
+    "reference", "aligned", "aligned_indexed", "aligned_closed",
+    "aligned_melody",
+}
+ALGORITHM_LABELS = {
+    "reference": "Reference",
+    "aligned": "Aligned",
+    "aligned_indexed": "Aligned indexed",
+    "aligned_closed": "Closed selection",
+    "aligned_melody": "Melody prior",
+}
 DATASET_FILES = {
     "source_manifest_sha256": "sources.jsonl",
     "phrase_manifest_sha256": "phrases.jsonl",
@@ -103,10 +113,17 @@ def _same(actual: Any, expected: Any, context: str) -> None:
 
 def validate_dataset(dataset: Path) -> dict:
     dataset = Path(dataset).resolve(strict=True)
+    audit_sha256 = file_digest(dataset / "audit.json")
     summary = read(dataset / "summary.json")
     audit = read(dataset / "audit.json")
     build = read(dataset / "build_config.json")
-    if not audit.get("passed") or audit.get("failure_count") != 0:
+    if file_digest(dataset / "audit.json") != audit_sha256:
+        raise ValueError("dataset audit changed while being read")
+    if (
+        audit.get("passed") is not True
+        or audit.get("failure_count") != 0
+        or audit.get("failures", []) != []
+    ):
         raise ValueError("paper requires a passing zero-failure dataset audit")
     run_key = summary.get("run_key")
     if not run_key or audit.get("run_key") != run_key or build.get("run_key") != run_key:
@@ -137,8 +154,179 @@ def validate_dataset(dataset: Path) -> dict:
         raise ValueError(f"unsupported extraction algorithm: {algorithm}")
     return {
         "path": dataset, "summary": summary, "audit": audit, "build": build,
-        "algorithm": algorithm, "hashes": actual_hashes,
+        "algorithm": algorithm, "hashes": actual_hashes, "full_scope": full_scope,
+        "audit_sha256": audit_sha256,
     }
+
+
+def _manifest_rows(path: Path, expected_sha256: str) -> Iterator[dict]:
+    """Read newline-delimited objects and detect mutation across the scan."""
+    if file_digest(path) != expected_sha256:
+        raise ValueError(f"manifest changed before recount: {path}")
+    try:
+        with path.open(encoding="utf-8", newline=None) as stream:
+            for line_number, line in enumerate(stream, 1):
+                if not line.strip():
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        f"invalid JSON in {path} line {line_number}: {exc.msg}"
+                    ) from exc
+                if not isinstance(row, dict):
+                    raise ValueError(f"{path} line {line_number} is not an object")
+                yield row
+    except (OSError, UnicodeError) as exc:
+        raise ValueError(f"cannot read manifest: {path}") from exc
+    if file_digest(path) != expected_sha256:
+        raise ValueError(f"manifest changed during recount: {path}")
+
+
+def _dataset_counts(dataset_info: dict) -> dict:
+    """Recount paper comparison fields from the two bound manifests."""
+    identities: dict[str, dict] = {}
+    repairs: dict[str, Any] = {}
+    status = Counter()
+    outcomes = Counter()
+    melodic_search_limited = 0
+    melodic_shortlist_limited = 0
+    drum_limited = 0
+    source_count = 0
+    for row in _manifest_rows(
+        dataset_info["path"] / "sources.jsonl",
+        dataset_info["hashes"]["source_manifest_sha256"],
+    ):
+        source_count += 1
+        source_id = row.get("source_id")
+        if not isinstance(source_id, str) or not source_id or source_id in identities:
+            raise ValueError("source manifest has a missing or duplicate source_id")
+        identity = {
+            key: row.get(key) for key in ("source_path", "source_sha256", "status")
+        }
+        if any(not isinstance(identity[key], str) or not identity[key]
+               for key in identity):
+            raise ValueError(f"source identity is incomplete for {source_id}")
+        identities[source_id] = identity
+        source_repairs = row.get("metadata_repairs", [])
+        if not isinstance(source_repairs, list):
+            raise ValueError(f"metadata repairs are malformed for {source_id}")
+        repairs[source_id] = source_repairs
+        status[identity["status"]] += 1
+        outcome = row.get("outcome")
+        if isinstance(outcome, str) and outcome:
+            outcomes[outcome] += 1
+        melodic_search_limited += row.get("search_limited") is True
+        melodic_shortlist_limited += row.get("curation_truncated") is True
+        drum = row.get("drum_stats")
+        drum_limited += isinstance(drum, dict) and drum.get("search_limited") is True
+    phrase_counts = Counter()
+    phrase_sources = {"melodic": set(), "percussion": set()}
+    phrase_ids: set[str] = set()
+    for row in _manifest_rows(
+        dataset_info["path"] / "phrases.jsonl",
+        dataset_info["hashes"]["phrase_manifest_sha256"],
+    ):
+        phrase_id, source_id, kind = (
+            row.get("phrase_id"), row.get("source_id"), row.get("kind")
+        )
+        if not isinstance(phrase_id, str) or not phrase_id or phrase_id in phrase_ids:
+            raise ValueError("phrase manifest has a missing or duplicate phrase_id")
+        if source_id not in identities:
+            raise ValueError(f"phrase {phrase_id} references an unknown source")
+        if kind not in phrase_sources:
+            raise ValueError(f"phrase {phrase_id} has an unsupported kind")
+        phrase_ids.add(phrase_id)
+        phrase_counts[kind] += 1
+        phrase_sources[kind].add(source_id)
+    counts = {
+        "source_files": source_count,
+        "source_status": dict(sorted(status.items())),
+        "source_outcomes": dict(sorted(outcomes.items())),
+        "phrase_counts": {
+            kind: phrase_counts[kind] for kind in ("melodic", "percussion")
+        },
+        "source_files_with_melodic_phrases": len(phrase_sources["melodic"]),
+        "source_files_with_percussion_phrases": len(phrase_sources["percussion"]),
+        "search_limited_files": melodic_search_limited,
+        "curation_truncated_files": melodic_shortlist_limited,
+        "drum_search_limited_files": drum_limited,
+    }
+    summary = dataset_info["summary"]
+    for field, value in counts.items():
+        if _sha256_json(summary.get(field)) != _sha256_json(value):
+            raise ValueError(f"dataset summary {field} differs from manifest recount")
+    identity_rows = [
+        {"source_id": source_id, **identities[source_id]}
+        for source_id in sorted(identities)
+    ]
+    repair_rows = [
+        {"source_id": source_id, "metadata_repairs": repairs[source_id]}
+        for source_id in sorted(repairs)
+    ]
+    return {
+        **counts,
+        "successful_files": status["ok"],
+        "no_match_files": outcomes["no_match"],
+        "source_identities": identities,
+        "metadata_repairs": repairs,
+        "source_identity_sha256": _sha256_json(identity_rows),
+        "metadata_repairs_sha256": _sha256_json(repair_rows),
+    }
+
+
+def validate_comparison_datasets(
+    primary: dict, comparison_paths: list[Path] | tuple[Path, ...] | None,
+) -> list[dict]:
+    """Validate at most three full builds over the primary source corpus."""
+    paths = list(comparison_paths or [])
+    if len(paths) > 3:
+        raise ValueError("at most three comparison datasets are supported")
+    if not paths:
+        return []
+    if not primary.get("full_scope") or primary["audit"].get(
+        "full_source_coverage_required"
+    ) is not True:
+        raise ValueError("comparison requires a full-scope primary dataset")
+    primary_counts = _dataset_counts(primary)
+    primary["manifest_counts"] = primary_counts
+    primary_recovery = primary["build"].get("recover_invalid_keys", False)
+    if not isinstance(primary_recovery, bool):
+        raise ValueError("primary metadata repair policy must be boolean")
+    seen_algorithms = {primary["algorithm"]}
+    seen_paths = {primary["path"]}
+    comparisons = []
+    for path in paths:
+        info = validate_dataset(path)
+        if info["path"] in seen_paths:
+            raise ValueError("comparison dataset paths must be distinct")
+        seen_paths.add(info["path"])
+        if info["algorithm"] in seen_algorithms:
+            raise ValueError("primary and comparison algorithms must be distinct")
+        seen_algorithms.add(info["algorithm"])
+        if not info.get("full_scope") or info["audit"].get(
+            "full_source_coverage_required"
+        ) is not True:
+            raise ValueError("comparison dataset must have a full-scope audit")
+        counts = _dataset_counts(info)
+        if counts["source_identities"] != primary_counts["source_identities"]:
+            raise ValueError("comparison dataset has different source identities")
+        recovery = info["build"].get("recover_invalid_keys", False)
+        if not isinstance(recovery, bool) or recovery != primary_recovery:
+            raise ValueError("comparison dataset has a different metadata repair policy")
+        if counts["metadata_repairs"] != primary_counts["metadata_repairs"]:
+            raise ValueError("comparison dataset has different metadata repair receipts")
+        info["manifest_counts"] = counts
+        comparisons.append(info)
+    return comparisons
+
+
+def _recheck_dataset_bindings(dataset_info: dict) -> None:
+    if file_digest(dataset_info["path"] / "audit.json") != dataset_info["audit_sha256"]:
+        raise ValueError("dataset input changed before paper receipt: audit.json")
+    for field, filename in DATASET_FILES.items():
+        if file_digest(dataset_info["path"] / filename) != dataset_info["hashes"][field]:
+            raise ValueError(f"dataset input changed before paper receipt: {filename}")
 
 
 def phrase_profile(dataset_info: dict) -> dict:
@@ -1582,6 +1770,15 @@ def method_description(algorithm: str, config: dict) -> tuple[str, str]:
             "support, one-to-one endpoint containment and a score within 0.02 of the current selection. "
             "This is structural selection, not a listener-validated phrase boundary rule.",
         )
+    if algorithm == "aligned_melody":
+        return (
+            "Indexed alignment with optional melody part prior",
+            common + " Indexed candidate generation applies a fixed structural part prior before closed exact "
+            "selection. The prior combines onset monophony with weight 0.65 and voice independence with weight "
+            "0.35. Selection uses recurrence score + 0.08 × (part prior - 0.5). The original recurrence score is "
+            "preserved and the adjusted selection score is recorded separately. The prior was selected for "
+            "POP909 MELODY part agreement and is not a listener-validated phrase quality rule.",
+        )
     raise ValueError(f"unsupported extraction algorithm: {algorithm}")
 
 
@@ -1656,8 +1853,12 @@ def render(
     certified_drums_path: Path | None = None,
     certified_drums_audit_path: Path | None = None,
     selection_external_path: Path | None = None,
+    comparison_paths: list[Path] | tuple[Path, ...] | None = None,
 ) -> None:
     dataset_info = validate_dataset(dataset)
+    comparison_datasets = validate_comparison_datasets(
+        dataset_info, comparison_paths,
+    )
     summary, audit, build = dataset_info["summary"], dataset_info["audit"], dataset_info["build"]
     profiles = phrase_profile(dataset_info)
     melody, melody_receipt, melody_inputs = validate_melody(melody_path)
@@ -1764,6 +1965,29 @@ def render(
       "terminal processing record and failed inputs remain in the denominator. Original MIDI files are not rewritten.")
     p("Pattern discovery can disagree with human annotation [3]. We therefore separate tests of implemented "
       "matching rules from external human theme diagnostics and future listening judgements.", "SmallLocal")
+    if comparison_datasets:
+        values = [[
+            "Full build", "Melodic", "Drums", "Parsed OK", "No match",
+            "Melody limits", "Drum limit",
+        ]]
+        for info in (dataset_info, *comparison_datasets):
+            counts = info["manifest_counts"]
+            values.append([
+                ALGORITHM_LABELS[info["algorithm"]],
+                f"{counts['phrase_counts']['melodic']:,}",
+                f"{counts['phrase_counts']['percussion']:,}",
+                f"{counts['successful_files']:,}",
+                f"{counts['no_match_files']:,}",
+                f"{counts['search_limited_files']:,} / {counts['curation_truncated_files']:,}",
+                f"{counts['drum_search_limited_files']:,}",
+            ])
+        table(values, [92, 56, 56, 54, 48, 88, 66])
+        p(
+            "All rows use the same source IDs, paths, bytes, terminal status and metadata repair receipts. "
+            "Melody limits report search-limited / shortlist-truncated files. These are output and selection "
+            "counts, not accuracy estimates, and no optional algorithm is promoted as the default.",
+            "SmallLocal",
+        )
 
     page()
     heading("2. Extraction method")
@@ -2064,6 +2288,8 @@ def render(
         p(f"[{number}] <link href='{escape(url, quote=True)}' color='#265e83'>{escape(title)}</link>", "SmallLocal")
 
     _build_pdf(Path(output), story)
+    for info in (dataset_info, *comparison_datasets):
+        _recheck_dataset_bindings(info)
     inputs: dict[str, Path] = {
         "dataset_summary": dataset_info["path"] / "summary.json",
         "dataset_audit": dataset_info["path"] / "audit.json",
@@ -2071,6 +2297,15 @@ def render(
         "dataset_sources": dataset_info["path"] / "sources.jsonl",
         "dataset_phrases": dataset_info["path"] / "phrases.jsonl",
     }
+    for info in comparison_datasets:
+        prefix = f"comparison_{info['algorithm']}"
+        inputs.update({
+            f"{prefix}_summary": info["path"] / "summary.json",
+            f"{prefix}_audit": info["path"] / "audit.json",
+            f"{prefix}_build_config": info["path"] / "build_config.json",
+            f"{prefix}_sources": info["path"] / "sources.jsonl",
+            f"{prefix}_phrases": info["path"] / "phrases.jsonl",
+        })
     for prefix, values in (
         ("melody", melody_inputs), ("drums", drum_inputs), ("stress", stress_inputs),
         ("external", external_inputs), ("aligned", aligned_inputs), ("closed", closed_inputs),
@@ -2082,6 +2317,12 @@ def render(
         ("selection_external", selection_external_inputs),
     ):
         inputs.update({f"{prefix}_{name}": path for name, path in values.items()})
+    input_records = {
+        key: {"path": str(path), "sha256": file_digest(path)}
+        for key, path in sorted(inputs.items())
+    }
+    for info in (dataset_info, *comparison_datasets):
+        _recheck_dataset_bindings(info)
     receipt = {
         "run_key": summary["run_key"], "algorithm": algorithm,
         "report_date": paper_date, "report_date_source": date_source,
@@ -2089,10 +2330,24 @@ def render(
         "pdf_sha256": file_digest(Path(output)),
         "generator_sha256": file_digest(Path(__file__)),
         "dataset_audit_bindings": dataset_info["hashes"],
-        "inputs": {
-            key: {"path": str(path), "sha256": file_digest(path)}
-            for key, path in sorted(inputs.items())
-        },
+        "dataset_audit_sha256": dataset_info["audit_sha256"],
+        "comparison_datasets": [
+            {
+                "algorithm": info["algorithm"],
+                "path": str(info["path"]),
+                "run_key": info["summary"]["run_key"],
+                "dataset_audit_bindings": info["hashes"],
+                "audit_sha256": info["audit_sha256"],
+                "source_identity_sha256": info["manifest_counts"]["source_identity_sha256"],
+                "metadata_repairs_sha256": info["manifest_counts"]["metadata_repairs_sha256"],
+                "manifest_counts": {
+                    key: value for key, value in info["manifest_counts"].items()
+                    if key not in {"source_identities", "metadata_repairs"}
+                },
+            }
+            for info in comparison_datasets
+        ],
+        "inputs": input_records,
     }
     Path(output).with_suffix(".inputs.json").write_text(
         json.dumps(receipt, indent=2, sort_keys=True, allow_nan=False) + "\n",
@@ -2120,6 +2375,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--certified-drum-evaluation", type=Path)
     parser.add_argument("--certified-drum-audit", type=Path)
     parser.add_argument("--selection-external-evaluation", type=Path)
+    parser.add_argument(
+        "--comparison-dataset", action="append", type=Path, default=[],
+        help="audited full-corpus variant; repeat up to three times",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     render(
@@ -2142,6 +2401,7 @@ def main(argv: list[str] | None = None) -> None:
         certified_drums_path=args.certified_drum_evaluation,
         certified_drums_audit_path=args.certified_drum_audit,
         selection_external_path=args.selection_external_evaluation,
+        comparison_paths=args.comparison_dataset,
     )
     print(args.output.resolve())
 

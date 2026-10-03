@@ -28,6 +28,7 @@ def test_documented_direct_script_entrypoint_imports():
     assert "--part-ranking-audit" in completed.stdout
     assert "--certified-drum-audit" in completed.stdout
     assert "--selection-external-evaluation" in completed.stdout
+    assert "--comparison-dataset" in completed.stdout
 
 
 def _write(path: Path, value) -> None:
@@ -64,6 +65,80 @@ def _dataset(path: Path, *, run_key: str = "run-1", algorithm: str | None = None
     return path
 
 
+def _full_dataset(
+    path: Path, *, algorithm: str, source_one_sha: str = "a" * 64,
+    full: bool = True, recover_invalid_keys: bool = True,
+    forged_phrase_count: int | None = None,
+    source_one_repairs: list[dict] | None = None,
+) -> Path:
+    path.mkdir()
+    sources = [
+        {
+            "source_id": "one", "source_path": "artist/one.mid",
+            "source_sha256": source_one_sha, "status": "ok", "outcome": "matched",
+            "metadata_repairs": source_one_repairs or [], "search_limited": True,
+            "curation_truncated": False, "drum_stats": {"search_limited": False},
+        },
+        {
+            "source_id": "two", "source_path": "artist/two.mid",
+            "source_sha256": "b" * 64, "status": "ok", "outcome": "no_match",
+            "metadata_repairs": [], "search_limited": False,
+            "curation_truncated": True, "drum_stats": {"search_limited": True},
+        },
+    ]
+    phrases = [
+        {"phrase_id": "melody", "source_id": "one", "kind": "melodic"},
+        {"phrase_id": "drums", "source_id": "one", "kind": "percussion"},
+    ]
+    # Include blank lines and CRLF so the recount is based on JSONL rows rather
+    # than a raw newline count.
+    (path / "sources.jsonl").write_bytes(
+        ("\r\n".join(json.dumps(row) for row in sources) + "\r\n\r\n").encode()
+    )
+    (path / "phrases.jsonl").write_bytes(
+        ("\n".join(json.dumps(row) for row in phrases) + "\n\n").encode()
+    )
+    _write(path / "build_config.json", {
+        "algorithm": algorithm,
+        "run_key": f"run-{algorithm}",
+        "recover_invalid_keys": recover_invalid_keys,
+        "config": {"top_k": 3},
+    })
+    summary = {
+        "algorithm": algorithm,
+        "run_key": f"run-{algorithm}",
+        "source_files": 2,
+        "discovered_source_files": 2,
+        "cohort_limit": None if full else 2,
+        "source_manifest_sha256": file_digest(path / "sources.jsonl"),
+        "phrase_manifest_sha256": file_digest(path / "phrases.jsonl"),
+        "source_status": {"ok": 2},
+        "source_outcomes": {"matched": 1, "no_match": 1},
+        "phrase_counts": {
+            "melodic": forged_phrase_count if forged_phrase_count is not None else 1,
+            "percussion": 1,
+        },
+        "source_files_with_melodic_phrases": 1,
+        "source_files_with_percussion_phrases": 1,
+        "search_limited_files": 1,
+        "curation_truncated_files": 1,
+        "drum_search_limited_files": 1,
+    }
+    _write(path / "summary.json", summary)
+    _write(path / "audit.json", {
+        "passed": True,
+        "failure_count": 0,
+        "failures": [],
+        "full_source_coverage_required": full,
+        "run_key": f"run-{algorithm}",
+        "source_manifest_sha256": file_digest(path / "sources.jsonl"),
+        "phrase_manifest_sha256": file_digest(path / "phrases.jsonl"),
+        "build_config_sha256": file_digest(path / "build_config.json"),
+        "summary_sha256": file_digest(path / "summary.json"),
+    })
+    return path
+
+
 def test_dataset_rejects_audit_copied_from_other_artifacts(tmp_path: Path) -> None:
     first = _dataset(tmp_path / "first")
     second = _dataset(tmp_path / "second")
@@ -77,7 +152,9 @@ def test_dataset_rejects_audit_copied_from_other_artifacts(tmp_path: Path) -> No
 def test_dataset_algorithm_comes_from_bound_build_config(tmp_path: Path) -> None:
     dataset = _dataset(tmp_path / "dataset", algorithm="aligned_indexed")
 
-    assert make_paper.validate_dataset(dataset)["algorithm"] == "aligned_indexed"
+    info = make_paper.validate_dataset(dataset)
+    assert info["algorithm"] == "aligned_indexed"
+    assert make_paper.validate_comparison_datasets(info, []) == []
 
 
 def test_full_scope_requires_explicit_source_coverage_audit(tmp_path: Path) -> None:
@@ -94,6 +171,123 @@ def test_full_scope_requires_explicit_source_coverage_audit(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="full-scope dataset audit"):
         make_paper.validate_dataset(dataset)
+
+
+def test_full_comparisons_recount_manifests_and_match_source_corpus(tmp_path: Path) -> None:
+    primary = make_paper.validate_dataset(
+        _full_dataset(tmp_path / "primary", algorithm="reference")
+    )
+    comparisons = make_paper.validate_comparison_datasets(primary, [
+        _full_dataset(tmp_path / "indexed", algorithm="aligned_indexed"),
+        _full_dataset(tmp_path / "melody", algorithm="aligned_melody"),
+    ])
+
+    assert [row["algorithm"] for row in comparisons] == [
+        "aligned_indexed", "aligned_melody",
+    ]
+    assert primary["manifest_counts"]["phrase_counts"] == {
+        "melodic": 1, "percussion": 1,
+    }
+    assert comparisons[0]["manifest_counts"]["successful_files"] == 2
+    assert comparisons[0]["manifest_counts"]["no_match_files"] == 1
+    assert comparisons[0]["manifest_counts"]["search_limited_files"] == 1
+    assert comparisons[0]["manifest_counts"]["curation_truncated_files"] == 1
+    assert comparisons[0]["manifest_counts"]["drum_search_limited_files"] == 1
+
+
+def test_full_comparisons_reject_pilot_and_stale_audit(tmp_path: Path) -> None:
+    primary = make_paper.validate_dataset(
+        _full_dataset(tmp_path / "primary", algorithm="reference")
+    )
+    pilot = _full_dataset(tmp_path / "pilot", algorithm="aligned", full=False)
+    with pytest.raises(ValueError, match="full-scope audit"):
+        make_paper.validate_comparison_datasets(primary, [pilot])
+
+    stale = _full_dataset(tmp_path / "stale", algorithm="aligned_indexed")
+    (stale / "phrases.jsonl").write_text(
+        (stale / "phrases.jsonl").read_text() + '{"phrase_id":"extra"}\n'
+    )
+    with pytest.raises(ValueError, match="current phrases.jsonl"):
+        make_paper.validate_comparison_datasets(primary, [stale])
+
+    failed = _full_dataset(tmp_path / "failed", algorithm="aligned_closed")
+    failed_audit = json.loads((failed / "audit.json").read_text())
+    failed_audit["failures"] = ["synthetic failure"]
+    _write(failed / "audit.json", failed_audit)
+    with pytest.raises(ValueError, match="zero-failure"):
+        make_paper.validate_comparison_datasets(primary, [failed])
+
+
+def test_full_comparisons_reject_different_corpus_and_repair_policy(tmp_path: Path) -> None:
+    primary = make_paper.validate_dataset(
+        _full_dataset(tmp_path / "primary", algorithm="reference")
+    )
+    different = _full_dataset(
+        tmp_path / "different", algorithm="aligned", source_one_sha="c" * 64,
+    )
+    with pytest.raises(ValueError, match="different source identities"):
+        make_paper.validate_comparison_datasets(primary, [different])
+
+    policy = _full_dataset(
+        tmp_path / "policy", algorithm="aligned_indexed",
+        recover_invalid_keys=False,
+    )
+    with pytest.raises(ValueError, match="metadata repair policy"):
+        make_paper.validate_comparison_datasets(primary, [policy])
+
+    receipts = _full_dataset(
+        tmp_path / "receipts", algorithm="aligned_closed",
+        source_one_repairs=[{"kind": "synthetic-repair"}],
+    )
+    with pytest.raises(ValueError, match="metadata repair receipts"):
+        make_paper.validate_comparison_datasets(primary, [receipts])
+
+
+def test_full_comparisons_reject_duplicates_excess_and_forged_counts(tmp_path: Path) -> None:
+    primary = make_paper.validate_dataset(
+        _full_dataset(tmp_path / "primary", algorithm="reference")
+    )
+    duplicate_a = _full_dataset(tmp_path / "duplicate-a", algorithm="aligned")
+    duplicate_b = _full_dataset(tmp_path / "duplicate-b", algorithm="aligned")
+    with pytest.raises(ValueError, match="algorithms must be distinct"):
+        make_paper.validate_comparison_datasets(
+            primary, [duplicate_a, duplicate_b],
+        )
+
+    paths = [
+        _full_dataset(tmp_path / f"many-{index}", algorithm=algorithm)
+        for index, algorithm in enumerate(
+            ("aligned", "aligned_indexed", "aligned_closed", "aligned_melody")
+        )
+    ]
+    with pytest.raises(ValueError, match="at most three"):
+        make_paper.validate_comparison_datasets(primary, paths)
+
+    forged = _full_dataset(
+        tmp_path / "forged", algorithm="aligned_closed", forged_phrase_count=9,
+    )
+    with pytest.raises(ValueError, match="phrase_counts differs"):
+        make_paper.validate_comparison_datasets(primary, [forged])
+
+
+def test_comparison_bindings_detect_change_before_receipt(tmp_path: Path) -> None:
+    dataset = _full_dataset(tmp_path / "dataset", algorithm="aligned_indexed")
+    info = make_paper.validate_dataset(dataset)
+    (dataset / "summary.json").write_bytes(
+        (dataset / "summary.json").read_bytes() + b" "
+    )
+    with pytest.raises(ValueError, match="changed before paper receipt"):
+        make_paper._recheck_dataset_bindings(info)
+
+    audit_dataset = _full_dataset(
+        tmp_path / "audit-dataset", algorithm="aligned_closed",
+    )
+    audit_info = make_paper.validate_dataset(audit_dataset)
+    (audit_dataset / "audit.json").write_bytes(
+        (audit_dataset / "audit.json").read_bytes() + b" "
+    )
+    with pytest.raises(ValueError, match="audit.json"):
+        make_paper._recheck_dataset_bindings(audit_info)
 
 
 def test_aligned_method_description_states_alignment_limits() -> None:
@@ -116,6 +310,19 @@ def test_indexed_description_identifies_experimental_index() -> None:
 
     assert "experimental index" in text
     assert "same verifier" in text
+
+
+def test_melody_prior_description_separates_selection_score() -> None:
+    title, text = make_paper.method_description(
+        "aligned_melody",
+        {"min_notes": 6, "max_notes": 32, "max_edits": 4, "max_edit_fraction": 0.15},
+    )
+
+    assert title == "Indexed alignment with optional melody part prior"
+    assert "weight 0.65" in text and "weight 0.35" in text
+    assert "0.08" in text
+    assert "recurrence score is preserved" in text
+    assert "adjusted selection score is recorded separately" in text
 
 
 def test_nonzero_screening_cross_edges_are_rejected(monkeypatch, tmp_path: Path) -> None:
