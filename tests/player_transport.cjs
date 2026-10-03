@@ -11,8 +11,8 @@ function transport(atlas){
  const nodes=new Map(),pending=new Map(),sources=[];
  const node=id=>{if(!nodes.has(id))nodes.set(id,{textContent:'',value:'0.5'});return nodes.get(id)};
  class AudioContext{
-  constructor(){this.currentTime=0;this.destination={}}
-  async resume(){}
+  constructor(){this.currentTime=0;this.destination={};this.state="suspended"}
+  async resume(){this.state="running";this.onstatechange?.()}
   createGain(){return {gain:{value:0},connect(){}}}
   async decodeAudioData(id){return {id,duration:2}}
   createBufferSource(){const source={connect(){},disconnect(){},start(){this.started=true},stop(){this.stopped=true}};sources.push(source);return source}
@@ -31,6 +31,15 @@ function transport(atlas){
 }
 for(const atlas of [false,true]){
  const label=atlas?'atlas':'main';
+ for(const state of ['suspended','interrupted'])test(`${label}: Play resumes a browser paused loop in one click (${state})`,async()=>{
+  const t=transport(atlas);const a=t.choose('a',false);await t.resolve('a');await a;
+  vm.runInContext(`const audio=${atlas?'ctx':'context'};audio.state=${JSON.stringify(state)};audio.onstatechange()`,t.box);
+  assert.match(t.node('status').textContent,/paused by the browser/);
+  await t.choose('a',false);
+  assert.equal(t.sources.length,2);assert.equal(t.sources[0].stopped,true);
+  assert.equal(vm.runInContext(`${atlas?'ctx':'context'}.state`,t.box),'running');
+  assert.match(t.node('status').textContent,/Looping/);
+ });
  test(`${label}: keep old loop until replacement is ready and ignore stale selection`,async()=>{
   const t=transport(atlas);const a=t.choose('a',false);await t.resolve('a');await a;
   assert.equal(t.sources[0].loop,true);

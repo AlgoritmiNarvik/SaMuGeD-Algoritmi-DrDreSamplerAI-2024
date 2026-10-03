@@ -68,12 +68,14 @@ function renderRows(){const g=catalog.groups[group],rows=document.getElementById
 function render(){document.querySelectorAll('[data-group]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.group===group)));const g=catalog.groups[group];document.getElementById('description').textContent=g.description;document.getElementById('description').hidden=!g.description;document.getElementById('tool-guide').hidden=group!=='tool';if(group==='tool'){const c=g.counts;document.getElementById('tool-counts').textContent=c?`${c.songs} songs / ${c.riffs} riffs / ${c.drums} drum patterns / ${c.paired} paired versions`:'';document.getElementById('tool-listening').textContent=g.listening_note;const songs=document.getElementById('tool-song');songs.replaceChildren();const all=element('option',`All ${c.songs} songs`);all.value='all';songs.append(all);for(const title of [...new Set(g.rows.map(r=>r.song_title))].sort()){const option=element('option',title);option.value=title;songs.append(option)}document.getElementById('tool-kind').value='all'}renderRows()}
 async function play({replace=false}={}){
  if(!selected)return;
- if(wantsPlayback&&!replace){stop();return}
+ if(wantsPlayback&&!replace&&context?.state==='running'){stop();return}
  wantsPlayback=true;const id=audioId(),current=++request;
  document.getElementById('status').textContent='Loading selected loop';
  document.getElementById('play').textContent='Stop loop';
  try{
-  context=context||new AudioContext({sampleRate:48000});await context.resume();
+  if(!context||context.state==='closed'){context=new AudioContext();gain=null;playing=null}
+  context.onstatechange=()=>{if(wantsPlayback&&['suspended','interrupted'].includes(context.state)){document.getElementById('status').textContent='Audio paused by the browser. Press Play loop to resume.';document.getElementById('play').textContent='Play loop'}};
+  await context.resume();
   if(current!==request)return;
   if(!gain){gain=context.createGain();gain.connect(context.destination)}
   gain.gain.value=Number(document.getElementById('volume').value);
