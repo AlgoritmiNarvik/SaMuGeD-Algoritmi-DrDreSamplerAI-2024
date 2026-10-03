@@ -1,9 +1,9 @@
 from pathlib import Path
+import sys
 
 import pytest
 
 from samuged.evaluate_aligned import (
-    REFERENCE_SOURCE,
     aggregate_real_rows,
     load_reference_module,
     paired_bootstrap_difference,
@@ -44,14 +44,23 @@ def test_paired_bootstrap_is_deterministic_and_requires_same_cases():
         paired_bootstrap_difference(reference, aligned[:1], iterations=10, seed=1)
 
 
-def test_reference_snapshot_loads_under_private_module_name():
+def test_detector_snapshot_loads_under_private_module_name(tmp_path):
+    from samuged import phrases
+
     repository = Path(__file__).resolve().parents[1]
-    module = load_reference_module(
-        repository / REFERENCE_SOURCE,
-        "samuged._reference_test_module",
-    )
-    assert module.Config(mode="approximate", top_k=10).top_k == 10
-    assert callable(module.extract)
+    snapshot = tmp_path / "phrases.py"
+    snapshot.write_bytes((repository / "samuged" / "phrases.py").read_bytes())
+    module_name = "samuged._reference_test_module"
+    try:
+        module = load_reference_module(snapshot, module_name)
+        assert module.__name__ == module_name
+        assert Path(module.__file__) == snapshot
+        assert module.Config(mode="approximate", top_k=10).top_k == 10
+        assert callable(module.extract)
+        assert module is not phrases
+        assert sys.modules["samuged.phrases"] is phrases
+    finally:
+        sys.modules.pop(module_name, None)
 
 
 def test_real_aggregate_reports_limits_without_accuracy_metrics():

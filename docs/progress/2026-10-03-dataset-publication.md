@@ -7,3 +7,5 @@ The static Space contains four groups of ten source derived loops and the five t
 Rendering preserves source notes, tempo and MIDI programs. It uses supported recurrence periods or explicit whole bar fallback, repeated FluidSynth synthesis and endpoint conditioning. Canonical audio is stereo PCM 24 bit at 48 kHz, with FLAC and loop MIDI downloads. The Web Audio buffer loops until stopped. An authentic FluidR3 GM font replaces the mismatched legacy file for publication rendering.
 
 All 607 local tests pass. Public archive checks, row counts, audio hashes and hosted browser playback were checked. Documentation is in simple English. Research continuation stays paused and the unfinished full melody prior corpus is excluded from the release.
+
+The public Hugging Face viewer serves rows for all four configurations with no pending or failed jobs. A clean checkout exposed one unit test that relied on an ignored local reference snapshot. The test now loads a temporary copy of the tracked detector and checks that private module loading leaves the active detector unchanged. A clean export passes 567 tests and skips 40 checks that need local research artifacts.
