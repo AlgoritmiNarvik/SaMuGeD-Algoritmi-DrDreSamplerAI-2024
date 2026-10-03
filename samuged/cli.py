@@ -1,0 +1,30 @@
+"""Command line entry point for local, reproducible MIDI phrase research."""
+import argparse
+import json
+from pathlib import Path
+
+from .dataset import build
+from .phrases import Config
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+    command = sub.add_parser("build", help="extract a local MIDI corpus; resume matching runs")
+    command.add_argument("--source", type=Path, required=True)
+    command.add_argument("--output", type=Path, required=True)
+    command.add_argument("--workers", type=int, default=4)
+    command.add_argument("--limit", type=int)
+    command.add_argument("--mode", choices=("exact", "transposed", "approximate"), default="approximate")
+    command.add_argument("--top-k", type=int, default=3)
+    command.add_argument("--no-midi", action="store_true")
+    command.add_argument("--percussion", action="store_true")
+    args = parser.parse_args()
+    if args.command == "build":
+        result = build(args.source, args.output, Config(mode=args.mode, top_k=args.top_k),
+                       workers=args.workers, limit=args.limit, export=not args.no_midi, percussion=args.percussion)
+        print(json.dumps(result, indent=2))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,442 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://samuged.local/schema/phrase.schema.json",
+  "title": "SaMuGeD phrase manifest row",
+  "type": "object",
+  "$defs": {
+    "hex24": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{24}$"
+    },
+    "hex32": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "hex64": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "relativeMidiPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+\\.[mM][iI][dD][iI]?$"
+    },
+    "relativeExportPath": {
+      "type": "string",
+      "pattern": "^midi/(?:melodic|percussion)/[0-9a-f]{32}\\.mid$"
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "positiveInteger": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "nonNegativeNumber": {
+      "type": "number",
+      "minimum": 0
+    },
+    "positiveNumber": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "integerArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonNegativeInteger"
+      }
+    },
+    "scoreComponents": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "occurrence": {
+      "type": "object",
+      "properties": {
+        "start_tick": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "end_tick": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "note_index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "similarity": {
+          "$ref": "#/$defs/score"
+        },
+        "transpose_semitones": {
+          "type": "integer"
+        },
+        "note_count": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "matched_pairs": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "$ref": "#/$defs/nonNegativeInteger"
+              },
+              {
+                "$ref": "#/$defs/nonNegativeInteger"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "matched_note_pairs": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "$ref": "#/$defs/nonNegativeInteger"
+              },
+              {
+                "$ref": "#/$defs/nonNegativeInteger"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "required": [
+        "start_tick",
+        "end_tick",
+        "similarity",
+        "transpose_semitones"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "artist_from_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bar_count": {
+      "$ref": "#/$defs/positiveInteger"
+    },
+    "channel": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 15
+    },
+    "duration_beats": {
+      "$ref": "#/$defs/positiveNumber"
+    },
+    "duration_policy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "durations_beats": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/positiveNumber"
+      },
+      "minItems": 1
+    },
+    "end_tick": {
+      "$ref": "#/$defs/positiveInteger"
+    },
+    "family_id": {
+      "$ref": "#/$defs/hex64"
+    },
+    "kind": {
+      "enum": [
+        "melodic",
+        "percussion"
+      ]
+    },
+    "kit_programs": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 127
+      },
+      "minItems": 1
+    },
+    "meter_denominator": {
+      "$ref": "#/$defs/positiveInteger"
+    },
+    "meter_numerator": {
+      "$ref": "#/$defs/positiveInteger"
+    },
+    "midi_path": {
+      "$ref": "#/$defs/relativeExportPath"
+    },
+    "midi_sha256": {
+      "$ref": "#/$defs/hex64"
+    },
+    "note_count": {
+      "$ref": "#/$defs/positiveInteger"
+    },
+    "occurrence_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "occurrences": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/occurrence"
+      },
+      "minItems": 2
+    },
+    "onsets_beats": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonNegativeNumber"
+      },
+      "minItems": 1
+    },
+    "part_index": {
+      "type": "integer",
+      "minimum": -1
+    },
+    "part_name": {
+      "type": "string"
+    },
+    "phrase_id": {
+      "$ref": "#/$defs/hex32"
+    },
+    "pitches": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 127
+      },
+      "minItems": 1
+    },
+    "program": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 127
+    },
+    "prototype_note_index": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "rank_in_file": {
+      "$ref": "#/$defs/positiveInteger"
+    },
+    "raw_occurrence_count": {
+      "$ref": "#/$defs/positiveInteger"
+    },
+    "recurrence_score": {
+      "$ref": "#/$defs/score"
+    },
+    "score_components": {
+      "$ref": "#/$defs/scoreComponents"
+    },
+    "song_key": {
+      "$ref": "#/$defs/hex24"
+    },
+    "source_id": {
+      "$ref": "#/$defs/hex24"
+    },
+    "source_part_indices": {
+      "$ref": "#/$defs/integerArray"
+    },
+    "source_path": {
+      "$ref": "#/$defs/relativeMidiPath"
+    },
+    "source_sha256": {
+      "$ref": "#/$defs/hex64"
+    },
+    "source_split": {
+      "enum": [
+        "train",
+        "validation",
+        "test"
+      ]
+    },
+    "source_track": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "source_tracks": {
+      "$ref": "#/$defs/integerArray"
+    },
+    "split": {
+      "enum": [
+        "train",
+        "validation",
+        "test",
+        "overlap_excluded"
+      ]
+    },
+    "split_group": {
+      "$ref": "#/$defs/hex24"
+    },
+    "start_tick": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "ticks_per_beat": {
+      "$ref": "#/$defs/positiveInteger"
+    },
+    "title_from_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "velocities": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 127
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "artist_from_path",
+    "channel",
+    "duration_beats",
+    "durations_beats",
+    "end_tick",
+    "family_id",
+    "kind",
+    "note_count",
+    "occurrence_count",
+    "occurrences",
+    "onsets_beats",
+    "part_index",
+    "phrase_id",
+    "pitches",
+    "rank_in_file",
+    "recurrence_score",
+    "score_components",
+    "song_key",
+    "source_id",
+    "source_path",
+    "source_sha256",
+    "split",
+    "split_group",
+    "start_tick",
+    "ticks_per_beat",
+    "title_from_path",
+    "velocities"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "midi_path"
+        ]
+      },
+      "then": {
+        "required": [
+          "midi_sha256"
+        ]
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "midi_sha256"
+        ]
+      },
+      "then": {
+        "required": [
+          "midi_path"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "split": {
+            "const": "overlap_excluded"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "source_split"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "melodic"
+          }
+        }
+      },
+          "then": {
+            "properties": {
+              "occurrences": {
+                "items": {
+                  "required": [
+                    "note_index"
+                  ]
+                }
+              }
+            },
+            "required": [
+          "part_name",
+          "program",
+          "prototype_note_index",
+          "raw_occurrence_count",
+          "source_track"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "percussion"
+          }
+        }
+      },
+          "then": {
+            "properties": {
+              "channel": {
+                "const": 9
+              },
+              "part_index": {
+                "const": -1
+              },
+              "occurrences": {
+                "items": {
+                  "properties": {
+                    "transpose_semitones": {
+                      "const": 0
+                    }
+                  }
+                }
+              }
+            },
+            "required": [
+          "bar_count",
+          "duration_policy",
+          "kit_programs",
+          "meter_denominator",
+          "meter_numerator",
+          "source_part_indices",
+          "source_tracks"
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false
+}

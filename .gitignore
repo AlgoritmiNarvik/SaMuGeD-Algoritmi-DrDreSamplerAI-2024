@@ -52,3 +52,9 @@ ENV/
 # Cache
 SaMuGed-SimilarMidis/cache/
 *.pkl
+
+# Local research artifacts
+.firecrawl/
+research_local/
+.pytest_cache/
+.DS_Store

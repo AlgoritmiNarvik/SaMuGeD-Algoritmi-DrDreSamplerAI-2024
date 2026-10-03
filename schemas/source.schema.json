@@ -1,0 +1,917 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://samuged.local/schema/source.schema.json",
+  "title": "SaMuGeD source manifest row",
+  "type": "object",
+  "$defs": {
+    "hex24": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{24}$"
+    },
+    "hex32": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "hex64": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "relativeMidiPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+\\.[mM][iI][dD][iI]?$"
+    },
+    "relativeExportPath": {
+      "type": "string",
+      "pattern": "^midi/(?:melodic|percussion)/[0-9a-f]{32}\\.mid$"
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "positiveInteger": {
+      "type": "integer",
+      "exclusiveMinimum": 0
+    },
+    "nonNegativeNumber": {
+      "type": "number",
+      "minimum": 0
+    },
+    "positiveNumber": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "integerArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonNegativeInteger"
+      }
+    },
+    "scoreComponents": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "occurrence": {
+      "type": "object",
+      "properties": {
+        "start_tick": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "end_tick": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "note_index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "similarity": {
+          "$ref": "#/$defs/score"
+        },
+        "transpose_semitones": {
+          "type": "integer"
+        },
+        "note_count": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "matched_pairs": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "$ref": "#/$defs/nonNegativeInteger"
+              },
+              {
+                "$ref": "#/$defs/nonNegativeInteger"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "matched_note_pairs": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "$ref": "#/$defs/nonNegativeInteger"
+              },
+              {
+                "$ref": "#/$defs/nonNegativeInteger"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "required": [
+        "start_tick",
+        "end_tick",
+        "similarity",
+        "transpose_semitones"
+      ],
+      "additionalProperties": false
+    },
+    "phrase": {
+      "type": "object",
+      "properties": {
+        "bar_count": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "channel": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "duration_beats": {
+          "$ref": "#/$defs/positiveNumber"
+        },
+        "duration_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "durations_beats": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/positiveNumber"
+          },
+          "minItems": 1
+        },
+        "end_tick": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "family_id": {
+          "$ref": "#/$defs/hex64"
+        },
+        "kind": {
+          "enum": [
+            "melodic",
+            "percussion"
+          ]
+        },
+        "kit_programs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          "minItems": 1
+        },
+        "meter_denominator": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "meter_numerator": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "midi_path": {
+          "$ref": "#/$defs/relativeExportPath"
+        },
+        "midi_sha256": {
+          "$ref": "#/$defs/hex64"
+        },
+        "note_count": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "occurrence_count": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "occurrences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/occurrence"
+          },
+          "minItems": 2
+        },
+        "onsets_beats": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonNegativeNumber"
+          },
+          "minItems": 1
+        },
+        "part_index": {
+          "type": "integer",
+          "minimum": -1
+        },
+        "part_name": {
+          "type": "string"
+        },
+        "phrase_id": {
+          "$ref": "#/$defs/hex32"
+        },
+        "pitches": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          "minItems": 1
+        },
+        "program": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "prototype_note_index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "rank_in_file": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "raw_occurrence_count": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "recurrence_score": {
+          "$ref": "#/$defs/score"
+        },
+        "score_components": {
+          "$ref": "#/$defs/scoreComponents"
+        },
+        "source_part_indices": {
+          "$ref": "#/$defs/integerArray"
+        },
+        "source_track": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "source_tracks": {
+          "$ref": "#/$defs/integerArray"
+        },
+        "start_tick": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "velocities": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "channel",
+        "duration_beats",
+        "durations_beats",
+        "end_tick",
+        "family_id",
+        "kind",
+        "note_count",
+        "occurrence_count",
+        "occurrences",
+        "onsets_beats",
+        "part_index",
+        "phrase_id",
+        "pitches",
+        "rank_in_file",
+        "recurrence_score",
+        "score_components",
+        "start_tick",
+        "velocities"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "midi_path"
+            ]
+          },
+          "then": {
+            "required": [
+              "midi_sha256"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "midi_sha256"
+            ]
+          },
+          "then": {
+            "required": [
+              "midi_path"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "melodic"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "occurrences": {
+                "items": {
+                  "required": [
+                    "note_index"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "part_name",
+              "program",
+              "prototype_note_index",
+              "raw_occurrence_count",
+              "source_track"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "percussion"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "channel": {
+                "const": 9
+              },
+              "part_index": {
+                "const": -1
+              },
+              "occurrences": {
+                "items": {
+                  "properties": {
+                    "transpose_semitones": {
+                      "const": 0
+                    }
+                  }
+                }
+              }
+            },
+            "required": [
+              "bar_count",
+              "duration_policy",
+              "kit_programs",
+              "meter_denominator",
+              "meter_numerator",
+              "source_part_indices",
+              "source_tracks"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "artist_from_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artist_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_count": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "duration_error_fraction": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "duration_tolerance": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "lengths": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 128
+          },
+          "minItems": 1,
+          "maxItems": 24
+        },
+        "max_beats": {
+          "$ref": "#/$defs/positiveNumber"
+        },
+        "max_bucket": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "max_candidates": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "max_comparisons": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "max_gap_beats": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "max_stream_notes": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "max_windows": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "min_beats": {
+          "$ref": "#/$defs/positiveNumber"
+        },
+        "mode": {
+          "enum": [
+            "exact",
+            "transposed",
+            "approximate"
+          ]
+        },
+        "onset_merge_beats": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "pitch_error_fraction": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "timing_tolerance": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "top_k": {
+          "$ref": "#/$defs/positiveInteger"
+        }
+      },
+      "required": [
+        "duration_error_fraction",
+        "duration_tolerance",
+        "lengths",
+        "max_beats",
+        "max_bucket",
+        "max_candidates",
+        "max_comparisons",
+        "max_gap_beats",
+        "max_stream_notes",
+        "max_windows",
+        "min_beats",
+        "mode",
+        "onset_merge_beats",
+        "pitch_error_fraction",
+        "timing_tolerance",
+        "top_k"
+      ],
+      "additionalProperties": false
+    },
+    "curation_truncated": {
+      "type": "boolean"
+    },
+    "drum_stats": {
+      "type": "object",
+      "properties": {
+        "bar_origin_assumption": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "candidate_limit_reached": {
+          "type": "boolean"
+        },
+        "candidates_truncated": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "comparison_limit_reached": {
+          "type": "boolean"
+        },
+        "comparisons": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "config": {
+          "type": "object",
+          "properties": {
+            "bar_counts": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/positiveInteger"
+              },
+              "minItems": 1
+            },
+            "hit_error_fraction": {
+              "$ref": "#/$defs/nonNegativeNumber"
+            },
+            "max_bucket": {
+              "$ref": "#/$defs/positiveInteger"
+            },
+            "max_candidates": {
+              "$ref": "#/$defs/positiveInteger"
+            },
+            "max_comparisons": {
+              "$ref": "#/$defs/positiveInteger"
+            },
+            "max_hits": {
+              "$ref": "#/$defs/positiveInteger"
+            },
+            "max_window_hits": {
+              "$ref": "#/$defs/positiveInteger"
+            },
+            "max_windows": {
+              "$ref": "#/$defs/positiveInteger"
+            },
+            "min_hits": {
+              "$ref": "#/$defs/positiveInteger"
+            },
+            "min_pitches": {
+              "$ref": "#/$defs/positiveInteger"
+            },
+            "mode": {
+              "type": "string",
+              "minLength": 1
+            },
+            "timing_tolerance_beats": {
+              "$ref": "#/$defs/nonNegativeNumber"
+            },
+            "top_k": {
+              "$ref": "#/$defs/positiveInteger"
+            }
+          },
+          "required": [
+            "bar_counts",
+            "hit_error_fraction",
+            "max_bucket",
+            "max_candidates",
+            "max_comparisons",
+            "max_hits",
+            "max_window_hits",
+            "max_windows",
+            "min_hits",
+            "min_pitches",
+            "mode",
+            "timing_tolerance_beats",
+            "top_k"
+          ],
+          "additionalProperties": false
+        },
+        "diversity_comparisons": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "diversity_pruned": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "duplicate_hits_removed": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "eligible_windows": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "hit_limit_reached": {
+          "type": "boolean"
+        },
+        "input_drum_parts": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "input_hits": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "kit_programs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          }
+        },
+        "merged_hits": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "meter_segments": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "mode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "oversized_windows": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "raw_candidate_count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "raw_group_count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "saturated_seed_buckets": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "search_limited": {
+          "type": "boolean"
+        },
+        "selected_count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "source_part_indices": {
+          "$ref": "#/$defs/integerArray"
+        },
+        "source_tracks": {
+          "$ref": "#/$defs/integerArray"
+        },
+        "window_attempts": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "window_limit_reached": {
+          "type": "boolean"
+        },
+        "windows_considered": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      },
+      "required": [
+        "bar_origin_assumption",
+        "candidate_count",
+        "candidate_limit_reached",
+        "candidates_truncated",
+        "comparison_limit_reached",
+        "comparisons",
+        "config",
+        "diversity_comparisons",
+        "diversity_pruned",
+        "duplicate_hits_removed",
+        "eligible_windows",
+        "hit_limit_reached",
+        "input_drum_parts",
+        "input_hits",
+        "kit_programs",
+        "merged_hits",
+        "meter_segments",
+        "mode",
+        "oversized_windows",
+        "raw_candidate_count",
+        "raw_group_count",
+        "saturated_seed_buckets",
+        "search_limited",
+        "selected_count",
+        "source_part_indices",
+        "source_tracks",
+        "window_attempts",
+        "window_limit_reached",
+        "windows_considered"
+      ],
+      "additionalProperties": false
+    },
+    "elapsed_seconds": {
+      "$ref": "#/$defs/nonNegativeNumber"
+    },
+    "error": {
+      "type": "string",
+      "minLength": 1
+    },
+    "error_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "musical_sha256": {
+      "$ref": "#/$defs/hex64"
+    },
+    "note_count": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "outcome": {
+      "enum": [
+        "matched",
+        "no_match",
+        "read_error",
+        "parse_error",
+        "extraction_error"
+      ]
+    },
+    "part_count": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "part_stats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "candidate_limit_reached": {
+            "type": "boolean"
+          },
+          "candidates_truncated": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "comparison_limit_reached": {
+            "type": "boolean"
+          },
+          "comparisons": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "input_notes": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "note_limit_reached": {
+            "type": "boolean"
+          },
+          "onset_notes_removed_fraction": {
+            "$ref": "#/$defs/score"
+          },
+          "overlapping_occurrences_removed": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "part_index": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "raw_groups": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "repeat_groups": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "saturated_seed_buckets": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "skyline_notes": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "window_limit_reached": {
+            "type": "boolean"
+          },
+          "windows": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "windows_considered": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          }
+        },
+        "required": [
+          "candidate_limit_reached",
+          "candidates_truncated",
+          "comparison_limit_reached",
+          "comparisons",
+          "input_notes",
+          "note_limit_reached",
+          "overlapping_occurrences_removed",
+          "part_index",
+          "raw_groups",
+          "repeat_groups",
+          "saturated_seed_buckets",
+          "skyline_notes",
+          "window_limit_reached",
+          "windows",
+          "windows_considered"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "phrases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/phrase"
+      }
+    },
+    "raw_repeat_group_count": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "run_key": {
+      "$ref": "#/$defs/hex64"
+    },
+    "search_limited": {
+      "type": "boolean"
+    },
+    "shortlisted_candidate_count": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "song_key": {
+      "$ref": "#/$defs/hex24"
+    },
+    "source_bytes": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "source_id": {
+      "$ref": "#/$defs/hex24"
+    },
+    "source_path": {
+      "$ref": "#/$defs/relativeMidiPath"
+    },
+    "source_sha256": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/hex64"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "split": {
+      "enum": [
+        "train",
+        "validation",
+        "test",
+        "overlap_excluded"
+      ]
+    },
+    "split_group": {
+      "$ref": "#/$defs/hex24"
+    },
+    "status": {
+      "enum": [
+        "ok",
+        "error",
+        "no_match"
+      ]
+    },
+    "ticks_per_beat": {
+      "$ref": "#/$defs/positiveInteger"
+    },
+    "title_from_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "artist_from_path",
+    "artist_key",
+    "outcome",
+    "run_key",
+    "song_key",
+    "source_id",
+    "source_path",
+    "source_sha256",
+    "status",
+    "split",
+    "split_group",
+    "title_from_path"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "error"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "error",
+          "error_type"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ok"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "config",
+          "curation_truncated",
+          "elapsed_seconds",
+          "musical_sha256",
+          "note_count",
+          "part_count",
+          "part_stats",
+          "raw_repeat_group_count",
+          "search_limited",
+          "shortlisted_candidate_count",
+          "source_bytes",
+          "ticks_per_beat",
+          "warnings"
+        ],
+        "properties": {
+          "source_sha256": {
+            "$ref": "#/$defs/hex64"
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}
