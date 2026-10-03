@@ -225,12 +225,28 @@ def test_aligned_melody_is_an_explicit_cli_option(tmp_path):
             sys.executable, "-m", "samuged.cli", "build",
             "--source", str(source), "--output", str(output),
             "--algorithm", "aligned_melody", "--workers", "1", "--no-midi",
+            "--seed-bucket-limit", "768",
         ],
         capture_output=True,
         text=True,
     )
     assert result.returncode == 0, result.stderr
-    assert json.loads((output / "build_config.json").read_text())["algorithm"] == "aligned_melody"
+    config = json.loads((output / "build_config.json").read_text())
+    assert config["algorithm"] == "aligned_melody"
+    assert config["config"]["max_bucket"] == 768
+
+
+@pytest.mark.parametrize("algorithm,limit", [("reference", "768"), ("aligned_melody", "0"), ("aligned_indexed", "2049")])
+def test_cli_rejects_unsupported_seed_limits_before_creating_output(tmp_path, algorithm, limit):
+    output = tmp_path / "invalid"
+    result = subprocess.run(
+        [sys.executable, "-m", "samuged.cli", "build", "--source", str(tmp_path / "missing"),
+         "--output", str(output), "--algorithm", algorithm, "--seed-bucket-limit", limit],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 2
+    assert "--seed-bucket-limit" in result.stderr
+    assert not output.exists()
 
 
 def test_build_silences_optional_git_probe_errors(tmp_path, monkeypatch):

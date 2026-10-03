@@ -19,6 +19,8 @@ def main():
     command.add_argument("--mode", choices=("exact", "transposed", "approximate"), default=None,
                          help="reference matching mode (default: approximate)")
     command.add_argument("--top-k", type=int, default=3)
+    command.add_argument("--seed-bucket-limit", type=int,
+                         help="aligned algorithms only: seed postings per key, 1 to 2048 (default: 192)")
     command.add_argument("--no-midi", action="store_true")
     command.add_argument("--percussion", action="store_true")
     command.add_argument("--recover-invalid-keys", action="store_true",
@@ -28,9 +30,14 @@ def main():
         if args.algorithm in {"aligned", "aligned_indexed", "aligned_closed", "aligned_melody"}:
             if args.mode is not None:
                 parser.error("--mode is only supported with --algorithm reference")
+            if args.seed_bucket_limit is not None and not 1 <= args.seed_bucket_limit <= 2048:
+                parser.error("--seed-bucket-limit must be between 1 and 2048")
             from .aligned import AlignedConfig
-            config = AlignedConfig(top_k=args.top_k)
+            overrides = {} if args.seed_bucket_limit is None else {"max_bucket": args.seed_bucket_limit}
+            config = AlignedConfig(top_k=args.top_k, **overrides)
         else:
+            if args.seed_bucket_limit is not None:
+                parser.error("--seed-bucket-limit requires an aligned algorithm")
             config = Config(mode=args.mode or "approximate", top_k=args.top_k)
         result = build(args.source, args.output, config,
                        workers=args.workers, limit=args.limit, export=not args.no_midi,
