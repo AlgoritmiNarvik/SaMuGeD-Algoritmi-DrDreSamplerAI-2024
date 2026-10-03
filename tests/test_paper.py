@@ -25,6 +25,8 @@ def test_documented_direct_script_entrypoint_imports():
     assert completed.returncode == 0, completed.stderr
     assert "--theme-input-audit" in completed.stdout
     assert "--closed-evaluation" in completed.stdout
+    assert "--part-ranking-audit" in completed.stdout
+    assert "--certified-drum-audit" in completed.stdout
 
 
 def _write(path: Path, value) -> None:
@@ -341,3 +343,135 @@ def test_metamorphic_evaluation_rejects_duplicated_cohort_row(tmp_path):
     _rebind_completed_artifact(target, "raw_results.json")
     with pytest.raises(ValueError, match="row coverage"):
         make_paper.validate_metamorphic(target / "aggregate.json")
+
+
+def test_part_ranking_recomputes_heldout_role_agreement_and_bootstrap() -> None:
+    study = ROOT / "research_local" / "part_ranking_v01"
+    audit = ROOT / "research_local" / "part_ranking_audit_v01"
+    if not study.is_dir() or not audit.is_dir():
+        pytest.skip("part ranking evidence is not available")
+
+    result, inputs = make_paper.validate_part_ranking(study, audit)
+
+    assert result["selected_preset"] == "monophony"
+    assert result["development"]["songs"] == 60
+    assert result["heldout"]["songs"] == 120
+    assert result["heldout"]["baseline_top1"] == 76
+    assert result["heldout"]["prior_top1"] == 110
+    assert result["heldout"]["baseline_top3"] == 102
+    assert result["heldout"]["prior_top3"] == 119
+    assert result["heldout"]["paired_top1_difference"]["ci95"] == [0.20833333, 0.36666667]
+    assert result["curation_truncated"]["heldout"] == 120
+    assert "audit_completion_receipt" in inputs
+
+
+def test_part_ranking_rejects_rebound_missing_raw_row(tmp_path: Path) -> None:
+    source = ROOT / "research_local" / "part_ranking_v01"
+    audit = ROOT / "research_local" / "part_ranking_audit_v01"
+    target = _frozen_copy(source, tmp_path, "part-ranking")
+    raw_path = target / "raw_results.json"
+    raw = json.loads(raw_path.read_text(encoding="utf-8"))
+    raw["rows"].pop()
+    _write(raw_path, raw)
+    _rebind_completed_artifact(target, "raw_results.json")
+
+    with pytest.raises(ValueError, match="raw row coverage"):
+        make_paper.validate_part_ranking(target, audit)
+
+
+def test_part_ranking_rejects_rebound_aggregate_count(tmp_path: Path) -> None:
+    source = ROOT / "research_local" / "part_ranking_v01"
+    audit = ROOT / "research_local" / "part_ranking_audit_v01"
+    target = _frozen_copy(source, tmp_path, "part-ranking-count")
+    aggregate_path = target / "aggregate.json"
+    aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))
+    aggregate["heldout"]["part_prior"]["top1_melody_count"] = 109
+    _write(aggregate_path, aggregate)
+    _rebind_completed_artifact(target, "aggregate.json")
+
+    with pytest.raises(ValueError, match="aggregate count mismatch"):
+        make_paper.validate_part_ranking(target, audit)
+
+
+def test_part_ranking_rejects_independent_audit_receipt_tampering(
+    tmp_path: Path,
+) -> None:
+    study = ROOT / "research_local" / "part_ranking_v01"
+    source_audit = ROOT / "research_local" / "part_ranking_audit_v01"
+    audit = _frozen_copy(source_audit, tmp_path, "part-ranking-audit")
+    results_path = audit / "audit_results.json"
+    results = json.loads(results_path.read_text(encoding="utf-8"))
+    results["metrics"]["heldout"]["prior_top1"] = 120
+    _write(results_path, results)
+
+    with pytest.raises(ValueError, match="result hash mismatch"):
+        make_paper.validate_part_ranking(study, audit)
+
+
+def test_certified_drums_recomputes_coverage_and_wilson() -> None:
+    study = ROOT / "research_local" / "certified_drums_v01"
+    audit = ROOT / "research_local" / "certified_drums_audit_v01"
+    if not study.is_dir() or not audit.is_dir():
+        pytest.skip("certified drum evidence is not available")
+
+    result, inputs = make_paper.validate_certified_drums(study, audit)
+
+    tolerant = result["methods"]["tolerant"]["test"]
+    assert tolerant["negative_cases_with_output"] == 0
+    assert tolerant["negative_cases"] == 120
+    assert tolerant["negative_output_wilson_95"][1] == pytest.approx(0.0310191664)
+    assert tolerant["positive_target_pairs_covered_by_direct_detector_edges"] == 120
+    assert tolerant["positive_target_pairs"] == 180
+    assert result["family_recovery_posthoc"]["tolerant"]["test"] == {
+        "families_covering_all_labelled_target_windows": 60,
+        "family_recovery_rate": 1.0,
+        "positive_cases": 60,
+    }
+    assert "audit_input_manifest" in inputs
+
+
+def test_certified_drums_rejects_rebound_method_coverage_tampering(
+    tmp_path: Path,
+) -> None:
+    source = ROOT / "research_local" / "certified_drums_v01"
+    audit = ROOT / "research_local" / "certified_drums_audit_v01"
+    target = _frozen_copy(source, tmp_path, "certified-drums")
+    raw_path = target / "raw_results.json"
+    raw = json.loads(raw_path.read_text(encoding="utf-8"))
+    raw["methods"]["tolerant"].pop()
+    _write(raw_path, raw)
+    _rebind_completed_artifact(target, "raw_results.json")
+
+    with pytest.raises(ValueError, match="method coverage mismatch"):
+        make_paper.validate_certified_drums(target, audit)
+
+
+def test_certified_drums_rejects_rebound_aggregate_count(tmp_path: Path) -> None:
+    source = ROOT / "research_local" / "certified_drums_v01"
+    audit = ROOT / "research_local" / "certified_drums_audit_v01"
+    target = _frozen_copy(source, tmp_path, "certified-drum-count")
+    aggregate_path = target / "aggregate.json"
+    aggregate = json.loads(aggregate_path.read_text(encoding="utf-8"))
+    aggregate["methods"]["tolerant"]["by_split"]["test"][
+        "negative_cases_with_output"
+    ] = 1
+    _write(aggregate_path, aggregate)
+    _rebind_completed_artifact(target, "aggregate.json")
+
+    with pytest.raises(ValueError, match="differs from raw results"):
+        make_paper.validate_certified_drums(target, audit)
+
+
+def test_certified_drums_rejects_audit_source_binding_tampering(
+    tmp_path: Path,
+) -> None:
+    study = ROOT / "research_local" / "certified_drums_v01"
+    source_audit = ROOT / "research_local" / "certified_drums_audit_v01"
+    audit = _frozen_copy(source_audit, tmp_path, "certified-drum-audit")
+    report_path = audit / "audit.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["study_completion_receipt_sha256"] = "0" * 64
+    _write(report_path, report)
+
+    with pytest.raises(ValueError, match="audit artifact changed"):
+        make_paper.validate_certified_drums(study, audit)

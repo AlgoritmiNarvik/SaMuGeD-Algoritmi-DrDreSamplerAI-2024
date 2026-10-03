@@ -7,6 +7,7 @@ from adjacent raw results before they are rendered.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from datetime import datetime, timezone
 from html import escape
 import hashlib
@@ -315,6 +316,435 @@ def validate_stress(path: Path) -> tuple[dict, dict[str, Path]]:
             "the frozen design and cohort hashes were verified"
         )
     return validated, inputs
+
+
+def _wilson_interval(successes: int, total: int) -> list[float] | None:
+    if total < 1:
+        return None
+    z = 1.959963984540054
+    rate = successes / total
+    denominator = 1 + z * z / total
+    centre = (rate + z * z / (2 * total)) / denominator
+    margin = z * math.sqrt(
+        (rate * (1 - rate) + z * z / (4 * total)) / total
+    ) / denominator
+    return [max(0.0, centre - margin), min(1.0, centre + margin)]
+
+
+def _paired_role_bootstrap(differences: list[int], seed: int) -> dict:
+    samples = 10_000
+    if not differences:
+        raise ValueError("part ranking bootstrap has no rows")
+    generator = random.Random(seed)
+    size = len(differences)
+    estimates = sorted(
+        sum(differences[generator.randrange(size)] for _ in range(size)) / size
+        for _ in range(samples)
+    )
+    return {
+        "difference": round(mean(differences), 8),
+        "ci95": [
+            round(estimates[math.floor(0.025 * (samples - 1))], 8),
+            round(estimates[math.ceil(0.975 * (samples - 1))], 8),
+        ],
+        "samples": samples,
+        "seed": seed,
+    }
+
+
+def _artifact_directory(path: Path, filename: str) -> Path:
+    resolved = Path(path).resolve(strict=True)
+    directory = resolved if resolved.is_dir() else resolved.parent
+    if not (directory / filename).is_file():
+        raise ValueError(f"required artifact is missing: {directory / filename}")
+    return directory
+
+
+def _validate_part_ranking_audit(
+    study: Path, audit_path: Path, recomputed: dict, receipt: dict,
+) -> dict[str, Path]:
+    audit = _artifact_directory(audit_path, "audit_completion_receipt.json")
+    completion_path = audit / "audit_completion_receipt.json"
+    start_path = audit / "audit_start_receipt.json"
+    results_path = audit / "audit_results.json"
+    code_path = audit / "audit_logic.py"
+    completion = read(completion_path)
+    start = read(start_path)
+    results = read(results_path)
+    if completion.get("schema_version") != "part-ranking-independent-audit-completion-v1":
+        raise ValueError("unsupported part ranking audit receipt")
+    if completion.get("status") != "completed":
+        raise ValueError("part ranking audit is incomplete")
+    if completion.get("start_receipt_sha256") != file_digest(start_path):
+        raise ValueError("part ranking audit start receipt hash mismatch")
+    if completion.get("results_sha256") != file_digest(results_path):
+        raise ValueError("part ranking audit result hash mismatch")
+    if not code_path.is_file() or completion.get("audit_code_sha256") != file_digest(code_path):
+        raise ValueError("part ranking audit code hash mismatch")
+    if start.get("audit_code_sha256") != completion["audit_code_sha256"]:
+        raise ValueError("part ranking audit code binding mismatch")
+    expected_study = {
+        name: file_digest(study / name)
+        for name in (
+            "experiment_receipt.json", "source_snapshot.json", "frozen_rule.json",
+            "heldout_predictions.json", "raw_results.json", "aggregate.json",
+            "completion_receipt.json",
+        )
+    }
+    if start.get("study_artifacts") != expected_study:
+        raise ValueError("part ranking audit is not bound to the current study")
+    if completion.get("study_artifacts") != expected_study:
+        raise ValueError("part ranking audit completion binding mismatch")
+    if start.get("cohort_sha256") != receipt.get("case_cohort_sha256"):
+        raise ValueError("part ranking audit cohort binding mismatch")
+    if start.get("study_source_snapshot_sha256") != receipt.get("source_snapshot", {}).get("snapshot_sha256"):
+        raise ValueError("part ranking audit source snapshot binding mismatch")
+    if not results.get("passed") or not results.get("study_receipt_verified"):
+        raise ValueError("part ranking independent audit did not pass")
+    if results.get("cohort") != {"total": 180, "development": 60, "heldout": 120}:
+        raise ValueError("part ranking audit coverage mismatch")
+    if results.get("role_free_heldout_predictions_exact") != 120:
+        raise ValueError("part ranking audit did not verify every heldout prediction")
+    if (
+        results.get("coordinate_mismatches") != []
+        or results.get("label_mismatches") != []
+        or results.get("structural_feature_rows_verified") != 180
+        or results.get("development_replayed") != 60
+    ):
+        raise ValueError("part ranking independent audit has incomplete verification")
+    for split in ("development", "heldout"):
+        expected = recomputed[split]
+        observed = results.get("metrics", {}).get(split, {})
+        for field in ("songs", "baseline_top1", "prior_top1", "baseline_top3", "prior_top3"):
+            if observed.get(field) != expected[field]:
+                raise ValueError(f"part ranking audit metric mismatch: {split}.{field}")
+        for view in ("top1", "top3"):
+            _same(
+                results.get("paired_bootstrap", {}).get(split, {}).get(view),
+                expected[f"paired_{view}_difference"],
+                f"part ranking audit bootstrap {split}.{view}",
+            )
+    return {
+        "audit_start_receipt": start_path,
+        "audit_results": results_path,
+        "audit_completion_receipt": completion_path,
+        "audit_code": code_path,
+    }
+
+
+def validate_part_ranking(
+    path: Path, audit_path: Path,
+) -> tuple[dict, dict[str, Path]]:
+    study = _artifact_directory(path, "aggregate.json")
+    aggregate, raw, receipt, inputs = _load_pair(study / "aggregate.json")
+    if receipt is None:
+        raise ValueError("part ranking study lacks a frozen receipt")
+    rows = raw.get("rows")
+    cohort = receipt.get("case_cohort")
+    if not isinstance(rows, list) or not isinstance(cohort, list):
+        raise ValueError("part ranking cohort is missing")
+    if len(rows) != 180 or len({row.get("case_id") for row in rows}) != 180:
+        raise ValueError("part ranking raw row coverage mismatch")
+    if Counter(row.get("split") for row in rows) != {"development": 60, "heldout": 120}:
+        raise ValueError("part ranking split coverage mismatch")
+    if Counter(case.get("split") for case in cohort) != {"development": 60, "heldout": 120}:
+        raise ValueError("part ranking receipt cohort coverage mismatch")
+    cohort_fields = ("case_id", "split", "rank_sha256", "source_path", "source_sha256", "source_bytes")
+    for index, (row, case) in enumerate(zip(rows, cohort)):
+        if any(row.get(field) != case.get(field) for field in cohort_fields):
+            raise ValueError(f"part ranking row differs from frozen cohort at index {index}")
+
+    frozen_path = study / "frozen_rule.json"
+    predictions_path = study / "heldout_predictions.json"
+    frozen = read(frozen_path)
+    predictions = read(predictions_path)
+    frozen_hash = file_digest(frozen_path)
+    predictions_hash = file_digest(predictions_path)
+    for payload in (aggregate, raw):
+        if payload.get("frozen_rule_sha256") != frozen_hash:
+            raise ValueError("part ranking frozen rule link mismatch")
+        if payload.get("heldout_predictions_sha256") != predictions_hash:
+            raise ValueError("part ranking heldout prediction link mismatch")
+    if predictions.get("frozen_rule_sha256") != frozen_hash:
+        raise ValueError("heldout predictions are not bound to the frozen rule")
+    selected = frozen.get("selected_preset")
+    if not isinstance(selected, str) or any(
+        payload.get("selected_preset") != selected
+        for payload in (aggregate, raw, predictions)
+    ):
+        raise ValueError("part ranking selected preset mismatch")
+    presets = receipt.get("config", {}).get("presets")
+    fit = frozen.get("development_fit")
+    if not isinstance(presets, list) or len(presets) != 8 or not isinstance(fit, list) or len(fit) != 8:
+        raise ValueError("part ranking preset declaration is incomplete")
+    preset_names = [preset.get("name") for preset in presets]
+    if len(set(preset_names)) != 8 or [row.get("preset") for row in fit] != preset_names:
+        raise ValueError("part ranking fit does not cover every declared preset")
+    chosen = max(
+        fit,
+        key=lambda row: (
+            row["top1_melody"], row["top3_melody"], -row["changed_songs"],
+            -row["strength"], -row["preset_index"],
+        ),
+    )
+    if chosen.get("preset") != selected or frozen.get("development_song_count") != 60:
+        raise ValueError("part ranking frozen development decision mismatch")
+    if frozen.get("selected_config") != aggregate.get("selected_config"):
+        raise ValueError("part ranking selected configuration mismatch")
+
+    heldout_rows = [row for row in rows if row["split"] == "heldout"]
+    heldout_predictions = predictions.get("predictions")
+    if (
+        predictions.get("role_labels_included") is not False
+        or predictions.get("prediction_count") != 120
+        or not isinstance(heldout_predictions, list)
+        or len(heldout_predictions) != 120
+    ):
+        raise ValueError("part ranking heldout prediction coverage mismatch")
+    forbidden = {
+        "role_map", "baseline_labels", "prior_labels", "melody_candidate_available",
+        "selection_changed", "top1_part_changed", "selected_prior", "roles",
+        "top1_melody", "top3_melody",
+    }
+    def scan_role_free(value: Any) -> None:
+        if isinstance(value, dict):
+            if forbidden & set(value):
+                raise ValueError("part ranking heldout predictions contain role labels")
+            for nested in value.values():
+                scan_role_free(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                scan_role_free(nested)
+    scan_role_free(heldout_predictions)
+    by_id = {row["case_id"]: row for row in rows}
+    if [row.get("case_id") for row in heldout_predictions] != [row["case_id"] for row in heldout_rows]:
+        raise ValueError("part ranking heldout prediction order mismatch")
+    for prediction in heldout_predictions:
+        row = by_id[prediction["case_id"]]
+        restored = {
+            key: value for key, value in row.items()
+            if key not in {
+                "role_map", "baseline_labels", "prior_labels", "melody_candidate_available",
+                "selection_changed", "top1_part_changed", "selected_prior",
+            }
+        }
+        restored["priors"] = {selected: row["selected_prior"]}
+        if restored != prediction:
+            raise ValueError("part ranking heldout prediction differs from scored raw row")
+
+    recomputed = {}
+    for split in ("development", "heldout"):
+        selected_rows = [row for row in rows if row["split"] == split]
+        differences = {"top1": [], "top3": []}
+        metrics = {
+            "songs": len(selected_rows), "baseline_top1": 0, "prior_top1": 0,
+            "baseline_top3": 0, "prior_top3": 0,
+        }
+        for row in selected_rows:
+            role_map = row.get("role_map")
+            if not isinstance(role_map, dict):
+                raise ValueError("part ranking role map is missing")
+            computed_labels = {}
+            for method, key in (("baseline", "baseline"), ("prior", "selected_prior")):
+                selection = row.get(key, {})
+                phrases = selection.get("phrases")
+                parts = selection.get("part_indices")
+                families = selection.get("family_ids")
+                if not isinstance(phrases, list) or not isinstance(parts, list) or not isinstance(families, list):
+                    raise ValueError("part ranking selected candidate IDs are incomplete")
+                if families != [phrase.get("family_id") for phrase in phrases]:
+                    raise ValueError("part ranking family ID list mismatch")
+                if parts != [phrase.get("part_index") for phrase in phrases]:
+                    raise ValueError("part ranking part index list mismatch")
+                roles = [role_map.get(str(index)) for index in parts]
+                if any(role is None for role in roles):
+                    raise ValueError("part ranking selected part is absent from role map")
+                labels = {
+                    "roles": roles,
+                    "top1_melody": bool(roles and roles[0] == "MELODY"),
+                    "top3_melody": "MELODY" in roles[:3],
+                }
+                if labels != row.get(f"{method}_labels"):
+                    raise ValueError("part ranking saved role label differs from selected IDs")
+                computed_labels[method] = labels
+                metrics[f"{method}_top1"] += int(labels["top1_melody"])
+                metrics[f"{method}_top3"] += int(labels["top3_melody"])
+            for view in ("top1", "top3"):
+                differences[view].append(
+                    int(computed_labels["prior"][f"{view}_melody"])
+                    - int(computed_labels["baseline"][f"{view}_melody"])
+                )
+        metrics["paired_top1_difference"] = _paired_role_bootstrap(differences["top1"], 20261003)
+        metrics["paired_top3_difference"] = _paired_role_bootstrap(differences["top3"], 20261004)
+        saved = aggregate.get(split, {})
+        for method, saved_key in (("baseline", "baseline"), ("prior", "part_prior")):
+            for view in ("top1", "top3"):
+                if saved.get(saved_key, {}).get(f"{view}_melody_count") != metrics[f"{method}_{view}"]:
+                    raise ValueError(f"part ranking aggregate count mismatch: {split}.{method}.{view}")
+        for view in ("top1", "top3"):
+            _same(
+                saved.get(f"paired_{view}_difference"), metrics[f"paired_{view}_difference"],
+                f"part ranking aggregate bootstrap {split}.{view}",
+            )
+        recomputed[split] = metrics
+
+    inputs.update({"frozen_rule": frozen_path, "heldout_predictions": predictions_path})
+    inputs.update(_validate_part_ranking_audit(study, audit_path, recomputed, receipt))
+    return {
+        "selected_preset": selected,
+        "development": recomputed["development"],
+        "heldout": recomputed["heldout"],
+        "curation_truncated": {
+            split: sum(bool(row.get("curation_truncated")) for row in rows if row["split"] == split)
+            for split in ("development", "heldout")
+        },
+        "search_limited": {
+            split: sum(bool(row.get("search_limited")) for row in rows if row["split"] == split)
+            for split in ("development", "heldout")
+        },
+    }, inputs
+
+
+def _certified_drum_summary(rows: list[dict]) -> dict:
+    negatives = [row for row in rows if row.get("kind") == "certified_negative"]
+    positives = [row for row in rows if row.get("kind") == "planted_positive"]
+    outputs = sum(bool(row.get("negative_case_with_output")) for row in negatives)
+    target_pairs = sum(row.get("target_pair_count", 0) for row in positives)
+    covered = sum(
+        row.get("target_pairs_covered_by_direct_detector_edges", 0) for row in positives
+    )
+    return {
+        "cases": len(rows),
+        "negative_cases": len(negatives),
+        "negative_cases_with_output": outputs,
+        "negative_output_rate": outputs / len(negatives) if negatives else None,
+        "negative_output_wilson_95": _wilson_interval(outputs, len(negatives)),
+        "positive_cases": len(positives),
+        "positive_target_pairs": target_pairs,
+        "positive_target_pairs_covered_by_direct_detector_edges": covered,
+        "positive_oracle_edge_coverage": covered / target_pairs if target_pairs else None,
+    }
+
+
+def _validate_certified_drum_audit(
+    study: Path, audit_path: Path, recomputed: dict,
+) -> tuple[dict, dict[str, Path]]:
+    audit_dir = _artifact_directory(audit_path, "audit_receipt.json")
+    receipt_path = audit_dir / "audit_receipt.json"
+    manifest_path = audit_dir / "input_manifest.json"
+    report_path = audit_dir / "audit.json"
+    receipt = read(receipt_path)
+    manifest = read(manifest_path)
+    report = read(report_path)
+    if receipt.get("schema_version") != "samuged-certified-drum-audit-v1" or receipt.get("status") != "completed":
+        raise ValueError("certified drum audit receipt is invalid")
+    artifacts = receipt.get("artifacts")
+    if not isinstance(artifacts, dict) or set(artifacts) != {"audit.json", "input_manifest.json"}:
+        raise ValueError("certified drum audit artifact set mismatch")
+    for name, expected in artifacts.items():
+        artifact = audit_dir / name
+        if expected.get("sha256") != file_digest(artifact) or expected.get("bytes") != artifact.stat().st_size:
+            raise ValueError(f"certified drum audit artifact changed: {name}")
+    manifest_hash = _sha256_json(manifest)
+    if receipt.get("input_manifest_sha256") != manifest_hash or report.get("input_manifest_sha256") != manifest_hash:
+        raise ValueError("certified drum audit manifest binding mismatch")
+    if receipt.get("audit_sha256") != file_digest(report_path):
+        raise ValueError("certified drum audit report binding mismatch")
+    entries = manifest.get("artifacts")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("certified drum audit source-study manifest is missing")
+    root = study.resolve()
+    seen = set()
+    for entry in entries:
+        relative = entry.get("path")
+        if not isinstance(relative, str) or relative in seen:
+            raise ValueError("certified drum audit source-study manifest has invalid paths")
+        seen.add(relative)
+        artifact = (root / relative).resolve(strict=True)
+        if not artifact.is_relative_to(root) or not artifact.is_file():
+            raise ValueError("certified drum audit source-study path escapes study")
+        if entry.get("sha256") != file_digest(artifact) or entry.get("bytes") != artifact.stat().st_size:
+            raise ValueError(f"certified drum audit is not bound to current study: {relative}")
+    if manifest.get("study_completion_receipt_sha256") != file_digest(study / "completion_receipt.json"):
+        raise ValueError("certified drum audit completion binding mismatch")
+    source_snapshot_hash = read(study / "source_snapshot.json").get("snapshot_sha256")
+    if manifest.get("study_source_snapshot_sha256") != source_snapshot_hash:
+        raise ValueError("certified drum audit source snapshot binding mismatch")
+    if report.get("case_count") != 360 or report.get("split_kind_counts") != {
+        "development/certified_negative": 120,
+        "development/planted_positive": 60,
+        "test/certified_negative": 120,
+        "test/planted_positive": 60,
+    }:
+        raise ValueError("certified drum independent audit coverage mismatch")
+    audited = report.get("aggregate_recomputed_from_raw", {})
+    for mode in ("exact", "tolerant"):
+        for split in ("development", "test"):
+            actual = recomputed[mode][split]
+            observed = audited.get(mode, {}).get("by_split", {}).get(split, {})
+            for field, expected in actual.items():
+                if observed.get(field) != expected:
+                    raise ValueError(f"certified drum audit metric mismatch: {mode}.{split}.{field}")
+    family = report.get("family_recovery_posthoc")
+    for mode in ("exact", "tolerant"):
+        for split in ("development", "test"):
+            item = family.get(mode, {}).get(split, {}) if isinstance(family, dict) else {}
+            if item.get("positive_cases") != 60:
+                raise ValueError("certified drum posthoc family audit coverage mismatch")
+            covered = item.get("families_covering_all_labelled_target_windows")
+            if not isinstance(covered, int) or not 0 <= covered <= 60:
+                raise ValueError("certified drum posthoc family result is invalid")
+    return family, {
+        "audit_receipt": receipt_path,
+        "audit_input_manifest": manifest_path,
+        "audit_report": report_path,
+    }
+
+
+def validate_certified_drums(
+    path: Path, audit_path: Path,
+) -> tuple[dict, dict[str, Path]]:
+    study = _artifact_directory(path, "aggregate.json")
+    aggregate, raw, receipt, inputs = _load_pair(study / "aggregate.json")
+    if receipt is None:
+        raise ValueError("certified drum study lacks a frozen receipt")
+    cases = raw.get("cases")
+    cohort = receipt.get("case_cohort")
+    if not isinstance(cases, list) or not isinstance(cohort, list) or cases != cohort:
+        raise ValueError("certified drum raw cohort differs from frozen receipt")
+    counts = Counter((case.get("split"), case.get("kind")) for case in cases)
+    expected = {
+        (split, kind): 120 if kind == "certified_negative" else 60
+        for split in ("development", "test")
+        for kind in ("certified_negative", "planted_positive")
+    }
+    if len(cases) != 360 or len({case.get("case_id") for case in cases}) != 360 or counts != expected:
+        raise ValueError("certified drum cohort coverage mismatch")
+    case_by_id = {case["case_id"]: case for case in cases}
+    recomputed = {mode: {} for mode in ("exact", "tolerant")}
+    for mode in ("exact", "tolerant"):
+        rows = raw.get("methods", {}).get(mode)
+        if not isinstance(rows, list) or len(rows) != 360 or len({row.get("case_id") for row in rows}) != 360:
+            raise ValueError(f"certified drum method coverage mismatch: {mode}")
+        if {row["case_id"] for row in rows} != set(case_by_id):
+            raise ValueError(f"certified drum method IDs differ from cohort: {mode}")
+        for row in rows:
+            case = case_by_id[row["case_id"]]
+            if row.get("split") != case["split"] or row.get("kind") != case["kind"]:
+                raise ValueError(f"certified drum method grouping mismatch: {mode}")
+        for split in ("development", "test"):
+            summary = _certified_drum_summary([row for row in rows if row["split"] == split])
+            saved = aggregate.get("methods", {}).get(mode, {}).get("by_split", {}).get(split, {})
+            for field, value in summary.items():
+                _same(saved.get(field), value, f"certified drums {mode}.{split}.{field}")
+            recomputed[mode][split] = summary
+    family, audit_inputs = _validate_certified_drum_audit(study, audit_path, recomputed)
+    inputs.update({
+        "design": study / "design.json",
+        "labels": study / "labels.json",
+        **audit_inputs,
+    })
+    return {"methods": recomputed, "family_recovery_posthoc": family}, inputs
 
 
 def _jku_groups(rows: list[dict]) -> dict:
@@ -925,6 +1355,10 @@ def render(
     theme_path: Path | None = None, theme_input_root: Path | None = None,
     theme_input_audit: Path | None = None, closed_path: Path | None = None,
     metamorphic_path: Path | None = None,
+    part_ranking_path: Path | None = None,
+    part_ranking_audit_path: Path | None = None,
+    certified_drums_path: Path | None = None,
+    certified_drums_audit_path: Path | None = None,
 ) -> None:
     dataset_info = validate_dataset(dataset)
     summary, audit, build = dataset_info["summary"], dataset_info["audit"], dataset_info["build"]
@@ -950,6 +1384,20 @@ def render(
         if any(value is None for value in (theme_path, theme_input_root, theme_input_audit)):
             raise ValueError("theme evaluation requires its input root and input audit")
         themes, theme_inputs = validate_themes(theme_path, theme_input_root, theme_input_audit)
+    part_ranking, part_ranking_inputs = None, {}
+    if any(value is not None for value in (part_ranking_path, part_ranking_audit_path)):
+        if part_ranking_path is None or part_ranking_audit_path is None:
+            raise ValueError("part ranking evidence requires its independent audit")
+        part_ranking, part_ranking_inputs = validate_part_ranking(
+            part_ranking_path, part_ranking_audit_path,
+        )
+    certified_drums, certified_drums_inputs = None, {}
+    if any(value is not None for value in (certified_drums_path, certified_drums_audit_path)):
+        if certified_drums_path is None or certified_drums_audit_path is None:
+            raise ValueError("certified drum evidence requires its independent audit")
+        certified_drums, certified_drums_inputs = validate_certified_drums(
+            certified_drums_path, certified_drums_audit_path,
+        )
     paper_date, date_source = resolve_report_date(report_date, melody_receipt)
     algorithm = dataset_info["algorithm"]
     method_title, method_text = method_description(algorithm, build.get("config", {}))
@@ -1077,6 +1525,41 @@ def render(
     p("The historical detector exports prototypes without occurrence coordinates. Its occurrence F1 is therefore not "
       "reported. Human phrase boundaries, perceptual identity and memorability remain unmeasured.")
 
+    if certified_drums:
+        heading("Oracle certified percussion controls")
+        certified_test = {
+            mode: certified_drums["methods"][mode]["test"]
+            for mode in ("exact", "tolerant")
+        }
+        certified_family = certified_drums["family_recovery_posthoc"]
+        table([
+            ["Heldout measure", "Exact", "Tolerant"],
+            ["Certified negatives returning output", *[
+                f"{certified_test[mode]['negative_cases_with_output']} / {certified_test[mode]['negative_cases']}"
+                for mode in ("exact", "tolerant")
+            ]],
+            ["Direct labelled edges recovered", *[
+                f"{certified_test[mode]['positive_target_pairs_covered_by_direct_detector_edges']} / "
+                f"{certified_test[mode]['positive_target_pairs']}"
+                for mode in ("exact", "tolerant")
+            ]],
+            ["One family covers all labelled windows", *[
+                f"{certified_family[mode]['test']['families_covering_all_labelled_target_windows']} / 60"
+                for mode in ("exact", "tolerant")
+            ]],
+        ], [265, 105, 110])
+        upper = certified_test["tolerant"]["negative_output_wilson_95"][1]
+        p(
+            f"The test split had 120 oracle certified negatives and 60 planted positives. A separate development "
+            f"split had another 120 negatives and 60 positives. Zero of 120 test negatives returned output "
+            f"(Wilson 95% upper bound {upper:.1%}). "
+            "The 120 of 180 positive result counts labelled prototype to occurrence edges, not occurrence recall. "
+            "The 60 of 60 family result is a posthoc measure from the independently bound replay audit.",
+            "SmallLocal",
+        )
+
+    if certified_drums:
+        page()
     heading("4. Alignment and full-phrase selection")
     if aligned:
         methods = aligned["synthetic"]["methods"]
@@ -1131,6 +1614,29 @@ def render(
             "generator. The real examples remain unlabelled, and neither study measures memorability.",
             "SmallLocal",
         )
+    if part_ranking:
+        heading("Optional source part prior")
+        development = part_ranking["development"]
+        heldout = part_ranking["heldout"]
+        table([
+            ["POP909 MELODY role agreement", "Baseline", "Optional prior"],
+            ["Development top one", f"{development['baseline_top1']} / 60", f"{development['prior_top1']} / 60"],
+            ["Heldout top one", f"{heldout['baseline_top1']} / 120", f"{heldout['prior_top1']} / 120"],
+            ["Heldout top three", f"{heldout['baseline_top3']} / 120", f"{heldout['prior_top3']} / 120"],
+        ], [265, 105, 110])
+        top1_ci = heldout["paired_top1_difference"]["ci95"]
+        top3_ci = heldout["paired_top3_difference"]["ci95"]
+        p(
+            f"One of eight declared timing and pitch structure priors was selected on 60 POP909 [7] development "
+            "songs, then "
+            f"frozen. Heldout improvements were 34 of 120 for top one (paired song bootstrap 95% interval "
+            f"{top1_ci[0]:.1%} to {top1_ci[1]:.1%}) and 17 of 120 for top three "
+            f"({top3_ci[0]:.1%} to {top3_ci[1]:.1%}). All 120 heldout shortlists were truncated. Labels were "
+            "process separated, not physically inaccessible. This measures official MELODY part agreement only, "
+            "not hook quality, and the prior remains optional. The fixed rule uses note structure only, but transfer "
+            "from POP909 role labels to the different Lakh corpus and arrangement domain remains unmeasured.",
+            "SmallLocal",
+        )
 
     page()
     heading("5. Harder and external diagnostics")
@@ -1153,6 +1659,14 @@ def render(
         p(f"Tolerant mode returned output in {st['tolerant']['negative_case_output_rate']:.1%} of generated negative "
           f"test cases (Wilson 95% interval {interval[0]:.1%} to {interval[1]:.1%}). Recurring subpatterns can satisfy "
           "the symbolic rule, so this is a generator output rate rather than verified musical false positive precision.")
+    if certified_drums:
+        p(
+            "The certified control result and this stress result answer different questions. Certified negatives "
+            "were conditioned to contain no admissible detector window pair. Stress negatives can contain chance or "
+            "genuine recurring substructure, and tolerant mode returned output in "
+            f"{st['tolerant']['negative_cases_with_output']} of {st['tolerant']['negative_cases']} test cases.",
+            "SmallLocal",
+        )
     heading("Externally annotated classical works")
     values = [["Representation / mode", "Works", "Establishment F1", "Occurrence F1 (0.75)"]]
     for key in sorted(external["groups"]):
@@ -1226,6 +1740,7 @@ def render(
         ("4", "MIREX. Discovery of repeated themes and sections.", "https://music-ir.org/mirex/wiki/2014%3ADiscovery_of_Repeated_Themes_%26_Sections"),
         ("5", "Raffel et al. (2014). mir_eval.", "https://colinraffel.com/publications/ismir2014mir_eval.pdf"),
         ("6", "Theme Transformer. Theme retrieval annotations and evaluation.", "https://atosystem.github.io/ThemeTransformer/themeRetrieval.html"),
+        ("7", "Wang et al. (2020). POP909: A pop-song dataset for music arrangement generation.", "https://github.com/music-x-lab/POP909-Dataset"),
     ]
     for number, title, url in refs:
         p(f"[{number}] <link href='{escape(url, quote=True)}' color='#265e83'>{escape(title)}</link>", "SmallLocal")
@@ -1244,6 +1759,8 @@ def render(
         ("metamorphic", metamorphic_inputs),
         ("screening", screening_inputs),
         ("themes", theme_inputs),
+        ("part_ranking", part_ranking_inputs),
+        ("certified_drums", certified_drums_inputs),
     ):
         inputs.update({f"{prefix}_{name}": path for name, path in values.items()})
     receipt = {
@@ -1279,6 +1796,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--theme-evaluation", type=Path)
     parser.add_argument("--theme-input-root", type=Path)
     parser.add_argument("--theme-input-audit", type=Path)
+    parser.add_argument("--part-ranking-evaluation", type=Path)
+    parser.add_argument("--part-ranking-audit", type=Path)
+    parser.add_argument("--certified-drum-evaluation", type=Path)
+    parser.add_argument("--certified-drum-audit", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     render(
@@ -1296,6 +1817,10 @@ def main(argv: list[str] | None = None) -> None:
         theme_input_audit=args.theme_input_audit,
         closed_path=args.closed_evaluation,
         metamorphic_path=args.metamorphic_evaluation,
+        part_ranking_path=args.part_ranking_evaluation,
+        part_ranking_audit_path=args.part_ranking_audit,
+        certified_drums_path=args.certified_drum_evaluation,
+        certified_drums_audit_path=args.certified_drum_audit,
     )
     print(args.output.resolve())
 
