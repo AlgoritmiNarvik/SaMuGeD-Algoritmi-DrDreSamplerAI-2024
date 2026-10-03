@@ -2068,7 +2068,7 @@ def render(
         ["Files with melodic / percussion output", f"{summary['source_files_with_melodic_phrases']:,} / {summary['source_files_with_percussion_phrases']:,}"],
         ["MIDI excerpts verified by audit", f"{audit['counts'].get('midi_verified', 0):,}"],
     ], [295, 185])
-    p(f"The study uses a local copy labelled Lakh MIDI Clean [1]. The manifest defines the processed snapshot of "
+    p(f"The study uses a local copy labelled Lakh MIDI Clean [1, 10]. The manifest defines the processed snapshot of "
       f"{summary['source_files']:,} paths, not a verified copy of an upstream archive. Byte identity does "
       "not establish unique musical works. Path labels may be incomplete or wrong. Every selected source has a "
       "terminal processing record and failed inputs remain in the denominator. Original MIDI files are not rewritten.")
@@ -2335,7 +2335,7 @@ def render(
         metric = item["macro_metrics"]
         values.append([key, item["works"], f"{metric['F_est']:.3f}", f"{metric['F_occ.75']:.3f}"])
     table(values, [210, 55, 105, 110])
-    p(f"The adapter verified all annotation points against the score and reproduced the stored published metric checks. "
+    p(f"The JKU-PDD adapter [4, 5, 11] verified annotation points against the score and reproduced the stored metric checks. "
       f"Results use top k = {external.get('top_k', 3)}. This small development set is not an official MIREX result and "
       "does not estimate popular music performance.")
     if themes:
@@ -2353,7 +2353,7 @@ def render(
             indexed = selection_external["jku"]["groups"]["polyphonic/aligned_indexed"]["macro_metrics"]
             prior = selection_external["jku"]["groups"]["polyphonic/aligned_melody"]["macro_metrics"]
             p(
-                "The selector diagnostic reuses these six songs and the five JKU development works. Theme uses "
+                "The selector diagnostic reuses these six songs [6] and the five JKU development works. Theme uses "
                 "one neutral Part, so the melody prior equals closed selection and cannot test part-role choice; "
                 "all note F1 values were unchanged. Closed selection changed none of ten JKU outputs. The melody "
                 f"prior changed three polyphonic outputs: establishment F1 {indexed['F_est']:.6f} to "
@@ -2363,7 +2363,7 @@ def render(
                 "SmallLocal",
             )
         else:
-            p("Theme Transformer annotations share exact note universes across three annotators. Annotation partitions "
+            p("Theme Transformer annotations [6] share exact note universes across three annotators. Annotation partitions "
               "are removed before detection. These scores classify notes, not the authors' beat regions. Agreement "
               "varies substantially and includes negative kappa. All 24 runs reached the candidate shortlist cap. "
               "Top three expands coverage and is a sensitivity view. No parameter was tuned on these songs.", "SmallLocal")
@@ -2419,10 +2419,12 @@ def render(
         ("3", "Ren et al. (2020). A computational evaluation of musical pattern discovery algorithms.", "https://arxiv.org/abs/2010.12325"),
         ("4", "MIREX. Discovery of repeated themes and sections.", "https://music-ir.org/mirex/wiki/2014%3ADiscovery_of_Repeated_Themes_%26_Sections"),
         ("5", "Raffel et al. (2014). mir_eval.", "https://colinraffel.com/publications/ismir2014mir_eval.pdf"),
-        ("6", "Theme Transformer. Theme retrieval annotations and evaluation.", "https://atosystem.github.io/ThemeTransformer/themeRetrieval.html"),
-        ("7", "Wang et al. (2020). POP909: A pop-song dataset for music arrangement generation.", "https://github.com/music-x-lab/POP909-Dataset"),
+        ("6", "Shih et al. (2022). Theme Transformer: Symbolic Music Generation with Theme-Conditioned Transformer. IEEE TMM.", "https://arxiv.org/abs/2111.04093v2"),
+        ("7", "Wang et al. (2020). POP909: A pop-song dataset for music arrangement generation. ISMIR.", "https://github.com/music-x-lab/POP909-Dataset"),
         ("8", "Meredith (2013). COSIATEC and SIATECCompress: Pattern discovery by geometric compression.", "https://vbn.aau.dk/en/publications/cosiatec-and-siateccompress-pattern-discovery-by-geometric-compre/"),
         ("9", "Lartillot (2014). In-depth motivic analysis based on multiparametric closed pattern and cyclic sequence mining.", "https://archives.ismir.net/ismir2014/paper/000308.pdf"),
+        ("10", "Raffel (2016). Learning-Based Methods for Comparing Sequences, with Applications to Audio-to-MIDI Alignment and Matching. PhD thesis, Columbia University.", "https://colinraffel.com/publications/thesis.pdf"),
+        ("11", "Collins (2013). JKU Patterns Development Database. August 2013 no-audio distribution.", "https://tomcollinsresearch.net/research/data/mirex/"),
     ]
     for number, title, url in refs:
         p(f"[{number}] <link href='{escape(url, quote=True)}' color='#265e83'>{escape(title)}</link>", "SmallLocal")

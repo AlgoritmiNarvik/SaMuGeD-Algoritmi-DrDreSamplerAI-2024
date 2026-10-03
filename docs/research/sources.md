@@ -105,6 +105,10 @@ These studies permit a careful hypothesis for later work: recurring phrases may 
 8. Burgoyne, J. A., Bountouridis, D., van Balen, J. M. H. and Honing, H. (2013). [Hooked: A game for discovering what makes music catchy](https://www.dare.uva.nl/id/96aaa66c-15e1-416b-a307-c55bcb364f2b).
 9. Byron, T. P. and Fowles, L. C. (2015). [Repetition and recency increases involuntary musical imagery of previously unfamiliar songs](https://doi.org/10.1177/0305735613511506).
 10. Jakubowski, K., Finkel, S., Stewart, L. and Müllensiefen, D. (2017). [Dissecting an earworm: Melodic features and song popularity predict involuntary musical imagery](https://doi.org/10.1037/aca0000090).
+11. Raffel, C. (2016). [Learning-Based Methods for Comparing Sequences, with Applications to Audio-to-MIDI Alignment and Matching](https://colinraffel.com/publications/thesis.pdf). PhD thesis, Columbia University. The Lakh publisher requests this citation alongside its dataset page.
+12. Shih, Y.-J., Wu, S.-L., Zalkow, F., Müller, M. and Yang, Y.-H. (2022). [Theme Transformer: Symbolic Music Generation with Theme-Conditioned Transformer](https://arxiv.org/abs/2111.04093v2). IEEE Transactions on Multimedia.
+13. Wang, Z., Chen, K., Jiang, J., Zhang, Y., Xu, M., Dai, S., Bin, G. and Xia, G. (2020). [POP909: A Pop-song Dataset for Music Arrangement Generation](https://github.com/music-x-lab/POP909-Dataset). Proceedings of ISMIR.
+14. Collins, T. (2013). [JKU Patterns Development Database](https://tomcollinsresearch.net/research/data/mirex/). August 2013 no-audio distribution, used only for the stated development diagnostic.
 
 ## External metric implementation check
 
