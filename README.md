@@ -45,6 +45,7 @@ Start with `--limit 128` and a separate output directory for a deterministic pil
 - [Recurrence examples](docs/research/recurrence_examples.md): source timelines and piano rolls for melody and drums.
 - [Installed package check](docs/research/installed_package_check.md): isolated wheel installation and CLI validation.
 - [Portable release verification](docs/research/release_verification.md): metadata, archive and included replay checks without the source corpus.
+- [Consumer guide](docs/research/consumer_guide.md): installation scope, safe archive handling and manifest coordinate semantics.
 - [Historical project notes](docs/legacy_project_notes.md): earlier applications, setup and plans.
 
 Bulk MIDI, experiment outputs and local release archives are excluded from Git. The software licence is in [LICENSE](LICENSE). Source music and its derivatives have separate rights considerations documented in the research guide. No public dataset release is made by these commands.

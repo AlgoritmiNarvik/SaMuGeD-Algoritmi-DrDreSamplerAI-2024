@@ -54,6 +54,8 @@ flowchart LR
 
 ## Read the extracted collection
 
+[The consumer guide](consumer_guide.md) gives the repository and wheel execution boundaries, archive verification and extraction sequence and manifest field semantics.
+
 The complete archive includes MIDI payloads. Its sibling metadata directory contains the same manifests but does not copy the MIDI files. After extracting an archive, the following reads a melodic training candidate and its first two occurrence coordinates:
 
 ```python

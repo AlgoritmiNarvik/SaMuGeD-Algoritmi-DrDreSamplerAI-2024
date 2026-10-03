@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`scripts/verify_release.py` verifies a local SaMuGeD metadata release without access to the source MIDI corpus. It can also verify the optional package archive without extracting it.
+`scripts/verify_release.py` verifies a local SaMuGeD metadata release without access to the source MIDI corpus. It can also verify the optional package archive without extracting it, or verify a complete tree that was safely extracted from the archive.
 
 The verifier writes one JSON report only after every requested check passes. It refuses to overwrite an existing report, write inside the release directory or replace the archive or its receipt.
 
@@ -25,6 +25,14 @@ For a metadata directory, the verifier:
 - Repeats the complete metadata file inventory, hashes and sizes immediately before writing the report. A file added, removed or changed during verification causes failure.
 
 A metadata only result proves byte integrity and consistency among the recorded metadata files. It does not verify MIDI payload bytes because those files are intentionally absent from the metadata directory.
+
+## Extracted archive checks
+
+With `--extracted`, the release path must be the flat root produced by safely extracting one package archive. The archive `SHA256SUMS` must list every regular payload in that tree, including metadata and MIDI, exactly once. The verifier rejects symbolic links, special files, unlisted files, stale checksum entries and unsafe paths.
+
+Every MIDI path must use the declared kind and phrase ID. Every declared MIDI file must be present and its checksum must match both `SHA256SUMS` and `phrases.jsonl`. Undeclared files below `midi/` are rejected. The report records metadata and MIDI file and byte counts separately. Optional screening and selection replay evidence is verified in the same way as metadata mode. A complete inventory, hash and size check is repeated immediately before the report is written.
+
+This mode is intended for an archive recipient who does not also have the metadata sibling directory. It verifies the extracted bytes and their internal bindings. It cannot verify the compressed archive hash or its sibling receipt after extraction and it does not authenticate the publisher. It also does not repeat extraction from the absent full song sources.
 
 ## Archive checks
 
@@ -65,4 +73,13 @@ python scripts/verify_release.py \
   --output research_local/releases/reference_v03.portable_verification_v02.json
 ```
 
-The successful report uses scope `metadata_only` when no archive is supplied and `metadata_and_archive` when every archive check passes.
+Verify a safely extracted archive tree when the separate metadata directory is unavailable:
+
+```bash
+python scripts/verify_release.py \
+  --release /path/to/new-empty-directory-after-extraction \
+  --extracted \
+  --output /path/to/extracted-tree.verification.json
+```
+
+`--archive` and `--extracted` cannot be combined. The successful report uses scope `metadata_only` for the metadata directory, `metadata_and_archive` for the stream checked archive or `metadata_and_extracted_midi` for the extracted tree.

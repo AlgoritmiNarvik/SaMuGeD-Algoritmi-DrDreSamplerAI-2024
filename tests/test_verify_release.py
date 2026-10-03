@@ -1,7 +1,8 @@
 from hashlib import sha256
 import io
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import shutil
 import tarfile
 
 import mido
@@ -72,6 +73,36 @@ def _refresh_metadata_checksum(release: Path, name: str) -> None:
         digest = file_digest(release / relative) if relative == name else _digest
         rows.append(f"{digest}  {relative}")
     path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+
+def _write_complete_checksum(root: Path) -> None:
+    rows = []
+    for path in sorted(root.rglob("*")):
+        if path.is_file() and path.name != "SHA256SUMS":
+            relative = path.relative_to(root).as_posix()
+            rows.append(f"{file_digest(path)}  {relative}")
+    (root / "SHA256SUMS").write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+
+def _extract_archive_safely(archive: Path, target: Path) -> None:
+    target.mkdir()
+    root = target.resolve(strict=True)
+    seen: set[str] = set()
+    with tarfile.open(archive, "r:gz") as tar:
+        for member in tar:
+            relative = PurePosixPath(member.name)
+            assert not relative.is_absolute()
+            assert all(part not in ("", ".", "..") for part in member.name.split("/"))
+            assert member.name not in seen
+            assert member.isreg()
+            seen.add(member.name)
+            destination = (target / relative).resolve()
+            assert destination.is_relative_to(root)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            stream = tar.extractfile(member)
+            assert stream is not None
+            with destination.open("xb") as output:
+                shutil.copyfileobj(stream, output)
 
 
 def _malicious_archive(
@@ -183,6 +214,149 @@ def test_verifies_real_tiny_metadata_and_archive_with_optional_evidence(tmp_path
     assert provenance["closure_sha256"] == sha256(
         canonical_json(provenance["files"]).encode("utf-8")
     ).hexdigest()
+
+
+def test_verifies_safely_extracted_archive_with_optional_evidence(tmp_path):
+    source, dataset = _audited_dataset(tmp_path, unicode_path=True)
+    replay = tmp_path / "selection-replay"
+    run_sample(dataset, source, replay, count=None, workers=1, all_successful=True)
+    screening = _screening(dataset, tmp_path)
+    release = tmp_path / "release"
+    package(
+        dataset,
+        release,
+        archive=True,
+        screening=screening,
+        selection_replay=replay,
+    )
+    extracted = tmp_path / "extracted"
+    _extract_archive_safely(tmp_path / "release.tar.gz", extracted)
+
+    report = verify_release(
+        extracted, tmp_path / "extracted-verification.json", extracted=True
+    )
+
+    assert report["scope"] == "metadata_and_extracted_midi"
+    assert report["archive"] is None
+    assert report["extracted_midi"] == {
+        "payload_files": report["dataset"]["midi_payloads"],
+        "payload_bytes": sum(
+            (extracted / row["midi_path"]).stat().st_size
+            for row in (
+                json.loads(line)
+                for line in (extracted / "phrases.jsonl").read_bytes().split(b"\n")
+                if line
+            )
+        ),
+        "manifest_hashes_verified": True,
+    }
+    checksum_entries = (extracted / "SHA256SUMS").read_text().splitlines()
+    assert report["metadata"]["payload_files"] + report["extracted_midi"][
+        "payload_files"
+    ] == len(checksum_entries)
+    assert report["optional_evidence"]["selection_replay"]["failure_count"] == 0
+    assert (
+        report["optional_evidence"]["duplicate_screening"]["excluded_source_groups"]
+        == 0
+    )
+
+
+def test_rejects_archive_and_extracted_together(tmp_path):
+    with pytest.raises(ValueError, match="cannot be combined"):
+        verify_release(
+            tmp_path / "unused",
+            tmp_path / "report.json",
+            archive=tmp_path / "unused.tar.gz",
+            extracted=True,
+        )
+
+
+def test_rejects_missing_extracted_midi_even_with_updated_checksum(tmp_path):
+    _source, dataset = _audited_dataset(tmp_path)
+    release = tmp_path / "release"
+    package(dataset, release, archive=True)
+    extracted = tmp_path / "extracted"
+    _extract_archive_safely(tmp_path / "release.tar.gz", extracted)
+    phrase = json.loads((extracted / "phrases.jsonl").read_text().splitlines()[0])
+    (extracted / phrase["midi_path"]).unlink()
+    _write_complete_checksum(extracted)
+
+    with pytest.raises(ValueError, match="missing declared MIDI payload"):
+        verify_release(extracted, tmp_path / "report.json", extracted=True)
+
+
+def test_rejects_tampered_extracted_midi_even_with_updated_checksum(tmp_path):
+    _source, dataset = _audited_dataset(tmp_path)
+    release = tmp_path / "release"
+    package(dataset, release, archive=True)
+    extracted = tmp_path / "extracted"
+    _extract_archive_safely(tmp_path / "release.tar.gz", extracted)
+    phrase = json.loads((extracted / "phrases.jsonl").read_text().splitlines()[0])
+    (extracted / phrase["midi_path"]).write_bytes(b"tampered MIDI")
+    _write_complete_checksum(extracted)
+
+    with pytest.raises(ValueError, match="extracted MIDI manifest SHA256 mismatch"):
+        verify_release(extracted, tmp_path / "report.json", extracted=True)
+
+
+def test_rejects_extracted_midi_changed_during_verification(tmp_path, monkeypatch):
+    _source, dataset = _audited_dataset(tmp_path)
+    release = tmp_path / "release"
+    package(dataset, release, archive=True)
+    extracted = tmp_path / "extracted"
+    _extract_archive_safely(tmp_path / "release.tar.gz", extracted)
+    phrase = json.loads((extracted / "phrases.jsonl").read_text().splitlines()[0])
+    midi_path = extracted / phrase["midi_path"]
+    original = release_verifier._verify_core
+
+    def verify_then_mutate(*args, **kwargs):
+        result = original(*args, **kwargs)
+        midi_path.write_bytes(b"changed during verification")
+        return result
+
+    monkeypatch.setattr(release_verifier, "_verify_core", verify_then_mutate)
+    with pytest.raises(
+        ValueError, match="extracted release tree changed during verification"
+    ):
+        verify_release(extracted, tmp_path / "report.json", extracted=True)
+
+
+def test_rejects_unlisted_extra_in_extracted_tree(tmp_path):
+    _source, dataset = _audited_dataset(tmp_path)
+    release = tmp_path / "release"
+    package(dataset, release, archive=True)
+    extracted = tmp_path / "extracted"
+    _extract_archive_safely(tmp_path / "release.tar.gz", extracted)
+    (extracted / "extra.bin").write_bytes(b"not listed")
+
+    with pytest.raises(ValueError, match="extracted release SHA256SUMS file set mismatch"):
+        verify_release(extracted, tmp_path / "report.json", extracted=True)
+
+
+def test_rejects_symlink_in_extracted_tree(tmp_path):
+    _source, dataset = _audited_dataset(tmp_path)
+    release = tmp_path / "release"
+    package(dataset, release, archive=True)
+    extracted = tmp_path / "extracted"
+    _extract_archive_safely(tmp_path / "release.tar.gz", extracted)
+    (extracted / "linked").symlink_to(extracted / "release.json")
+
+    with pytest.raises(ValueError, match="release contains a symlink"):
+        verify_release(extracted, tmp_path / "report.json", extracted=True)
+
+
+def test_metadata_mode_still_rejects_midi_collision(tmp_path):
+    _source, dataset = _audited_dataset(tmp_path)
+    release = tmp_path / "release"
+    package(dataset, release)
+    phrase = json.loads((release / "phrases.jsonl").read_text().splitlines()[0])
+    target = release / phrase["midi_path"]
+    target.parent.mkdir(parents=True)
+    shutil.copyfile(dataset / phrase["midi_path"], target)
+    _write_complete_checksum(release)
+
+    with pytest.raises(ValueError, match="MIDI and metadata paths collide"):
+        verify_release(release, tmp_path / "report.json")
 
 
 def test_metadata_only_scope_and_output_protection(tmp_path):

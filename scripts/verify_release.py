@@ -1,4 +1,4 @@
-"""Verify a portable SaMuGeD metadata release and optional archive."""
+"""Verify SaMuGeD metadata, an archive or a safely extracted archive tree."""
 from __future__ import annotations
 
 import argparse
@@ -40,6 +40,7 @@ AUDIT_BINDINGS = {
     "summary_sha256": "summary.json",
 }
 HEX64 = re.compile(r"[0-9a-f]{64}")
+MIDI_PATH = re.compile(r"midi/(melodic|percussion)/([0-9a-f]{32})\.mid")
 PROVENANCE_SEEDS = (
     "scripts/verify_release.py",
     "scripts/package_dataset.py",
@@ -185,18 +186,18 @@ def _jsonl_rows(path: Path, *, label: str) -> Iterator[tuple[int, dict[str, Any]
 
 
 def _verify_metadata_checksums(
-    inventory: dict[str, Path]
+    inventory: dict[str, Path], *, label: str = "metadata"
 ) -> tuple[dict[str, str], dict[str, int]]:
     checksum_path = inventory.get("SHA256SUMS")
     if checksum_path is None:
         raise ValueError("release is missing SHA256SUMS")
-    expected = _parse_checksums(checksum_path.read_bytes(), label="metadata SHA256SUMS")
+    expected = _parse_checksums(checksum_path.read_bytes(), label=f"{label} SHA256SUMS")
     actual_names = set(inventory) - {"SHA256SUMS"}
     if set(expected) != actual_names:
         missing = sorted(actual_names - set(expected))
         stale = sorted(set(expected) - actual_names)
         raise ValueError(
-            "metadata SHA256SUMS file set mismatch"
+            f"{label} SHA256SUMS file set mismatch"
             f" (unlisted={missing[:3]}, stale={stale[:3]})"
         )
     sizes: dict[str, int] = {}
@@ -204,7 +205,7 @@ def _verify_metadata_checksums(
         path = inventory[name]
         digest = file_digest(path)
         if digest != expected[name]:
-            raise ValueError(f"metadata SHA256 mismatch: {name}")
+            raise ValueError(f"{label} SHA256 mismatch: {name}")
         sizes[name] = path.stat().st_size
     return expected, sizes
 
@@ -217,7 +218,11 @@ def _verify_jsonl_files(inventory: dict[str, Path]) -> dict[str, int]:
 
 
 def _verify_core(
-    release: Path, inventory: dict[str, Path], metadata_hashes: dict[str, str]
+    release: Path,
+    inventory: dict[str, Path],
+    metadata_hashes: dict[str, str],
+    *,
+    extracted: bool = False,
 ) -> tuple[dict[str, Any], dict[str, str], dict[str, Any]]:
     for name in CORE_FILES:
         if name not in inventory:
@@ -295,6 +300,13 @@ def _verify_core(
                 raise ValueError(f"phrase has a MIDI hash without a path on line {line_number}")
             continue
         _safe_relative(midi_path, label="phrase MIDI")
+        midi_match = MIDI_PATH.fullmatch(midi_path)
+        if (
+            midi_match is None
+            or midi_match.group(1) != kind
+            or midi_match.group(2) != phrase_id
+        ):
+            raise ValueError(f"phrase has an invalid MIDI path on line {line_number}")
         if not isinstance(midi_hash, str) or not HEX64.fullmatch(midi_hash):
             raise ValueError(f"phrase has an invalid MIDI hash on line {line_number}")
         previous = midi_payloads.setdefault(midi_path, midi_hash)
@@ -360,10 +372,28 @@ def _verify_core(
     )
     if release_family_counts != unique_counts:
         raise ValueError("release family counts mismatch")
-    if set(midi_payloads) & set(inventory):
-        raise ValueError("MIDI and metadata paths collide")
     if "SHA256SUMS" in midi_payloads:
         raise ValueError("MIDI path collides with archive checksum list")
+    if extracted:
+        missing_midi = sorted(set(midi_payloads) - set(inventory))
+        if missing_midi:
+            raise ValueError(
+                f"extracted tree is missing declared MIDI payload: {missing_midi[0]}"
+            )
+        undeclared_midi = sorted(
+            name
+            for name in inventory
+            if name.startswith("midi/") and name not in midi_payloads
+        )
+        if undeclared_midi:
+            raise ValueError(
+                f"extracted tree has undeclared MIDI payload: {undeclared_midi[0]}"
+            )
+        for name, expected_hash in midi_payloads.items():
+            if metadata_hashes.get(name) != expected_hash:
+                raise ValueError(f"extracted MIDI manifest SHA256 mismatch: {name}")
+    elif set(midi_payloads) & set(inventory):
+        raise ValueError("MIDI and metadata paths collide")
 
     audit_scope = release_json.get("audit_scope")
     if audit_scope is not None and not isinstance(audit_scope, dict):
@@ -560,7 +590,15 @@ def _verify_archive(
     }
 
 
-def verify_release(release: Path, output: Path, *, archive: Path | None = None) -> dict[str, Any]:
+def verify_release(
+    release: Path,
+    output: Path,
+    *,
+    archive: Path | None = None,
+    extracted: bool = False,
+) -> dict[str, Any]:
+    if extracted and archive is not None:
+        raise ValueError("--archive and --extracted cannot be combined")
     release_input = Path(release)
     if release_input.is_symlink():
         raise ValueError("release root must not be a symlink")
@@ -583,11 +621,16 @@ def verify_release(release: Path, output: Path, *, archive: Path | None = None) 
             raise ValueError("verification output collides with an archive input")
 
     inventory = _regular_inventory(release)
-    metadata_hashes, metadata_sizes = _verify_metadata_checksums(inventory)
+    checksum_label = "extracted release" if extracted else "metadata"
+    metadata_hashes, metadata_sizes = _verify_metadata_checksums(
+        inventory, label=checksum_label
+    )
     metadata_checksum_sha256 = file_digest(release / "SHA256SUMS")
     metadata_checksum_bytes = (release / "SHA256SUMS").stat().st_size
     jsonl_counts = _verify_jsonl_files(inventory)
-    dataset, midi_payloads, optional = _verify_core(release, inventory, metadata_hashes)
+    dataset, midi_payloads, optional = _verify_core(
+        release, inventory, metadata_hashes, extracted=extracted
+    )
     archive_result = None
     if archive_path is not None:
         archive_result = _verify_archive(
@@ -599,10 +642,18 @@ def verify_release(release: Path, output: Path, *, archive: Path | None = None) 
             dataset["run_key"],
         )
     provenance = _code_provenance()
+    midi_names = set(midi_payloads) if extracted else set()
+    metadata_names = set(metadata_hashes) - midi_names
+    if extracted:
+        scope = "metadata_and_extracted_midi"
+    elif archive_result:
+        scope = "metadata_and_archive"
+    else:
+        scope = "metadata_only"
     report: dict[str, Any] = {
         "schema_version": VERSION,
         "status": "passed",
-        "scope": "metadata_and_archive" if archive_result else "metadata_only",
+        "scope": scope,
         "claim_boundary": (
             "portable byte integrity and recorded metadata consistency only; no source corpus, "
             "musical correctness, perceptual quality, redistribution rights or authenticity claim"
@@ -611,21 +662,33 @@ def verify_release(release: Path, output: Path, *, archive: Path | None = None) 
         "release": str(release),
         "metadata": {
             "checksum_sha256": metadata_checksum_sha256,
-            "payload_files": len(metadata_hashes),
-            "payload_bytes": sum(metadata_sizes.values()),
+            "payload_files": len(metadata_names),
+            "payload_bytes": sum(metadata_sizes[name] for name in metadata_names),
             "jsonl_row_counts": jsonl_counts,
         },
         "dataset": dataset,
         "optional_evidence": optional,
         "archive": archive_result,
+        "extracted_midi": (
+            {
+                "payload_files": len(midi_names),
+                "payload_bytes": sum(metadata_sizes[name] for name in midi_names),
+                "manifest_hashes_verified": True,
+            }
+            if extracted
+            else None
+        ),
     }
+    stability_label = "extracted release tree" if extracted else "release metadata"
     try:
         final_inventory = _regular_inventory(release)
-        final_hashes, final_sizes = _verify_metadata_checksums(final_inventory)
+        final_hashes, final_sizes = _verify_metadata_checksums(
+            final_inventory, label=checksum_label
+        )
         final_checksum_sha256 = file_digest(release / "SHA256SUMS")
         final_checksum_bytes = (release / "SHA256SUMS").stat().st_size
     except (OSError, ValueError) as exc:
-        raise ValueError("release metadata changed during verification") from exc
+        raise ValueError(f"{stability_label} changed during verification") from exc
     if (
         set(final_inventory) != set(inventory)
         or final_hashes != metadata_hashes
@@ -633,7 +696,7 @@ def verify_release(release: Path, output: Path, *, archive: Path | None = None) 
         or final_checksum_sha256 != metadata_checksum_sha256
         or final_checksum_bytes != metadata_checksum_bytes
     ):
-        raise ValueError("release metadata changed during verification")
+        raise ValueError(f"{stability_label} changed during verification")
     with output.open("x", encoding="utf-8", newline="\n") as stream:
         stream.write(canonical_json(report) + "\n")
     return report
@@ -643,10 +706,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--release", type=Path, required=True)
     parser.add_argument("--archive", type=Path)
+    parser.add_argument(
+        "--extracted",
+        action="store_true",
+        help="verify a safely extracted archive tree containing metadata and MIDI",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
-        report = verify_release(args.release, args.output, archive=args.archive)
+        report = verify_release(
+            args.release, args.output, archive=args.archive, extracted=args.extracted
+        )
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
     print(json.dumps(report, indent=2, sort_keys=True))
