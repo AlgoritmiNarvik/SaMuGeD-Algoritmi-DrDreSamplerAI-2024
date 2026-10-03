@@ -1,6 +1,7 @@
 """Receipts and source snapshots for reproducible local experiments."""
 from __future__ import annotations
 
+import ast
 from hashlib import sha256
 import importlib.metadata
 import json
@@ -43,14 +44,73 @@ def _relative_source_files(required_files: Iterable[str] | None = None) -> list[
         adapter = _REPOSITORY_ROOT / "testing_tools" / "test_scripts" / "asle_scripts" / "pattern_detection_old.py"
         dependency_files = (_REPOSITORY_ROOT/"pyproject.toml", _REPOSITORY_ROOT/"requirements-research.lock")
         files.extend(path for path in (legacy, adapter, *dependency_files) if path.is_file())
-        return files
-    files = []
-    for relative in required_files:
-        path = (_REPOSITORY_ROOT / relative).resolve()
-        if not path.is_file() or not path.is_relative_to(_REPOSITORY_ROOT):
-            raise FileNotFoundError(f"required source file is unavailable: {relative}")
-        files.append(path)
-    return sorted(set(files))
+    else:
+        files = []
+        for relative in required_files:
+            path = (_REPOSITORY_ROOT / relative).resolve()
+            if not path.is_file() or not path.is_relative_to(_REPOSITORY_ROOT):
+                raise FileNotFoundError(f"required source file is unavailable: {relative}")
+            files.append(path)
+    return _local_import_closure(files)
+
+
+def _local_import_closure(files: Iterable[Path]) -> list[Path]:
+    """Include statically named project imports without executing source code.
+
+    This includes conditional imports and package initializers. Third-party
+    packages remain described by dependency receipts. Dynamic imports whose
+    names are computed at runtime must still be declared in required_files.
+    """
+    root = _REPOSITORY_ROOT.resolve()
+    pending = list(files)
+    included: set[Path] = set()
+
+    def local_module(parts: list[str]) -> None:
+        if not parts or any(not part.isidentifier() for part in parts):
+            return
+        base = root.joinpath(*parts)
+        for candidate in (base.with_suffix(".py"), base / "__init__.py"):
+            if candidate.is_file():
+                pending.append(candidate)
+        for end in range(1, len(parts)):
+            initializer = root.joinpath(*parts[:end], "__init__.py")
+            if initializer.is_file():
+                pending.append(initializer)
+
+    while pending:
+        source = pending.pop().resolve(strict=True)
+        if not source.is_relative_to(root):
+            raise ValueError("local import escapes repository")
+        if source in included:
+            continue
+        included.add(source)
+        if source.suffix != ".py":
+            continue
+        relative = source.relative_to(root)
+        package = list(relative.parts[:-1])
+        # Importing a named file also executes its containing package initializers.
+        for end in range(1, len(package) + 1):
+            initializer = root.joinpath(*package[:end], "__init__.py")
+            if initializer.is_file():
+                pending.append(initializer)
+        tree = ast.parse(source.read_bytes(), filename=str(relative))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    local_module(alias.name.split("."))
+            elif isinstance(node, ast.ImportFrom):
+                if node.level:
+                    if node.level > len(package):
+                        continue
+                    prefix = package[:len(package) - node.level + 1]
+                else:
+                    prefix = []
+                module = prefix + (node.module.split(".") if node.module else [])
+                local_module(module)
+                for alias in node.names:
+                    if alias.name != "*":
+                        local_module([*module, alias.name])
+    return sorted(included)
 
 
 def _snapshot_sources(output: Path, required_files: Iterable[str] | None = None) -> dict[str, Any]:

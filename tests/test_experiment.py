@@ -4,11 +4,62 @@ from hashlib import sha256
 import pytest
 
 import samuged.evaluate as evaluate
+import samuged.experiment as experiment
 from samuged.evaluate import generate_cases, run_benchmark
 from samuged.experiment import (
     sha256_json, prepare_experiment, receipt_links, complete_experiment,
     verify_completed_experiment, verify_start_receipt,
 )
+
+
+def test_snapshot_follows_transitive_imports_and_package_initializers(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    sources = {
+        "pkg/__init__.py": "from . import initialization\n",
+        "pkg/initialization.py": "import pathlib\n",
+        "pkg/sub/__init__.py": "",
+        "pkg/sub/entry.py": "from ..core import value\nfrom . import sibling\n",
+        "pkg/sub/sibling.py": "from pkg import extra\n",
+        "pkg/core.py": "from .sub import entry\nvalue = 1\n",
+        "pkg/extra.py": "raise RuntimeError('must not execute imports')\n",
+        "unused.py": "raise RuntimeError('unrelated')\n",
+    }
+    for name, code in sources.items():
+        path = project / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(code)
+    monkeypatch.setattr(experiment, "_REPOSITORY_ROOT", project)
+    selected = experiment._relative_source_files(["pkg/sub/entry.py"])
+    assert {path.relative_to(project).as_posix() for path in selected} == set(sources) - {"unused.py"}
+
+
+def test_snapshot_includes_conditional_and_namespace_imports(tmp_path, monkeypatch):
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "main.py").write_text(
+        "if False:\n    from scripts import optional\nimport scripts.helper\n"
+    )
+    (tmp_path / "scripts" / "optional.py").write_text("import json\n")
+    (tmp_path / "scripts" / "helper.py").write_text("")
+    monkeypatch.setattr(experiment, "_REPOSITORY_ROOT", tmp_path)
+    selected = experiment._relative_source_files(["scripts/main.py"])
+    assert {path.name for path in selected} == {"main.py", "optional.py", "helper.py"}
+
+
+def test_snapshot_rejects_imported_symlink_escape(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    (tmp_path / "outside.py").write_text("value = 3\n")
+    (project / "entry.py").write_text("import escaped\n")
+    (project / "escaped.py").symlink_to(tmp_path / "outside.py")
+    monkeypatch.setattr(experiment, "_REPOSITORY_ROOT", project)
+    with pytest.raises(ValueError, match="import escapes repository"):
+        experiment._relative_source_files(["entry.py"])
+
+
+def test_snapshot_reaches_real_midi_dependencies_from_single_entrypoint():
+    selected = experiment._relative_source_files(["samuged/midi.py"])
+    names = {path.relative_to(experiment._REPOSITORY_ROOT).as_posix() for path in selected}
+    assert {"samuged/__init__.py", "samuged/midi.py", "samuged/metadata_recovery.py"} <= names
 
 
 def test_receipt_is_written_before_first_detector_result(tmp_path, monkeypatch):

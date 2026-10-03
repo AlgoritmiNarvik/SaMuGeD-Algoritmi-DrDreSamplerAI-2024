@@ -26,6 +26,7 @@ _REPLAY_SOURCE_FILES = frozenset(
 )
 _SNAPSHOT_FILES = _REPLAY_SOURCE_FILES | {"samuged/experiment.py", "samuged/evaluate_themes.py"}
 _IMPORT_CLOSURE_FILES = frozenset({"samuged/__init__.py", "samuged/metadata_recovery.py"})
+_OPTIONAL_FROZEN_FILES = frozenset({"samuged/evaluate.py"})
 
 
 def _same(actual, expected, label: str) -> None:
@@ -198,7 +199,9 @@ def verify(output: Path, input_root: Path, input_audit: Path, *, replay: bool = 
     saved_hashes = {row["path"]: row["sha256"] for row in snapshot["files"]}
     closure_complete = _IMPORT_CLOSURE_FILES.issubset(saved_hashes)
     expected_files = _SNAPSHOT_FILES | (_IMPORT_CLOSURE_FILES if closure_complete else frozenset())
-    _same(set(saved_hashes), expected_files, "source snapshot file set")
+    # Static import closure also saves the aligned module's optional benchmark
+    # entrypoint, which does not participate in theme detector replay.
+    _same(set(saved_hashes) - _OPTIONAL_FROZEN_FILES, expected_files, "source snapshot file set")
     if replay:
         repository = Path(__file__).resolve().parents[1]
         replay_files = _REPLAY_SOURCE_FILES | (_IMPORT_CLOSURE_FILES if closure_complete else frozenset())

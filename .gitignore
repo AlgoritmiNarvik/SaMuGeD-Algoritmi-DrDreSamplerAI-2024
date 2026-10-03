@@ -56,5 +56,6 @@ SaMuGed-SimilarMidis/cache/
 # Local research artifacts
 .firecrawl/
 research_local/
+output/
 .pytest_cache/
 .DS_Store
