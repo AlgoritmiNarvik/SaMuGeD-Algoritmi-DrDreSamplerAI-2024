@@ -130,6 +130,26 @@ def test_metadata_checksums_list_only_files_in_metadata_release(tmp_path):
     assert not any(name.endswith(".mid") for name in checksums)
 
 
+def test_package_distinguishes_artifact_audit_from_full_selection_replay(tmp_path):
+    source, dataset, _ = _audited_dataset(tmp_path)
+    ordinary = package(dataset, tmp_path / "ordinary")
+    assert ordinary["algorithm"] == "reference"
+    assert ordinary["audit_scope"]["full_source_coverage_required"] is True
+    assert ordinary["audit_scope"]["selection_reextracted_for_all_successful_sources"] is False
+    assert "did not repeat candidate generation" in (
+        tmp_path / "ordinary" / "DATASET_CARD.md"
+    ).read_text()
+
+    result = audit(source, dataset, require_full=True, reextract=True)
+    assert result["passed"]
+    replayed = package(dataset, tmp_path / "replayed")
+    assert replayed["audit_scope"]["selection_reextracted_for_all_successful_sources"] is True
+    assert replayed["audit_scope"]["audit_sha256"] == file_digest(dataset / "audit.json")
+    assert "re-extracted every successful source" in (
+        tmp_path / "replayed" / "DATASET_CARD.md"
+    ).read_text()
+
+
 def test_package_rejects_audit_copied_from_different_corpus(tmp_path):
     first_source, first_dataset = tmp_path / "first-source", tmp_path / "first-dataset"
     second_source, second_dataset = tmp_path / "second-source", tmp_path / "second-dataset"

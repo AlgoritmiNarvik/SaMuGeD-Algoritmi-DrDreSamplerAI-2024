@@ -67,6 +67,7 @@ def package(dataset: Path, output: Path, *, allow_pilot=False, archive=False,
         raise ValueError("release metadata must be outside the extraction directory")
     summary = json.loads((dataset/"summary.json").read_text())
     audit = json.loads((dataset/"audit.json").read_text())
+    build_config = json.loads((dataset/"build_config.json").read_text())
     if not audit.get("passed") or audit["run_key"] != summary["run_key"]:
         raise ValueError("require a passing audit for the same extraction run")
     audit_bindings = {
@@ -94,6 +95,15 @@ def package(dataset: Path, output: Path, *, allow_pilot=False, archive=False,
     if screening is not None:
         screening = screening.resolve(strict=True)
         screening_summary = verify_screening(dataset, screening)
+    algorithm = build_config.get("algorithm", "reference")
+    reextracted = audit.get("reextraction_required") is True
+    audit_scope = {
+        "full_source_coverage_required": audit.get("full_source_coverage_required") is True,
+        "selection_reextracted_for_all_successful_sources": reextracted,
+        "source_records_verified": audit.get("counts", {}).get("sources_verified", 0),
+        "midi_excerpts_verified": audit.get("counts", {}).get("midi_verified", 0),
+        "audit_sha256": file_digest(dataset / "audit.json"),
+    }
     rows = [json.loads(line) for line in (dataset/"phrases.jsonl").read_text().splitlines()]
     representatives, memberships = unique_views(rows)
     # Verify payloads before creating release metadata. Never trust a stale audit.
@@ -142,6 +152,7 @@ The collection contains repeated symbolic melodic phrases and separate drum patt
 - Phrase counts: {canonical_json(summary['phrase_counts'])}.
 - Unique canonical families: {len(representatives):,}.
 - Exported MIDI files: {len(payloads):,}.
+- Extraction algorithm: `{algorithm}`.
 - Run fingerprint: `{summary['run_key']}`.
 
 `sources.jsonl` accounts for all selected input paths, including failures and no-match files. `phrases.jsonl` keeps the per-source candidate collection. `views/*.unique.jsonl` selects one representative per canonical family, and `views/family_membership.jsonl` preserves all source links with phrase, source file and split group counts. These are file and grouping frequencies, not composition counts. Family equality is the detector's stated canonicalization, not proof of musical identity. Rows marked `overlap_excluded` must not be used as train/validation/test examples.
@@ -153,6 +164,10 @@ MIDI files use paths in `midi_path`, relative to the complete archive root. This
 Melody uses per-part onset skyline and verified recurrence under the recorded pitch/timing model. Percussion preserves simultaneous kit pitches and uses meter-aware patterns without transposition. Scores rank structural recurrence only. Detailed parameters and executable source snapshots are in `build_config.json` and `provenance/`.
 
 The independent audit checks source reconstruction, manifest membership, splits and MIDI export semantics. A passing audit proves those recorded checks, not perceptual quality. Parse errors, search caps, shortlist truncation, imperfect voice selection, pickup assumptions and unrecognized near duplicates are visible limitations. The local HTML review packet is unlabelled; basic synthesis follows the source tempo map and does not reproduce source audio or instruments.
+
+{'The audit also re-extracted every successful source and compared the complete selected output and detector evidence.' if reextracted else 'The full artifact audit did not repeat candidate generation and selection for every successful source. Stored candidate-order hashes and selection decisions are not fully replayed by that audit. Separate sample reextraction results, when supplied, apply only to their declared cohort.'} The precise audit scope is recorded in `release.json` and `audit.json`.
+
+{('A fixed note-structure prior changes candidate ordering before closed selection. The original recurrence score remains separate from the adjusted ranking score. This optional mode prefers monophonic parts and does not establish that their phrases are hooks or preferable sampling material.') if algorithm == 'aligned_melody' else ''}
 
 ## Splits and duplicates
 
@@ -173,6 +188,7 @@ The metadata bundle's `SHA256SUMS` lists every metadata payload other than the c
     (output/"DATASET_CARD.md").write_text(card, encoding="utf-8")
     metadata = {"schema_version": "samuged-local-release-v1", "publication_status": "unpublished_local_candidate",
                 "run_key": summary["run_key"], "full_local_corpus": full,
+                "algorithm": algorithm, "audit_scope": audit_scope,
                 "source_files": summary["source_files"], "phrase_rows": len(rows),
                 "unique_family_counts": dict(Counter(row["kind"] for row in representatives)),
                 "midi_payloads": len(payloads), "source_manifest_sha256": summary["source_manifest_sha256"],
