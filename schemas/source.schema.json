@@ -1223,10 +1223,16 @@
       "maxItems": 1024
     },
     "algorithm": {
-      "const": "aligned_closed"
+      "enum": [
+        "aligned_closed",
+        "aligned_melody"
+      ]
     },
     "selection": {
-      "const": "closed-exact-extension-v1"
+      "enum": [
+        "closed-exact-extension-v1",
+        "source-structure-part-prior-v1"
+      ]
     },
     "closed_extension_count": {
       "$ref": "#/$defs/nonNegativeInteger"
@@ -1315,6 +1321,202 @@
         ],
         "additionalProperties": false
       }
+    },
+    "part_ranking": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": "source-structure-part-prior-v1"
+        },
+        "feature_version": {
+          "const": "part-structure-features-v1"
+        },
+        "closed_selection": {
+          "const": "closed-exact-extension-v1"
+        },
+        "config": {
+          "const": {
+            "name": "monophony",
+            "strength": 0.08,
+            "onset_monophony": 0.65,
+            "voice_independence": 0.35,
+            "density_fit": 0,
+            "continuity": 0,
+            "register": 0,
+            "mobility": 0,
+            "density_target": 2.0,
+            "continuity_gap_beats": 2.0,
+            "onset_merge_beats": 0.041666666666666664
+          }
+        },
+        "candidate_count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "top_k": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "reranks_full_shortlist": {
+          "const": true
+        },
+        "part_scores": {
+          "type": "object",
+          "patternProperties": {
+            "^[0-9]+$": {
+              "$ref": "#/$defs/score"
+            }
+          },
+          "additionalProperties": false
+        },
+        "part_features": {
+          "type": "object",
+          "patternProperties": {
+            "^[0-9]+$": {
+              "type": "object",
+              "properties": {
+                "onset_monophony": {
+                  "$ref": "#/$defs/score"
+                },
+                "voice_independence": {
+                  "$ref": "#/$defs/score"
+                },
+                "density_fit": {
+                  "$ref": "#/$defs/score"
+                },
+                "continuity": {
+                  "$ref": "#/$defs/score"
+                },
+                "register": {
+                  "$ref": "#/$defs/score"
+                },
+                "mobility": {
+                  "$ref": "#/$defs/score"
+                }
+              },
+              "required": [
+                "onset_monophony",
+                "voice_independence",
+                "density_fit",
+                "continuity",
+                "register",
+                "mobility"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "candidate_order_sha256": {
+          "$ref": "#/$defs/hex64"
+        },
+        "selected_family_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/hex64"
+          }
+        },
+        "selected": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "candidate_rank": {
+                "$ref": "#/$defs/positiveInteger"
+              },
+              "selected_index": {
+                "$ref": "#/$defs/nonNegativeInteger"
+              },
+              "family_id": {
+                "$ref": "#/$defs/hex64"
+              },
+              "part_index": {
+                "$ref": "#/$defs/nonNegativeInteger"
+              },
+              "start_tick": {
+                "$ref": "#/$defs/nonNegativeInteger"
+              },
+              "end_tick": {
+                "$ref": "#/$defs/positiveInteger"
+              },
+              "note_count": {
+                "$ref": "#/$defs/positiveInteger"
+              },
+              "recurrence_score": {
+                "$ref": "#/$defs/score"
+              },
+              "part_score": {
+                "$ref": "#/$defs/score"
+              },
+              "adjusted_score": {
+                "$ref": "#/$defs/nonNegativeNumber"
+              }
+            },
+            "required": [
+              "candidate_rank",
+              "selected_index",
+              "family_id",
+              "part_index",
+              "start_tick",
+              "end_tick",
+              "note_count",
+              "recurrence_score",
+              "part_score",
+              "adjusted_score"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "replacements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rank": {
+                "$ref": "#/$defs/positiveInteger"
+              },
+              "selected_index": {
+                "$ref": "#/$defs/nonNegativeInteger"
+              },
+              "replaced_family_id": {
+                "$ref": "#/$defs/hex64"
+              },
+              "replacement_family_id": {
+                "$ref": "#/$defs/hex64"
+              },
+              "boundary_extension": {
+                "type": "boolean"
+              },
+              "closed_extension": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "rank",
+              "selected_index",
+              "replaced_family_id",
+              "replacement_family_id",
+              "boundary_extension",
+              "closed_extension"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "version",
+        "feature_version",
+        "closed_selection",
+        "config",
+        "candidate_count",
+        "top_k",
+        "reranks_full_shortlist",
+        "part_scores",
+        "part_features",
+        "candidate_order_sha256",
+        "selected_family_ids",
+        "selected",
+        "replacements"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [
@@ -1564,7 +1766,39 @@
           "selection",
           "closed_extension_count",
           "selection_trace"
-        ]
+        ],
+        "properties": {
+          "selection": {
+            "const": "closed-exact-extension-v1"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "algorithm"
+        ],
+        "properties": {
+          "algorithm": {
+            "const": "aligned_melody"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "selection",
+          "part_ranking",
+          "index_variant"
+        ],
+        "properties": {
+          "selection": {
+            "const": "source-structure-part-prior-v1"
+          },
+          "index_variant": {
+            "const": "exact_first_cached_v1"
+          }
+        }
       }
     }
   ],

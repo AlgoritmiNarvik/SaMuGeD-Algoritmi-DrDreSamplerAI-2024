@@ -15,7 +15,7 @@ def main():
     command.add_argument("--output", type=Path, required=True)
     command.add_argument("--workers", type=int, default=4)
     command.add_argument("--limit", type=int)
-    command.add_argument("--algorithm", choices=("reference", "aligned", "aligned_indexed", "aligned_closed"), default="reference")
+    command.add_argument("--algorithm", choices=("reference", "aligned", "aligned_indexed", "aligned_closed", "aligned_melody"), default="reference")
     command.add_argument("--mode", choices=("exact", "transposed", "approximate"), default=None,
                          help="reference matching mode (default: approximate)")
     command.add_argument("--top-k", type=int, default=3)
@@ -25,7 +25,7 @@ def main():
                          help="ignore structurally validated invalid key metadata, recording every repair")
     args = parser.parse_args()
     if args.command == "build":
-        if args.algorithm in {"aligned", "aligned_indexed", "aligned_closed"}:
+        if args.algorithm in {"aligned", "aligned_indexed", "aligned_closed", "aligned_melody"}:
             if args.mode is not None:
                 parser.error("--mode is only supported with --algorithm reference")
             from .aligned import AlignedConfig

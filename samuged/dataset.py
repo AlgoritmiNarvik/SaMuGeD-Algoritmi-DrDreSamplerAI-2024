@@ -4,6 +4,7 @@ from __future__ import annotations
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict
 from hashlib import sha256
+import importlib.metadata
 import json
 import os
 from pathlib import Path
@@ -17,6 +18,19 @@ import unicodedata
 from . import __version__
 from .midi import Note, export_phrase, load_midi
 from .phrases import Config, extract
+
+
+def runtime_metadata() -> dict[str, str]:
+    """Return core numeric runtime versions that can affect MIDI results."""
+    try:
+        mido_version = importlib.metadata.version("mido")
+    except importlib.metadata.PackageNotFoundError:
+        mido_version = "unavailable"
+    return {
+        "python_implementation": platform.python_implementation(),
+        "python_version": platform.python_version(),
+        "mido_version": mido_version,
+    }
 
 
 def canonical_json(value) -> str:
@@ -133,9 +147,12 @@ def _work(task):
         song = (load_midi(path, recover_invalid_keys=True) if recover_invalid_keys
                 else load_midi(path))
         stage = "extraction"
-        if algorithm in {"aligned", "aligned_indexed", "aligned_closed"}:
+        if algorithm in {"aligned", "aligned_indexed", "aligned_closed", "aligned_melody"}:
             from .aligned import AlignedConfig, extract_aligned
-            if algorithm == "aligned_closed":
+            if algorithm == "aligned_melody":
+                from .part_ranking import extract_part_ranked
+                found = extract_part_ranked(song, AlignedConfig(**config))
+            elif algorithm == "aligned_closed":
                 from .closed_patterns import extract_closed_patterns
                 found = extract_closed_patterns(song, AlignedConfig(**config), algorithm="aligned_indexed")
                 found["algorithm"] = algorithm
@@ -268,9 +285,9 @@ def finalize(records: list[dict], output: Path, metadata: dict) -> dict:
 
 def build(source: Path, output: Path, cfg, *, workers=4, limit=None, export=True,
           percussion=False, algorithm="reference", recover_invalid_keys=False):
-    if algorithm not in {"reference", "aligned", "aligned_indexed", "aligned_closed"}:
-        raise ValueError("algorithm must be reference, aligned, aligned_indexed or aligned_closed")
-    if algorithm in {"aligned", "aligned_indexed", "aligned_closed"}:
+    if algorithm not in {"reference", "aligned", "aligned_indexed", "aligned_closed", "aligned_melody"}:
+        raise ValueError("algorithm must be reference, aligned, aligned_indexed, aligned_closed or aligned_melody")
+    if algorithm in {"aligned", "aligned_indexed", "aligned_closed", "aligned_melody"}:
         from .aligned import AlignedConfig
         if not isinstance(cfg, AlignedConfig):
             raise TypeError("aligned algorithm requires AlignedConfig")
@@ -305,21 +322,32 @@ def build(source: Path, output: Path, cfg, *, workers=4, limit=None, export=True
         cfg_dict = asdict(cfg)
         frozen_code = {p.name:p.read_bytes() for p in sorted(Path(__file__).parent.glob("*.py"))}
         code = digest({name:sha256(payload).hexdigest() for name,payload in frozen_code.items()})
+        runtime = runtime_metadata()
         run_key = digest({"config":cfg_dict, "code":code, "version":__version__,
                           "export":export, "percussion":percussion,
-                          "algorithm":algorithm, "recover_invalid_keys":recover_invalid_keys})
+                          "algorithm":algorithm, "recover_invalid_keys":recover_invalid_keys,
+                          "runtime":runtime})
         config_path = output / "build_config.json"
         metadata = {"version":__version__, "config":cfg_dict, "code_sha256":code, "run_key":run_key,
                     "python":platform.python_version(), "percussion":percussion, "export":export,
                     "algorithm":algorithm, "recover_invalid_keys":recover_invalid_keys,
+                    "runtime":runtime,
                     "discovered_source_files":discovered_count, "cohort_limit":limit,
                     "selected_source_files":len(paths)}
         if config_path.exists() and json.loads(config_path.read_text()).get("run_key") != run_key:
             raise ValueError("output has another code/config fingerprint; choose a new output directory")
         try:
-            metadata["git_head"] = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-            metadata["git_dirty"] = bool(subprocess.check_output(["git", "status", "--porcelain"], text=True).strip())
-        except subprocess.CalledProcessError:
+            metadata["git_head"] = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL
+            ).strip()
+            metadata["git_dirty"] = bool(
+                subprocess.check_output(
+                    ["git", "status", "--porcelain"],
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                ).strip()
+            )
+        except (OSError, subprocess.CalledProcessError):
             metadata["git_head"] = None
         atomic_json(config_path, metadata)
         snapshot = output / "provenance" / "samuged"

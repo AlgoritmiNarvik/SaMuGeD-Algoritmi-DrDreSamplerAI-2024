@@ -14,22 +14,24 @@ from .aligned import AlignedConfig, extract_aligned
 from .aligned_indexed import extract_indexed
 from .closed_patterns import extract_closed_patterns
 from .audit_closed import verify_closed_trace
+from .audit_part_ranking import verify_part_ranking
 from .audit_alignment import (
     EXPECTED_MATCHER_FLAGS,
     validate_aligned_config,
     verify_alignment,
 )
 from .dataset import (atomic_json, canonical_json, digest, discover, file_digest,
-                      musical_digest, source_labels)
+                      musical_digest, runtime_metadata, source_labels)
 from .drums import drum_part, extract_drums
 from .midi import Note, load_midi
 from .phrases import Config, extract, signature, skyline, window
+from .part_ranking import ALGORITHM_NAME, PART_PRIOR_VERSION, extract_part_ranked
 
 
 _SOURCE_COLUMNS = ("source_id", "source_sha256", "source_path",
                    "artist_from_path", "title_from_path", "song_key", "split",
                    "split_group", "ticks_per_beat")
-_ALIGNED_ALGORITHMS = frozenset({"aligned", "aligned_indexed", "aligned_closed"})
+_ALIGNED_ALGORITHMS = frozenset({"aligned", "aligned_indexed", "aligned_closed", "aligned_melody"})
 
 
 def _read(path: Path) -> list[dict]:
@@ -200,6 +202,8 @@ def _reextract_record(song, record: dict, config: dict) -> list[str]:
     elif algorithm == "aligned_closed":
         found = extract_closed_patterns(song, AlignedConfig(**config["config"]), algorithm="aligned_indexed")
         found["algorithm"] = algorithm
+    elif algorithm == "aligned_melody":
+        found = extract_part_ranked(song, AlignedConfig(**config["config"]))
     else:
         found = extract(song, Config(**config["config"]))
     phrases = [{**phrase, "kind": "melodic"} for phrase in found.pop("phrases")]
@@ -255,7 +259,25 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
         require(summary.get(key) == value, "summary.json", f"{key} differs from build config")
     run_fields = {"config", "code_sha256", "version", "export", "percussion"}
     new_fingerprint_fields = {"algorithm", "recover_invalid_keys"}
-    if run_fields <= config.keys() and not (new_fingerprint_fields & config.keys()):
+    if run_fields | new_fingerprint_fields | {"runtime"} <= config.keys():
+        runtime = config.get("runtime")
+        valid_runtime = (
+            isinstance(runtime, dict)
+            and set(runtime) == {"python_implementation", "python_version", "mido_version"}
+            and all(isinstance(value, str) and value for value in runtime.values())
+        )
+        require(valid_runtime, "build_config.json", "runtime fingerprint is invalid")
+        require(runtime == runtime_metadata(), "build_config.json",
+                "runtime fingerprint differs from current environment")
+        run_key = digest({"config": config["config"], "code": config["code_sha256"],
+                          "version": config["version"], "export": config["export"],
+                          "percussion": config["percussion"],
+                          "algorithm": config["algorithm"],
+                          "recover_invalid_keys": config["recover_invalid_keys"],
+                          "runtime": runtime})
+        require(config.get("run_key") == run_key, "build_config.json",
+                "run key differs from build inputs")
+    elif run_fields <= config.keys() and not (new_fingerprint_fields & config.keys()):
         run_key = digest({"config": config["config"], "code": config["code_sha256"],
                           "version": config["version"], "export": config["export"],
                           "percussion": config["percussion"]})
@@ -408,6 +430,8 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
                         extract_indexed(error_song, AlignedConfig(**config["config"]))
                     elif algorithm == "aligned_closed":
                         extract_closed_patterns(error_song, AlignedConfig(**config["config"]), algorithm="aligned_indexed")
+                    elif algorithm == "aligned_melody":
+                        extract_part_ranked(error_song, AlignedConfig(**config["config"]))
                     else:
                         extract(error_song, Config(**config["config"]))
                     if config.get("percussion"):
@@ -449,6 +473,15 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
                         "closed extension count differs from trace")
                 last_tick = max((note.end for part in song.parts for note in part.notes), default=0)
                 for problem in verify_closed_trace(record, config["config"], last_tick):
+                    require(False, location, problem)
+            elif algorithm == "aligned_melody":
+                require(record.get("algorithm") == ALGORITHM_NAME, location,
+                        "part-ranked source algorithm differs from build")
+                require(record.get("selection") == PART_PRIOR_VERSION, location,
+                        "part-ranked source selection policy differs")
+                for problem in verify_part_ranking(
+                    record, song, config.get("config", {}).get("top_k")
+                ):
                     require(False, location, problem)
             if reextract:
                 for problem in _reextract_record(song, record, config):
