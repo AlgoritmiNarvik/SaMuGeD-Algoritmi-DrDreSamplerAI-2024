@@ -248,3 +248,25 @@ the same frozen 40 million seed namespace. It must not overwrite either
 completed study. Replaying the rejected v01 design requires its frozen source
 snapshot rather than the current working-tree runner. Neither command changes
 the production detector or promotes a new default.
+
+## Independent metric audit
+
+The corrected arithmetic audits are `research_local/seed_rescue_union_metric_audit_v03`
+and `research_local/seed_rescue_v01_metric_audit_v03`. Each verifies the exact
+1,131-case cohort, all 3,393 saved detector result hashes, all 3,000 synthetic
+candidate projections against the raw phrase payloads and the resulting
+interval scores using exact rational IoU and maximum-cardinality matching.
+The 128 real-output comparisons and three regression interval-subset outcomes
+are independently reconstructed. All checks pass. These audits do not rerun
+the detector or make reused cases independent.
+
+The executable driver is saved with SHA256
+`0c594e803e49b16cb5a56a9253e20e6bdb35451d85c3aa86a9e365ebc84978cd`.
+The union audit SHA256 is
+`adcb338a95b5b1d350262ba2b084c542c43a69a3a17d8970d064105ec7c79ecb`;
+the earlier replacement audit SHA256 is
+`787a218ccbed1419e4ea56d76b692d8e2d2cadaeb4b82ce86d9b294bf3c5c3a5`.
+A root rerun reproduces both reports at
+`research_local/seed_rescue_metric_root_check_v03.json`. Earlier audit v01/v02
+artifacts remain preserved; v03 adds direct raw-result binding and separately
+records the actual source completion file hash.

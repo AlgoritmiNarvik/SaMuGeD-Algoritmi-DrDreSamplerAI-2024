@@ -290,3 +290,11 @@ The closed full build is complete with 50,566 melodic and 44,511 percussion cand
 The closed full artifact audit passes all 95,077 exported MIDI excerpts and 16,995 successfully parsed sources, reproducing all 237 input errors with no audit failures. Schema validation and a separate 256-source selection replay follow in the frozen wrapper. Full-corpus closed comparison, duplicate screening and a 64-pair blinded review packet are now being prepared.
 
 Cross-study seed checking found a naming error in the rejected seed-rescue v01 experiment. Its `fresh_seed_500` cohort uses exactly the same 500 seeds and generated metadata as the previously observed closed-pattern study. The v01 seed-rescue cohort is now described as reused development evidence; frozen receipt names and numbers are preserved. The separate union v02 cohort at 40 million has no seed overlap with either prior cohort. This correction does not invalidate the original closed-pattern experiment or change any detector output. The root evidence is `research_local/seed_rescue_namespace_audit_v01.json`.
+
+### 13:06 Oslo checkpoint
+
+The full closed corpus artifact audit and schema validation pass all 95,077 phrase MIDI rows and 17,232 source rows. Its 256-source selection replay is running. The full indexed replay has passed more than 10,000 of 16,995 successful sources so far. The melody-prior full extraction has passed 13,500 of 17,232 inputs; these unfinished jobs remain pending evidence.
+
+A deterministic 64-pair reference versus closed listening packet now has source reconstruction for all 128 alternatives, 64 distinct split groups and balanced A/B sides. Two identical pairs remain included. Root reran the reconstruction, rendered the browser interface and checked both playback controls, stop and the actual all-null export through its visible fallback. The downloaded-file event timed out; no download success is claimed. No listener ratings were created.
+
+Corrected independent seed rescue metric audits now bind all raw result hashes and candidate coordinates, reconstruct all 3,000 synthetic score rows per study and verify the three regression target outcomes. Root reproduced both audit reports. The previously identified reuse of the 30-million seed cohort remains documented and does not become independent evidence through arithmetic replay.
