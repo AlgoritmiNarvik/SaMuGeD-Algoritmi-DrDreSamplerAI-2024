@@ -54,18 +54,24 @@ def _phrase(
     }
 
 
-def _record(source_id: str, phrases: list[dict], *, source_sha: str | None = None) -> dict:
+def _record(
+    source_id: str,
+    phrases: list[dict],
+    *,
+    status: str = "ok",
+    outcome: str = "matched",
+) -> dict:
     return {
         "source_id": source_id,
         "source_path": f"artist/{source_id}.mid",
-        "source_sha256": source_sha or (source_id * 32)[:64],
+        "source_sha256": (source_id * 32)[:64],
         "source_bytes": 100,
         "artist_from_path": "artist",
         "artist_key": "artist-key",
         "title_from_path": source_id,
         "song_key": f"song-{source_id}",
-        "status": "ok",
-        "outcome": "matched",
+        "status": status,
+        "outcome": outcome,
         "musical_sha256": f"music-{source_id}",
         "ticks_per_beat": 480,
         "part_count": 2,
@@ -239,18 +245,75 @@ def test_stale_audit_binding_is_rejected_before_output(tmp_path: Path) -> None:
     assert not output.exists()
 
 
-@pytest.mark.parametrize("change", ["identity", "split"])
-def test_source_identity_and_split_must_match(tmp_path: Path, change: str) -> None:
+def test_algorithm_dependent_outcome_drift_is_reported(tmp_path: Path) -> None:
+    phrase = _phrase("melodic", "new-match", rank=1)
+    left_record = _record("a1", [], outcome="no_match")
+    right_record = _record("a1", [phrase], outcome="matched")
+    left, right = tmp_path / "left", tmp_path / "right"
+    _write_build(left, "reference", [(left_record, "train", "g1")])
+    _write_build(right, "aligned_indexed", [(right_record, "train", "g1")])
+
+    output = tmp_path / "comparison"
+    aggregate = compare_variants(left, right, output)
+
+    assert aggregate["source_outcomes"] == {
+        "left": {"ok:no_match": 1},
+        "right": {"ok:matched": 1},
+        "transitions": {"ok:no_match->ok:matched": 1},
+        "changed_source_count": 1,
+        "changed_source_ids": ["a1"],
+    }
+    raw = json.loads((output / "raw_results.json").read_text())
+    assert raw["source_outcome_changes"] == [
+        {
+            "source_id": "a1",
+            "source_path": "artist/a1.mid",
+            "left_status": "ok",
+            "left_outcome": "no_match",
+            "right_status": "ok",
+            "right_outcome": "matched",
+        }
+    ]
+    assert aggregate["semantic_phrase_changes"]["melodic"]["changed_source_ids"] == ["a1"]
+    verify_completed_experiment(output)
+
+
+@pytest.mark.parametrize(
+    ("change", "field"),
+    [
+        ("content", "source_sha256"),
+        ("status", "status"),
+        ("musical", "musical_sha256"),
+        ("recovery", "metadata_repairs"),
+    ],
+)
+def test_true_source_identity_must_match(tmp_path: Path, change: str, field: str) -> None:
     phrase = _phrase("melodic", "same", rank=1)
     left_record = _record("a1", [phrase])
-    right_record = _record("a1", [phrase], source_sha="f" * 64) if change == "identity" else _record("a1", [phrase])
+    right_record = _record("a1", [phrase])
+    changes = {
+        "content": "f" * 64,
+        "status": "error",
+        "musical": "other-musical-fingerprint",
+        "recovery": [{"kind": "recovered"}],
+    }
+    right_record[field] = changes[change]
     left, right = tmp_path / "left", tmp_path / "right"
     _write_build(left, "aligned_indexed", [(left_record, "train", "g1")])
-    right_split = "test" if change == "split" else "train"
-    _write_build(right, "aligned_closed", [(right_record, right_split, "g1")])
+    _write_build(right, "aligned_closed", [(right_record, "train", "g1")])
 
-    message = "source identity differs" if change == "identity" else "source split assignment differs"
-    with pytest.raises(ValueError, match=message):
+    with pytest.raises(ValueError, match=rf"source identity differs.*{field}"):
+        compare_variants(left, right, tmp_path / "comparison")
+
+
+def test_source_split_must_match(tmp_path: Path) -> None:
+    phrase = _phrase("melodic", "same", rank=1)
+    record = _record("a1", [phrase])
+    left, right = tmp_path / "left", tmp_path / "right"
+    _write_build(left, "aligned_indexed", [(record, "train", "g1")])
+    _write_build(right, "aligned_closed", [(record, "test", "g1")])
+
+    with pytest.raises(ValueError, match="source split assignment differs"):
         compare_variants(left, right, tmp_path / "comparison")
 
 

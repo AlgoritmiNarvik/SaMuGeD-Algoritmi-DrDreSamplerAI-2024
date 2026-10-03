@@ -13,7 +13,7 @@ from samuged.dataset import atomic_json
 from samuged.experiment import complete_experiment, prepare_experiment, receipt_links, sha256_json
 
 
-VERSION = "algorithm-variant-comparison-v1"
+VERSION = "algorithm-variant-comparison-v2"
 KINDS = ("melodic", "percussion")
 PHRASE_EXCLUSIONS = frozenset({"phrase_id", "midi_path", "rank_in_file"})
 MANIFEST_ONLY_FIELDS = frozenset({"split", "split_group"})
@@ -40,7 +40,6 @@ SOURCE_IDENTITY_FIELDS = (
     "title_from_path",
     "song_key",
     "status",
-    "outcome",
     "musical_sha256",
     "ticks_per_beat",
     "part_count",
@@ -490,8 +489,9 @@ def compare_variants(left: Path, right: Path, output: Path) -> dict[str, Any]:
     }
     config = {
         "require_clean_bound_audits": True,
-        "require_identical_source_identity": True,
+        "require_identical_source_input_identity": True,
         "require_identical_source_splits": True,
+        "algorithm_dependent_source_fields": ["outcome"],
         "compare_rank_order": True,
         "compare_rank_order_within_kind": True,
         "report_cross_kind_global_rank_separately": True,
@@ -567,7 +567,9 @@ def compare_variants(left: Path, right: Path, output: Path) -> dict[str, Any]:
         side: {kind: defaultdict(list) for kind in KINDS}
         for side in ("left", "right")
     }
-    outcome_counts: Counter[str] = Counter()
+    outcome_counts = {side: Counter() for side in ("left", "right")}
+    outcome_transitions: Counter[str] = Counter()
+    outcome_changes: list[dict[str, Any]] = []
     rank_shifts = {kind: [] for kind in KINDS}
 
     for index, name in enumerate(sorted(record_names["left"])):
@@ -595,7 +597,26 @@ def compare_variants(left: Path, right: Path, output: Path) -> dict[str, Any]:
             if invalid_kinds:
                 raise ValueError(f"record contains unsupported phrase kind: {side}/{name}")
             pair[side] = record
-        outcome_counts[f"{pair['left'].get('status')}:{pair['left'].get('outcome')}"] += 1
+        for side in ("left", "right"):
+            outcome_counts[side][
+                f"{pair[side].get('status')}:{pair[side].get('outcome')}"
+            ] += 1
+        transition = (
+            f"{pair['left'].get('status')}:{pair['left'].get('outcome')}"
+            f"->{pair['right'].get('status')}:{pair['right'].get('outcome')}"
+        )
+        outcome_transitions[transition] += 1
+        if pair["left"].get("outcome") != pair["right"].get("outcome"):
+            outcome_changes.append(
+                {
+                    "source_id": source_id,
+                    "source_path": pair["left"].get("source_path"),
+                    "left_status": pair["left"].get("status"),
+                    "left_outcome": pair["left"].get("outcome"),
+                    "right_status": pair["right"].get("status"),
+                    "right_outcome": pair["right"].get("outcome"),
+                }
+            )
 
         source_change = {
             "source_id": source_id,
@@ -642,6 +663,7 @@ def compare_variants(left: Path, right: Path, output: Path) -> dict[str, Any]:
         "version": VERSION,
         "algorithms": design["algorithms"],
         "phrase_exclusions": sorted(PHRASE_EXCLUSIONS),
+        "source_outcome_changes": outcome_changes,
         "changed_sources": changed,
         "global_rank_shifts": rank_shifts,
     }
@@ -661,7 +683,13 @@ def compare_variants(left: Path, right: Path, output: Path) -> dict[str, Any]:
                 for side in ("left", "right")
             },
         },
-        "source_outcomes": dict(sorted(outcome_counts.items())),
+        "source_outcomes": {
+            "left": dict(sorted(outcome_counts["left"].items())),
+            "right": dict(sorted(outcome_counts["right"].items())),
+            "transitions": dict(sorted(outcome_transitions.items())),
+            "changed_source_count": len(outcome_changes),
+            "changed_source_ids": [row["source_id"] for row in outcome_changes],
+        },
         "changed_sources_any_kind": len(changed),
         "semantic_phrase_changes": {
             kind: {
@@ -694,6 +722,7 @@ def compare_variants(left: Path, right: Path, output: Path) -> dict[str, Any]:
         "event": "comparison_finished",
         "records_compared": len(record_names["left"]),
         "changed_sources": len(changed),
+        "source_outcome_changes": len(outcome_changes),
     })
 
     _recheck(principal, datasets)
