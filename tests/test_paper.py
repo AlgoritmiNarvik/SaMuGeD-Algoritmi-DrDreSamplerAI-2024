@@ -6,11 +6,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+import mido
 import pytest
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph
 
-from samuged.dataset import file_digest
+from samuged.audit import audit as audit_dataset
+from samuged.dataset import build, file_digest
+from samuged.phrases import Config
+from scripts.audit_selection_sample import run_sample
 from scripts import make_paper
 
 
@@ -29,6 +33,7 @@ def test_documented_direct_script_entrypoint_imports():
     assert "--certified-drum-audit" in completed.stdout
     assert "--selection-external-evaluation" in completed.stdout
     assert "--comparison-dataset" in completed.stdout
+    assert "--selection-replay" in completed.stdout
 
 
 def _write(path: Path, value) -> None:
@@ -36,6 +41,46 @@ def _write(path: Path, value) -> None:
         path.write_text(value, encoding="utf-8")
     else:
         path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _write_replay_midi(path: Path, base_pitch: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    midi = mido.MidiFile(ticks_per_beat=480)
+    track = mido.MidiTrack()
+    midi.tracks.append(track)
+    for repetition in range(2):
+        for index, interval in enumerate((0, 2, 5, 4, 7, 9, 5, 2)):
+            track.append(
+                mido.Message(
+                    "note_on", note=base_pitch + interval, velocity=80,
+                    time=1920 if repetition and index == 0 else 0,
+                )
+            )
+            track.append(
+                mido.Message("note_off", note=base_pitch + interval, velocity=0, time=240)
+            )
+    midi.save(path)
+
+
+def _selection_replay_fixture(
+    tmp_path: Path, *, all_successful: bool,
+) -> tuple[Path, Path]:
+    source = tmp_path / "replay-source"
+    dataset = tmp_path / "replay-dataset"
+    replay = tmp_path / "replay"
+    _write_replay_midi(source / "one.mid", 60)
+    _write_replay_midi(source / "two.mid", 62)
+    build(source, dataset, Config(lengths=(8,), mode="exact"), workers=1)
+    audited = audit_dataset(source, dataset, require_full=True)
+    assert audited["passed"], audited["failures"]
+    result = run_sample(
+        dataset, source, replay,
+        count=None if all_successful else 1,
+        workers=1,
+        all_successful=all_successful,
+    )
+    assert result["failure_count"] == 0
+    return dataset, replay
 
 
 def _dataset(path: Path, *, run_key: str = "run-1", algorithm: str | None = None) -> Path:
@@ -288,6 +333,97 @@ def test_comparison_bindings_detect_change_before_receipt(tmp_path: Path) -> Non
     )
     with pytest.raises(ValueError, match="audit.json"):
         make_paper._recheck_dataset_bindings(audit_info)
+
+
+@pytest.mark.parametrize(
+    ("all_successful", "expected_mode", "expected_count", "covers_all"),
+    [
+        (False, "bounded_sample", 1, False),
+        (True, "all_successful", 2, True),
+    ],
+)
+def test_selection_replay_accepts_bound_completed_scopes(
+    tmp_path: Path,
+    all_successful: bool,
+    expected_mode: str,
+    expected_count: int,
+    covers_all: bool,
+) -> None:
+    dataset, replay = _selection_replay_fixture(
+        tmp_path, all_successful=all_successful,
+    )
+    dataset_info = make_paper.validate_dataset(dataset)
+
+    summary, inputs, artifacts = make_paper.validate_selection_replay(
+        dataset_info, replay,
+    )
+
+    assert summary["selection_mode"] == expected_mode
+    assert summary["selection_count"] == expected_count
+    assert summary["passed_count"] == expected_count
+    assert summary["failure_count"] == 0
+    assert summary["selection_covers_all_successful_sources"] is covers_all
+    assert summary["successful_source_count"] == 2
+    assert summary["error_source_count"] == 0
+    assert summary["portable_artifact_count"] == len(inputs) == len(artifacts)
+    assert all(item["bytes"] > 0 and len(item["sha256"]) == 64 for item in artifacts.values())
+    paper_inputs = {
+        f"selection_replay_{key}": path for key, path in inputs.items()
+    }
+    input_records = make_paper._paper_input_records(paper_inputs, artifacts)
+    assert len(input_records) == len(artifacts)
+    for key, artifact in artifacts.items():
+        assert input_records[f"selection_replay_{key}"] == {
+            "path": str(inputs[key]),
+            "sha256": artifact["sha256"],
+            "bytes": artifact["bytes"],
+            "relative_path": artifact["relative_path"],
+        }
+    make_paper._recheck_selection_replay(dataset_info, replay, summary, artifacts)
+
+
+def test_selection_replay_rejects_stale_primary_dataset_binding(tmp_path: Path) -> None:
+    dataset, replay = _selection_replay_fixture(tmp_path, all_successful=False)
+    dataset_info = make_paper.validate_dataset(dataset)
+    with (dataset / "phrases.jsonl").open("ab") as stream:
+        stream.write(b"\n")
+
+    with pytest.raises(ValueError, match="dataset binding mismatch"):
+        make_paper.validate_selection_replay(dataset_info, replay)
+
+
+def test_selection_replay_prose_distinguishes_bounded_and_all_source_scope() -> None:
+    primary, bounded = make_paper.selection_replay_scope_text(
+        {"reextraction_required": False},
+        {
+            "selection_count": 256,
+            "passed_count": 256,
+            "failure_count": 0,
+            "selection_covers_all_successful_sources": False,
+            "successful_source_count": 16_995,
+            "error_source_count": 237,
+        },
+    )
+    assert "did not repeat candidate generation and selection" in primary
+    assert "bounded cohort of 256 from 16,995 successful sources" in bounded
+    assert "16,995 successful and 237 error sources (17,232 total)" in bounded
+    assert "no musical quality claim" in bounded
+
+    primary, complete = make_paper.selection_replay_scope_text(
+        {"reextraction_required": True},
+        {
+            "selection_count": 16_995,
+            "passed_count": 16_995,
+            "failure_count": 0,
+            "selection_covers_all_successful_sources": True,
+            "successful_source_count": 16_995,
+            "error_source_count": 237,
+        },
+    )
+    assert "re-extracted every successful source" in primary
+    assert "passed 16,995 of 16,995" in complete
+    assert "covers all 16,995 successful sources" in complete
+    assert "bounded cohort" not in complete
 
 
 def test_aligned_method_description_states_alignment_limits() -> None:

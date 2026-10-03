@@ -33,10 +33,12 @@ from samuged.evaluate_aligned import aggregate_real_rows
 from samuged.evaluate_drums import aggregate_results as aggregate_drums
 from samuged.experiment import receipt_links, verify_start_receipt
 try:
+    from scripts.package_dataset import _selection_replay_binding
     from scripts.screen_splits import verify_screening
 except ModuleNotFoundError as exc:
     if exc.name != "scripts":
         raise
+    from package_dataset import _selection_replay_binding
     from screen_splits import verify_screening
 
 
@@ -1798,6 +1800,107 @@ def validate_screening(dataset: Path, screening_path: Path) -> tuple[dict, dict[
     return summary, inputs
 
 
+def validate_selection_replay(dataset_info: dict, replay_path: Path) -> tuple[dict, dict[str, Path], dict[str, dict]]:
+    """Reuse the package verifier and freeze every portable replay artifact."""
+    replay = Path(replay_path)
+    binding = _selection_replay_binding(
+        replay,
+        dataset_info["path"],
+        dataset_info["summary"],
+        dataset_info["audit"],
+        dataset_info["build"],
+    )
+    files = sorted(binding.pop("files"))
+    replay = replay.resolve(strict=True)
+    inputs: dict[str, Path] = {}
+    artifacts: dict[str, dict] = {}
+    for index, relative in enumerate(files):
+        path = replay / relative
+        key = f"artifact_{index:04d}_{Path(relative).name}"
+        inputs[key] = path
+        artifacts[key] = {
+            "relative_path": relative,
+            "bytes": path.stat().st_size,
+            "sha256": file_digest(path),
+        }
+    summary = {
+        **binding,
+        "portable_artifact_count": len(files),
+        "portable_artifacts_sha256": _sha256_json(
+            {item["relative_path"]: {"bytes": item["bytes"], "sha256": item["sha256"]}
+             for item in artifacts.values()}
+        ),
+    }
+    return summary, inputs, artifacts
+
+
+def _recheck_selection_replay(
+    dataset_info: dict,
+    replay_path: Path,
+    expected_summary: dict,
+    expected_artifacts: dict[str, dict],
+) -> None:
+    summary, _inputs, artifacts = validate_selection_replay(dataset_info, replay_path)
+    if summary != expected_summary or artifacts != expected_artifacts:
+        raise ValueError("selection replay input changed before paper receipt")
+
+
+def selection_replay_scope_text(audit: dict, replay: dict | None) -> tuple[str, str | None]:
+    """Describe primary audit and supplementary replay scopes without quality claims."""
+    if audit.get("reextraction_required") is True:
+        primary = (
+            "The primary artifact audit re-extracted every successful source and compared the complete selected "
+            "output and detector evidence."
+        )
+    else:
+        primary = (
+            "The primary artifact audit did not repeat candidate generation and selection for every successful "
+            "source. Stored candidate ordering and selection decisions are not fully replayed by that audit."
+        )
+    if replay is None:
+        return primary, None
+    selected = replay["selection_count"]
+    passed = replay["passed_count"]
+    successful = replay["successful_source_count"]
+    errors = replay["error_source_count"]
+    total = successful + errors
+    result = (
+        f"The supplementary selection replay selected {selected:,} successful sources and passed {passed:,} of "
+        f"{selected:,}, with {replay['failure_count']:,} failures. "
+    )
+    if replay["selection_covers_all_successful_sources"]:
+        result += f"It covers all {successful:,} successful sources"
+    else:
+        result += f"It is a bounded cohort of {selected:,} from {successful:,} successful sources"
+    result += (
+        f"; the full manifest denominator is {successful:,} successful and {errors:,} error sources "
+        f"({total:,} total). This replay is a consistency check and makes no musical quality claim."
+    )
+    return primary, result
+
+
+def _paper_input_records(
+    inputs: dict[str, Path],
+    selection_replay_artifacts: dict[str, dict] | None = None,
+) -> dict[str, dict]:
+    records = {
+        key: {"path": str(path), "sha256": file_digest(path)}
+        for key, path in sorted(inputs.items())
+    }
+    for key, artifact in (selection_replay_artifacts or {}).items():
+        receipt_key = f"selection_replay_{key}"
+        if receipt_key not in records:
+            raise ValueError("selection replay artifact is absent from paper inputs")
+        records[receipt_key].update(
+            {
+                "sha256": artifact["sha256"],
+                "bytes": artifact["bytes"],
+                "relative_path": artifact["relative_path"],
+            }
+        )
+    return records
+
+
 def pipeline() -> Drawing:
     drawing = Drawing(480, 84)
     labels = [
@@ -1854,12 +1957,18 @@ def render(
     certified_drums_audit_path: Path | None = None,
     selection_external_path: Path | None = None,
     comparison_paths: list[Path] | tuple[Path, ...] | None = None,
+    selection_replay_path: Path | None = None,
 ) -> None:
     dataset_info = validate_dataset(dataset)
     comparison_datasets = validate_comparison_datasets(
         dataset_info, comparison_paths,
     )
     summary, audit, build = dataset_info["summary"], dataset_info["audit"], dataset_info["build"]
+    selection_replay, selection_replay_inputs, selection_replay_artifacts = None, {}, {}
+    if selection_replay_path is not None:
+        selection_replay, selection_replay_inputs, selection_replay_artifacts = validate_selection_replay(
+            dataset_info, selection_replay_path,
+        )
     profiles = phrase_profile(dataset_info)
     melody, melody_receipt, melody_inputs = validate_melody(melody_path)
     drums, drum_inputs = validate_drums(drums_path)
@@ -2029,8 +2138,8 @@ def render(
         heading("Evaluated extensions")
         if aligned:
             p("Indexed alignment searches 6 to 32 note windows. It verifies a constant pitch shift and "
-              "bounded onset and duration differences while allowing internal note edits: at most four and "
-              "at most 15% of the prototype length, rounded down. It does not warp tempo or allow terminal "
+              "bounded onset and duration differences. The internal edit budget is 15% of the longer window "
+              "length, rounded down, with a minimum of one and maximum of four. It does not warp tempo or allow terminal "
               "gaps. Indexed anchors reduce pair enumeration but can miss valid repetitions.", "SmallLocal")
         if closed:
             p("Closed exact selection can replace a shorter family with a containing longer family. Both "
@@ -2287,6 +2396,12 @@ def render(
         ["Canonical family rows excluded across splits", f"{summary['family_split_conflict_rows']:,}"],
         ["Artifact audit failures", str(audit["failure_count"])],
     ], [350, 130])
+    primary_replay_scope, supplementary_replay_scope = selection_replay_scope_text(
+        audit, selection_replay,
+    )
+    p(primary_replay_scope, "SmallLocal")
+    if supplementary_replay_scope is not None:
+        p(supplementary_replay_scope, "SmallLocal")
     p("The audit reconstructs source and excerpt semantics inside the same repository. It is a consistency check, not "
       "external certification. Human phrase labels for this Lakh collection are uncollected. Redistribution of musical content requires a "
       "separate rights review. Software licensing does not establish rights to compositions or arrangements.")
@@ -2309,6 +2424,11 @@ def render(
     _build_pdf(Path(output), story)
     for info in (dataset_info, *comparison_datasets):
         _recheck_dataset_bindings(info)
+    if selection_replay is not None:
+        _recheck_selection_replay(
+            dataset_info, selection_replay_path, selection_replay,
+            selection_replay_artifacts,
+        )
     inputs: dict[str, Path] = {
         "dataset_summary": dataset_info["path"] / "summary.json",
         "dataset_audit": dataset_info["path"] / "audit.json",
@@ -2334,14 +2454,17 @@ def render(
         ("part_ranking", part_ranking_inputs),
         ("certified_drums", certified_drums_inputs),
         ("selection_external", selection_external_inputs),
+        ("selection_replay", selection_replay_inputs),
     ):
         inputs.update({f"{prefix}_{name}": path for name, path in values.items()})
-    input_records = {
-        key: {"path": str(path), "sha256": file_digest(path)}
-        for key, path in sorted(inputs.items())
-    }
+    input_records = _paper_input_records(inputs, selection_replay_artifacts)
     for info in (dataset_info, *comparison_datasets):
         _recheck_dataset_bindings(info)
+    if selection_replay is not None:
+        _recheck_selection_replay(
+            dataset_info, selection_replay_path, selection_replay,
+            selection_replay_artifacts,
+        )
     receipt = {
         "run_key": summary["run_key"], "algorithm": algorithm,
         "report_date": paper_date, "report_date_source": date_source,
@@ -2366,6 +2489,7 @@ def render(
             }
             for info in comparison_datasets
         ],
+        "selection_replay": selection_replay,
         "inputs": input_records,
     }
     Path(output).with_suffix(".inputs.json").write_text(
@@ -2395,6 +2519,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--certified-drum-audit", type=Path)
     parser.add_argument("--selection-external-evaluation", type=Path)
     parser.add_argument(
+        "--selection-replay", type=Path,
+        help="completed supplementary selection replay for the primary dataset",
+    )
+    parser.add_argument(
         "--comparison-dataset", action="append", type=Path, default=[],
         help="audited full-corpus variant; repeat up to three times",
     )
@@ -2421,6 +2549,7 @@ def main(argv: list[str] | None = None) -> None:
         certified_drums_audit_path=args.certified_drum_audit,
         selection_external_path=args.selection_external_evaluation,
         comparison_paths=args.comparison_dataset,
+        selection_replay_path=args.selection_replay,
     )
     print(args.output.resolve())
 
