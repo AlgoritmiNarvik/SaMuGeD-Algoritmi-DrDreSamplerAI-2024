@@ -10,6 +10,13 @@ from pathlib import Path, PurePosixPath
 
 import mido
 
+from .aligned import AlignedConfig, extract_aligned
+from .aligned_indexed import extract_indexed
+from .audit_alignment import (
+    EXPECTED_MATCHER_FLAGS,
+    validate_aligned_config,
+    verify_alignment,
+)
 from .dataset import (atomic_json, canonical_json, digest, discover, file_digest,
                       musical_digest, source_labels)
 from .drums import drum_part, extract_drums
@@ -20,6 +27,7 @@ from .phrases import Config, extract, signature, skyline, window
 _SOURCE_COLUMNS = ("source_id", "source_sha256", "source_path",
                    "artist_from_path", "title_from_path", "song_key", "split",
                    "split_group", "ticks_per_beat")
+_ALIGNED_ALGORITHMS = frozenset({"aligned", "aligned_indexed"})
 
 
 def _read(path: Path) -> list[dict]:
@@ -143,7 +151,9 @@ def _drum_window_meter(song, start: int, end: int, bars: int) -> tuple[int, int]
     return numerator, denominator
 
 
-def _expected_summary(config: dict, records: list[dict], rows: list[dict]) -> dict:
+def _expected_summary(
+    config: dict, records: list[dict], rows: list[dict], saved_summary: dict
+) -> dict:
     values = {
         "source_files": len(records),
         "source_status": dict(Counter(row["status"] for row in records)),
@@ -161,6 +171,14 @@ def _expected_summary(config: dict, records: list[dict], rows: list[dict]) -> di
         "unique_phrase_families": len({(row["kind"], row["family_id"]) for row in rows}),
         "worker_seconds": round(sum(row["elapsed_seconds"] for row in records), 3),
     }
+    if "metadata_recovered_files" in saved_summary:
+        values["metadata_recovered_files"] = sum(
+            bool(row.get("metadata_repairs")) for row in records
+        )
+    if "metadata_repair_events" in saved_summary:
+        values["metadata_repair_events"] = sum(
+            len(row.get("metadata_repairs", [])) for row in records
+        )
     values.update(config)
     return values
 
@@ -172,7 +190,13 @@ def _without_artifact(phrase: dict) -> dict:
 
 def _reextract_record(song, record: dict, config: dict) -> list[str]:
     problems = []
-    found = extract(song, Config(**config["config"]))
+    algorithm = config.get("algorithm", "reference")
+    if algorithm == "aligned":
+        found = extract_aligned(song, AlignedConfig(**config["config"]))
+    elif algorithm == "aligned_indexed":
+        found = extract_indexed(song, AlignedConfig(**config["config"]))
+    else:
+        found = extract(song, Config(**config["config"]))
     phrases = [{**phrase, "kind": "melodic"} for phrase in found.pop("phrases")]
     for key, value in found.items():
         if canonical_json(record.get(key)) != canonical_json(value):
@@ -196,10 +220,21 @@ def _reextract_record(song, record: dict, config: dict) -> list[str]:
 def audit(source: Path, output: Path, *, require_full: bool = False,
           reextract: bool = False) -> dict:
     source, output = source.resolve(), output.resolve()
+    binding_paths = {
+        "source_manifest_sha256": output / "sources.jsonl",
+        "phrase_manifest_sha256": output / "phrases.jsonl",
+        "build_config_sha256": output / "build_config.json",
+        "summary_sha256": output / "summary.json",
+    }
+    binding_hashes = {
+        key: file_digest(path) for key, path in binding_paths.items()
+    }
     records = _read(output / "sources.jsonl")
     rows = _read(output / "phrases.jsonl")
     config = json.loads((output / "build_config.json").read_text(encoding="utf-8"))
     summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+    source_manifest_sha256 = binding_hashes["source_manifest_sha256"]
+    phrase_manifest_sha256 = binding_hashes["phrase_manifest_sha256"]
     errors: list[dict[str, str]] = []
     counts: Counter = Counter()
 
@@ -207,21 +242,43 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
         if not condition:
             errors.append({"where": str(where), "reason": reason})
 
-    require(file_digest(output/"sources.jsonl") == summary.get("source_manifest_sha256"),
+    require(source_manifest_sha256 == summary.get("source_manifest_sha256"),
             "sources.jsonl", "manifest hash mismatch")
-    require(file_digest(output/"phrases.jsonl") == summary.get("phrase_manifest_sha256"),
+    require(phrase_manifest_sha256 == summary.get("phrase_manifest_sha256"),
             "phrases.jsonl", "manifest hash mismatch")
     for key, value in config.items():
         require(summary.get(key) == value, "summary.json", f"{key} differs from build config")
     run_fields = {"config", "code_sha256", "version", "export", "percussion"}
-    if run_fields <= config.keys():
+    new_fingerprint_fields = {"algorithm", "recover_invalid_keys"}
+    if run_fields <= config.keys() and not (new_fingerprint_fields & config.keys()):
         run_key = digest({"config": config["config"], "code": config["code_sha256"],
                           "version": config["version"], "export": config["export"],
                           "percussion": config["percussion"]})
         require(config.get("run_key") == run_key, "build_config.json",
                 "run key differs from build inputs")
+    elif run_fields | new_fingerprint_fields <= config.keys():
+        run_key = digest({"config": config["config"], "code": config["code_sha256"],
+                          "version": config["version"], "export": config["export"],
+                          "percussion": config["percussion"],
+                          "algorithm": config["algorithm"],
+                          "recover_invalid_keys": config["recover_invalid_keys"]})
+        require(config.get("run_key") == run_key, "build_config.json",
+                "run key differs from build inputs")
     else:
         require(False, "build_config.json", "build fingerprint fields missing")
+    algorithm = config.get("algorithm", "reference")
+    recover_invalid_keys = config.get("recover_invalid_keys", False)
+    recovery_explicitly_enabled = (
+        "recover_invalid_keys" in config and recover_invalid_keys is True
+    )
+    require(algorithm == "reference" or algorithm in _ALIGNED_ALGORITHMS,
+            "build_config.json",
+            "invalid extraction algorithm")
+    require(type(recover_invalid_keys) is bool, "build_config.json",
+            "recover_invalid_keys is not a boolean")
+    if algorithm in _ALIGNED_ALGORITHMS:
+        for problem in validate_aligned_config(config.get("config")):
+            require(False, "build_config.json", problem)
     snapshot = output/"provenance"/"samuged"
     require(snapshot.is_dir(), "provenance/samuged", "code provenance snapshot missing")
     if snapshot.is_dir() and config.get("code_sha256"):
@@ -271,7 +328,7 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
                     phrase.get("phrase_id", record.get("source_id")),
                     "phrase rank differs from saved order")
 
-    expected_summary = _expected_summary(config, records, rows)
+    expected_summary = _expected_summary(config, records, rows, summary)
     for key, value in expected_summary.items():
         require(summary.get(key) == value, "summary.json", f"{key} count or value mismatch")
     if require_full:
@@ -324,7 +381,11 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
                 require(False, location, "reported read error is not reproducible")
                 continue
             try:
-                error_song = load_midi(path)
+                error_song = (
+                    load_midi(path, recover_invalid_keys=True)
+                    if recovery_explicitly_enabled
+                    else load_midi(path)
+                )
             except Exception:
                 require(outcome == "parse_error", location,
                         "reported source error stage differs from current parse failure")
@@ -336,7 +397,12 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
                     "unknown source error outcome")
             if reextract and outcome == "extraction_error":
                 try:
-                    extract(error_song, Config(**config["config"]))
+                    if algorithm == "aligned":
+                        extract_aligned(error_song, AlignedConfig(**config["config"]))
+                    elif algorithm == "aligned_indexed":
+                        extract_indexed(error_song, AlignedConfig(**config["config"]))
+                    else:
+                        extract(error_song, Config(**config["config"]))
                     if config.get("percussion"):
                         extract_drums(error_song)
                 except Exception:
@@ -346,13 +412,21 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
                             "reported extraction error is not reproducible")
             continue
         try:
-            song = load_midi(path)
+            song = (
+                load_midi(path, recover_invalid_keys=True)
+                if recovery_explicitly_enabled
+                else load_midi(path)
+            )
             ppq = song.ticks_per_beat
             require(record.get("ticks_per_beat") == ppq, location, "source PPQ mismatch")
             require(record.get("part_count") == len(song.parts), location, "source part count mismatch")
             require(record.get("note_count") == sum(len(part.notes) for part in song.parts), location,
                     "source note count mismatch")
             require(record.get("warnings") == song.warnings, location, "source warnings mismatch")
+            require(record.get("metadata_repairs", []) == song.metadata_repairs,
+                    location, "source metadata repairs differ from current loader")
+            require(("metadata_repairs" in record) == bool(song.metadata_repairs),
+                    location, "source metadata repair presence differs from current loader")
             require(record.get("musical_sha256") == musical_digest(song), location,
                     "source musical fingerprint mismatch")
             if reextract:
@@ -382,8 +456,18 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
                     if part.index not in streams:
                         streams[part.index] = skyline(part, ppq, config["config"]["onset_merge_beats"])
                     stream = streams[part.index]
-                    note_count, index = row.get("note_count", 0), row.get("prototype_note_index", -1)
-                    proto = stream[index:index+note_count] if isinstance(index, int) and index >= 0 else []
+                    note_count = row.get("note_count")
+                    index = row.get("prototype_note_index")
+                    valid_prototype_index = type(index) is int and index >= 0
+                    valid_prototype_count = type(note_count) is int and note_count > 0
+                    require(valid_prototype_index, where, "invalid prototype note index")
+                    require(valid_prototype_count, where, "invalid prototype note count")
+                    if algorithm in _ALIGNED_ALGORITHMS and valid_prototype_count:
+                        require(config["config"]["min_notes"] <= note_count
+                                <= config["config"]["max_notes"], where,
+                                "prototype note count is outside aligned config bounds")
+                    proto = (stream[index:index+note_count]
+                             if valid_prototype_index and valid_prototype_count else [])
                     require(len(proto) == note_count, where, "prototype absent in source")
                     if not proto:
                         continue
@@ -400,50 +484,84 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
                             where, "prototype durations differ from source")
                     require(row.get("velocities") == [note.velocity for note in prototype.notes],
                             where, "prototype velocities differ from source")
-                    require(row.get("family_id") == signature(prototype, transpose=config["config"]["mode"] != "exact"),
+                    transpose_family = (True if algorithm in _ALIGNED_ALGORITHMS
+                                        else config["config"]["mode"] != "exact")
+                    require(row.get("family_id") == signature(prototype, transpose=transpose_family),
                             where, "phrase family differs from prototype")
-                    for occurrence in occurrences:
-                        notes = stream[occurrence["note_index"]:occurrence["note_index"]+note_count]
-                        require(len(notes) == note_count, where, "occurrence absent in source")
-                        if len(notes) == note_count:
-                            require(notes[0].start == occurrence["start_tick"] and
-                                    max(note.end for note in notes) == occurrence["end_tick"],
-                                    where, "occurrence coordinates differ from source")
-                            pitch_errors = sum(
-                                candidate.pitch-reference.pitch
-                                != occurrence["transpose_semitones"]
-                                for reference, candidate in zip(proto, notes)
+                    if algorithm in _ALIGNED_ALGORITHMS:
+                        require(row.get("matcher_flags") == EXPECTED_MATCHER_FLAGS,
+                                where, "aligned matcher flags differ")
+                        raw_count = row.get("raw_occurrence_count")
+                        require(type(raw_count) is int and raw_count >= len(occurrences),
+                                where, "invalid raw aligned support count")
+                        for occurrence in occurrences:
+                            occurrence_count = occurrence.get("note_count")
+                            occurrence_index = occurrence.get("note_index")
+                            valid_occurrence_count = (
+                                type(occurrence_count) is int
+                                and config["config"]["min_notes"] <= occurrence_count
+                                <= config["config"]["max_notes"]
                             )
-                            onsets = [(note.start-notes[0].start)/ppq for note in notes]
-                            durations = [(note.end-note.start)/ppq for note in notes]
-                            cfg = config["config"]
-                            if cfg["mode"] == "approximate":
-                                require(pitch_errors <= int(note_count*cfg["pitch_error_fraction"]),
-                                        where, "pitch tolerance violated")
-                                require(max(abs(left-right) for left, right in
-                                            zip(onsets, row["onsets_beats"]))
-                                        <= cfg["timing_tolerance"]+1e-7,
-                                        where, "onset tolerance violated")
-                                duration_errors = [abs(left-right) for left, right in
-                                                   zip(durations, row["durations_beats"])]
-                                require(sum(value > cfg["duration_tolerance"]+1e-7
-                                            for value in duration_errors)
-                                        <= int(note_count*cfg["duration_error_fraction"]),
-                                        where, "duration count tolerance violated")
-                                require(sum(duration_errors)/note_count
-                                        <= cfg["duration_tolerance"]+1e-7,
-                                        where, "mean duration tolerance violated")
-                            else:
-                                require(pitch_errors == 0, where, "exact pitch mismatch")
-                                require(all(round(left*24) == round(right*24)
-                                            for left, right in zip(onsets, row["onsets_beats"])),
-                                        where, "exact onset mismatch")
-                                require(all(round(left*24) == round(right*24)
-                                            for left, right in zip(durations, row["durations_beats"])),
-                                        where, "exact duration mismatch")
-                                if cfg["mode"] == "exact":
-                                    require(occurrence["transpose_semitones"] == 0, where,
-                                            "absolute pitch mode transposed")
+                            valid_occurrence_index = (
+                                type(occurrence_index) is int and occurrence_index >= 0
+                            )
+                            require(valid_occurrence_count, where,
+                                    "occurrence note count is outside aligned config bounds")
+                            require(valid_occurrence_index, where,
+                                    "invalid occurrence note index")
+                            notes = (stream[occurrence_index:occurrence_index+occurrence_count]
+                                     if valid_occurrence_count and valid_occurrence_index
+                                     else [])
+                            require(len(notes) == occurrence_count, where,
+                                    "occurrence absent in source")
+                            if notes:
+                                for problem in verify_alignment(
+                                    proto, notes, occurrence, ppq, config["config"]
+                                ):
+                                    require(False, where, problem)
+                    else:
+                        for occurrence in occurrences:
+                            notes = stream[occurrence["note_index"]:occurrence["note_index"]+note_count]
+                            require(len(notes) == note_count, where, "occurrence absent in source")
+                            if len(notes) == note_count:
+                                require(notes[0].start == occurrence["start_tick"] and
+                                        max(note.end for note in notes) == occurrence["end_tick"],
+                                        where, "occurrence coordinates differ from source")
+                                pitch_errors = sum(
+                                    candidate.pitch-reference.pitch
+                                    != occurrence["transpose_semitones"]
+                                    for reference, candidate in zip(proto, notes)
+                                )
+                                onsets = [(note.start-notes[0].start)/ppq for note in notes]
+                                durations = [(note.end-note.start)/ppq for note in notes]
+                                cfg = config["config"]
+                                if cfg["mode"] == "approximate":
+                                    require(pitch_errors <= int(note_count*cfg["pitch_error_fraction"]),
+                                            where, "pitch tolerance violated")
+                                    require(max(abs(left-right) for left, right in
+                                                zip(onsets, row["onsets_beats"]))
+                                            <= cfg["timing_tolerance"]+1e-7,
+                                            where, "onset tolerance violated")
+                                    duration_errors = [abs(left-right) for left, right in
+                                                       zip(durations, row["durations_beats"])]
+                                    require(sum(value > cfg["duration_tolerance"]+1e-7
+                                                for value in duration_errors)
+                                            <= int(note_count*cfg["duration_error_fraction"]),
+                                            where, "duration count tolerance violated")
+                                    require(sum(duration_errors)/note_count
+                                            <= cfg["duration_tolerance"]+1e-7,
+                                            where, "mean duration tolerance violated")
+                                else:
+                                    require(pitch_errors == 0, where, "exact pitch mismatch")
+                                    require(all(round(left*24) == round(right*24)
+                                                for left, right in zip(onsets, row["onsets_beats"])),
+                                            where, "exact onset mismatch")
+                                    require(all(round(left*24) == round(right*24)
+                                                for left, right in zip(durations, row["durations_beats"])),
+                                            where, "exact duration mismatch")
+                                    if cfg["mode"] == "exact":
+                                        require(occurrence["transpose_semitones"] == 0, where,
+                                                "absolute pitch mode transposed")
                     selected_notes = [Note(row["start_tick"]+round(onset*ppq),
                                            row["start_tick"]+round((onset+duration)*ppq),
                                            pitch, velocity)
@@ -576,10 +694,19 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
             "canonical family crosses splits")
     require(all(len(values) == 1 for values in artists.values()), "splits",
             "artist crosses splits")
+    for key, path in binding_paths.items():
+        try:
+            unchanged = file_digest(path) == binding_hashes[key]
+        except OSError as exc:
+            errors.append({"where": path.name,
+                           "reason": f"audit input unavailable at final check: {exc}"})
+        else:
+            require(unchanged, path.name, "audit input changed while audit was running")
     result = {"passed": not errors, "source_files": len(records),
               "phrase_rows": len(rows), "counts": dict(counts),
               "failure_count": len(errors), "failures": errors,
               "run_key": summary.get("run_key"),
+              **binding_hashes,
               "full_source_coverage_required": require_full,
               "reextraction_required": reextract,
               "scope": "manifest, provenance, source reconstruction and exported MIDI semantics"}

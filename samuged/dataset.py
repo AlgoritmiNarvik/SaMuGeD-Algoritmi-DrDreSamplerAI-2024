@@ -92,7 +92,9 @@ def musical_digest(song) -> str:
 
 
 def _work(task):
-    path_string, rel, output_string, config, run_key, export, percussion = task
+    path_string, rel, output_string, config, run_key, export, percussion, *options = task
+    algorithm = options[0] if options else "reference"
+    recover_invalid_keys = options[1] if len(options) > 1 else False
     start = time.monotonic()
     path, output = Path(path_string), Path(output_string)
     try:
@@ -128,9 +130,18 @@ def _work(task):
               "source_bytes": source_bytes, "run_key": run_key, **source_labels(rel)}
     stage = "parse"
     try:
-        song = load_midi(path)
+        song = (load_midi(path, recover_invalid_keys=True) if recover_invalid_keys
+                else load_midi(path))
         stage = "extraction"
-        found = extract(song, Config(**config))
+        if algorithm in {"aligned", "aligned_indexed"}:
+            from .aligned import AlignedConfig, extract_aligned
+            if algorithm == "aligned_indexed":
+                from .aligned_indexed import extract_indexed
+                found = extract_indexed(song, AlignedConfig(**config))
+            else:
+                found = extract_aligned(song, AlignedConfig(**config))
+        else:
+            found = extract(song, Config(**config))
         phrases = [{**p, "kind": "melodic"} for p in found.pop("phrases")]
         record.update(found)
         if percussion:
@@ -142,6 +153,8 @@ def _work(task):
                       part_count=len(song.parts), note_count=sum(len(p.notes) for p in song.parts),
                       warnings=song.warnings, musical_sha256=musical_digest(song),
                       phrases=phrases)
+        if getattr(song, "metadata_repairs", None):
+            record["metadata_repairs"] = song.metadata_repairs
         for rank, phrase in enumerate(phrases, 1):
             phrase["phrase_id"] = digest((source_id, phrase["kind"], phrase["part_index"],
                                            phrase["family_id"], phrase["start_tick"], run_key))[:32]
@@ -237,6 +250,8 @@ def finalize(records: list[dict], output: Path, metadata: dict) -> dict:
                "curation_truncated_files": sum(bool(r.get("curation_truncated")) for r in records),
                "drum_search_limited_files": sum(bool(r.get("drum_stats", {}).get("search_limited")) for r in records),
                "warning_files": sum(bool(r.get("warnings")) for r in records),
+               "metadata_recovered_files": sum(bool(r.get("metadata_repairs")) for r in records),
+               "metadata_repair_events": sum(len(r.get("metadata_repairs", [])) for r in records),
                "exact_arrangement_fingerprints": len({r["musical_sha256"] for r in records if r.get("note_count", 0)}),
                "family_split_conflict_rows": conflict,
                "unique_phrase_families": len(families),
@@ -247,7 +262,18 @@ def finalize(records: list[dict], output: Path, metadata: dict) -> dict:
     return summary
 
 
-def build(source: Path, output: Path, cfg: Config, *, workers=4, limit=None, export=True, percussion=False):
+def build(source: Path, output: Path, cfg, *, workers=4, limit=None, export=True,
+          percussion=False, algorithm="reference", recover_invalid_keys=False):
+    if algorithm not in {"reference", "aligned", "aligned_indexed"}:
+        raise ValueError("algorithm must be reference, aligned or aligned_indexed")
+    if algorithm in {"aligned", "aligned_indexed"}:
+        from .aligned import AlignedConfig
+        if not isinstance(cfg, AlignedConfig):
+            raise TypeError("aligned algorithm requires AlignedConfig")
+    elif not isinstance(cfg, Config):
+        raise TypeError("reference algorithm requires Config")
+    if not isinstance(recover_invalid_keys, bool):
+        raise TypeError("recover_invalid_keys must be a boolean")
     if not 1 <= workers <= 32:
         raise ValueError("workers must be between 1 and 32")
     source = source.resolve(strict=True)
@@ -275,10 +301,13 @@ def build(source: Path, output: Path, cfg: Config, *, workers=4, limit=None, exp
         cfg_dict = asdict(cfg)
         frozen_code = {p.name:p.read_bytes() for p in sorted(Path(__file__).parent.glob("*.py"))}
         code = digest({name:sha256(payload).hexdigest() for name,payload in frozen_code.items()})
-        run_key = digest({"config":cfg_dict, "code":code, "version":__version__, "export":export, "percussion":percussion})
+        run_key = digest({"config":cfg_dict, "code":code, "version":__version__,
+                          "export":export, "percussion":percussion,
+                          "algorithm":algorithm, "recover_invalid_keys":recover_invalid_keys})
         config_path = output / "build_config.json"
         metadata = {"version":__version__, "config":cfg_dict, "code_sha256":code, "run_key":run_key,
                     "python":platform.python_version(), "percussion":percussion, "export":export,
+                    "algorithm":algorithm, "recover_invalid_keys":recover_invalid_keys,
                     "discovered_source_files":discovered_count, "cohort_limit":limit,
                     "selected_source_files":len(paths)}
         if config_path.exists() and json.loads(config_path.read_text()).get("run_key") != run_key:
@@ -297,7 +326,8 @@ def build(source: Path, output: Path, cfg: Config, *, workers=4, limit=None, exp
             project_file = Path(__file__).parent.parent / name
             if project_file.exists():
                 shutil.copyfile(project_file, snapshot.parent / name)
-        tasks = [(str(p), p.relative_to(source).as_posix(), str(output), cfg_dict, run_key, export, percussion) for p in paths]
+        tasks = [(str(p), p.relative_to(source).as_posix(), str(output), cfg_dict, run_key,
+                  export, percussion, algorithm, recover_invalid_keys) for p in paths]
         records = []
         started = time.monotonic()
         with ProcessPoolExecutor(max_workers=workers) as pool:

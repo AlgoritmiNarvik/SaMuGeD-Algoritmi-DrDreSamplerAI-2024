@@ -1,8 +1,13 @@
 import json
+from dataclasses import asdict
 from pathlib import Path
+from copy import deepcopy
 
+import mido
 from jsonschema import Draft202012Validator
 
+from samuged.aligned import AlignedConfig
+from samuged.dataset import _work, finalize
 from scripts.validate_schema import validate_dataset, validate_manifest
 
 
@@ -247,6 +252,84 @@ def write_dataset(directory, sources, phrases):
     )
 
 
+def write_repeated_midi(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    midi = mido.MidiFile(ticks_per_beat=480)
+    track = mido.MidiTrack()
+    midi.tracks.append(track)
+    for repetition in range(3):
+        for index, pitch in enumerate([60, 62, 65, 64, 67, 65, 62, 60, 64, 65, 69, 67]):
+            track.append(
+                mido.Message(
+                    "note_on",
+                    note=pitch,
+                    velocity=90,
+                    time=24 + (2880 if repetition and index == 0 else 0),
+                )
+            )
+            track.append(mido.Message("note_off", note=pitch, time=216))
+    midi.save(path)
+
+
+def aligned_worker_manifests(tmp_path, algorithm="aligned", *, percussion=False, recover=False):
+    source = tmp_path / "source.mid"
+    output = tmp_path / "aligned"
+    write_repeated_midi(source)
+    if percussion or recover:
+        midi = mido.MidiFile(source)
+        if percussion:
+            track = mido.MidiTrack()
+            midi.tracks.append(track)
+            for _ in range(24):
+                track.append(mido.Message('note_on', channel=9, note=36, velocity=80, time=0))
+                track.append(mido.Message('note_on', channel=9, note=42, velocity=80, time=0))
+                track.append(mido.Message('note_off', channel=9, note=36, time=60))
+                track.append(mido.Message('note_off', channel=9, note=42, time=180))
+        if recover:
+            midi.tracks[0].insert(0, mido.MetaMessage('key_signature', key='C'))
+        midi.save(source)
+        if recover:
+            source.write_bytes(source.read_bytes().replace(b'\xff\x59\x02\x00\x00', b'\xff\x59\x02\x08\x00', 1))
+    row = _work(
+        (
+            str(source),
+            "Artist/source.mid",
+            str(output),
+            asdict(AlignedConfig()),
+            "a" * 64,
+            True,
+            percussion,
+            algorithm,
+            recover,
+        )
+    )
+    assert row["status"] == "ok" and row["phrases"]
+    finalize([row], output, {})
+    sources = [json.loads(line) for line in (output / "sources.jsonl").read_text().splitlines()]
+    phrases = [json.loads(line) for line in (output / "phrases.jsonl").read_text().splitlines()]
+    return sources, phrases
+
+
+def metadata_repair():
+    return {
+        "kind": "invalid_key_signature_retyped_as_sequencer_specific",
+        "track_index": 0,
+        "event_index": 1,
+        "tick": 0,
+        "offset_basis": "unwrapped_smf_bytes",
+        "event_offset": 14,
+        "status_offset": 15,
+        "meta_type_offset": 16,
+        "payload_offset": 19,
+        "original_meta_type": 89,
+        "replacement_meta_type": 127,
+        "original_payload_hex": "0800",
+        "reason": "signed_key_out_of_range",
+        "original_smf_sha256": "a" * 64,
+        "recovered_smf_sha256": "b" * 64,
+    }
+
+
 def validator(name):
     schema = json.loads((SCHEMAS / f"{name}.schema.json").read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
@@ -335,3 +418,115 @@ def test_manifest_diagnostics_are_bounded(tmp_path):
     assert result["valid"] == 0
     assert result["invalid"] == 6
     assert len(result["errors"]) == 2
+
+
+def test_aligned_worker_export_validates_nested_and_standalone_rows(tmp_path):
+    sources, phrases = aligned_worker_manifests(tmp_path)
+
+    assert not list(validator("source").iter_errors(sources[0]))
+    assert phrases
+    assert all(not list(validator("phrase").iter_errors(row)) for row in phrases)
+    assert sources[0]["config"]["min_notes"] == asdict(AlignedConfig())["min_notes"]
+    assert sources[0]["phrases"][0]["matcher_flags"]["monotone_alignment"] is True
+    assert sources[0]["phrases"][0]["occurrences"][1]["matched_note_pairs"]
+
+
+def test_aligned_indexed_worker_export_validates_extended_part_stats(tmp_path):
+    sources, phrases = aligned_worker_manifests(tmp_path, "aligned_indexed")
+
+    source = sources[0]
+    assert source["index_variant"] == "exact_first_cached_v1"
+    assert not list(validator("source").iter_errors(source))
+    assert phrases
+    assert all(not list(validator("phrase").iter_errors(row)) for row in phrases)
+
+    indexed_fields = {
+        "exact_fast_path_hits",
+        "seed_key_calls",
+        "seed_keys_bypassed",
+        "exact_key_cache_hits",
+        "posting_entries_visited",
+        "seed_index_keys",
+        "seed_index_postings",
+        "max_seed_bucket_size",
+        "saturated_seed_postings_dropped",
+        "saturated_seed_key_types",
+    }
+    assert indexed_fields <= set(source["part_stats"][0])
+    assert set(source["part_stats"][0]["saturated_seed_key_types"]) <= {
+        "single",
+        "pair",
+    }
+
+
+def test_aligned_indexed_nested_counter_types_and_completeness_are_strict(tmp_path):
+    sources, _phrases = aligned_worker_manifests(tmp_path, "aligned_indexed")
+
+    source = deepcopy(sources[0])
+    source["part_stats"][0]["posting_entries_visited"] = "many"
+    assert list(validator("source").iter_errors(source))
+
+    source = deepcopy(sources[0])
+    source["part_stats"][0].pop("seed_index_keys")
+    assert list(validator("source").iter_errors(source))
+
+    source = deepcopy(sources[0])
+    source["part_stats"][0]["saturated_seed_key_types"] = {"triple": 1}
+    assert list(validator("source").iter_errors(source))
+
+
+def test_aligned_config_shape_is_disambiguated_from_reference_config(tmp_path):
+    sources, _phrases = aligned_worker_manifests(tmp_path)
+    aligned = sources[0]
+    aligned["config"]["mode"] = "approximate"
+    assert list(validator("source").iter_errors(aligned))
+
+    reference = source_row()
+    reference["config"].pop("mode")
+    assert list(validator("source").iter_errors(reference))
+
+
+def test_aligned_occurrence_fields_and_counts_are_required_when_flagged(tmp_path):
+    _sources, phrases = aligned_worker_manifests(tmp_path)
+    phrase = deepcopy(phrases[0])
+    phrase["occurrences"][1]["edit_count"] = "zero"
+    assert list(validator("phrase").iter_errors(phrase))
+
+    phrase = deepcopy(phrases[0])
+    phrase["occurrences"][1].pop("note_count")
+    assert list(validator("phrase").iter_errors(phrase))
+
+    phrase = deepcopy(phrases[0])
+    phrase["matcher_flags"]["tempo_warp"] = "false"
+    assert list(validator("phrase").iter_errors(phrase))
+
+
+def test_metadata_repair_receipt_is_bounded_and_strict():
+    row = source_row()
+    row["metadata_repairs"] = [metadata_repair()]
+    assert not list(validator("source").iter_errors(row))
+
+    row["metadata_repairs"][0]["offset_basis"] = "raw_file_bytes"
+    assert list(validator("source").iter_errors(row))
+
+    row = source_row()
+    row["metadata_repairs"] = [{**metadata_repair(), "unexpected": True}]
+    assert list(validator("source").iter_errors(row))
+
+    row = source_row()
+    row["metadata_repairs"] = [{**metadata_repair(), "original_payload_hex": "abc"}]
+    assert list(validator("source").iter_errors(row))
+    schema = json.loads((SCHEMAS/'source.schema.json').read_text())
+    from samuged.midi import MAX_MIDI_BYTES
+    assert schema['$defs']['metadataRepair']['properties']['original_payload_hex']['maxLength'] == 2*MAX_MIDI_BYTES
+
+
+def test_actual_recovery_receipts_and_drum_phrases_validate_in_aligned_source(tmp_path):
+    sources, phrases = aligned_worker_manifests(tmp_path, 'aligned_indexed', percussion=True, recover=True)
+    assert {row['kind'] for row in phrases} == {'melodic', 'percussion'}
+    assert sources[0]['metadata_repairs'][0]['original_smf_sha256']
+    assert not list(validator('source').iter_errors(sources[0]))
+    assert all(not list(validator('phrase').iter_errors(row)) for row in phrases)
+    damaged = deepcopy(sources[0])
+    del damaged['metadata_repairs'][0]['recovered_smf_sha256']
+    assert list(validator('source').iter_errors(damaged))

@@ -100,21 +100,28 @@
           }
         },
         "matched_note_pairs": {
-          "type": "array",
-          "items": {
-            "type": "array",
-            "prefixItems": [
-              {
-                "$ref": "#/$defs/nonNegativeInteger"
-              },
-              {
-                "$ref": "#/$defs/nonNegativeInteger"
-              }
-            ],
-            "items": false,
-            "minItems": 2,
-            "maxItems": 2
-          }
+          "$ref": "#/$defs/pairArray"
+        },
+        "edit_count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "inserted_note_indices": {
+          "$ref": "#/$defs/integerArray"
+        },
+        "deleted_prototype_note_indices": {
+          "$ref": "#/$defs/integerArray"
+        },
+        "substituted_note_pairs": {
+          "$ref": "#/$defs/pairArray"
+        },
+        "max_timing_error_beats": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "max_duration_error_beats": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "source_verified": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -122,6 +129,55 @@
         "end_tick",
         "similarity",
         "transpose_semitones"
+      ],
+      "additionalProperties": false
+    },
+    "pairArray": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          {
+            "$ref": "#/$defs/nonNegativeInteger"
+          }
+        ],
+        "items": false,
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "matcherFlags": {
+      "type": "object",
+      "properties": {
+        "source_verified": {
+          "type": "boolean"
+        },
+        "monotone_alignment": {
+          "type": "boolean"
+        },
+        "fixed_transposition": {
+          "type": "boolean"
+        },
+        "tempo_warp": {
+          "type": "boolean"
+        },
+        "terminal_gaps_allowed": {
+          "type": "boolean"
+        },
+        "similarity_only_acceptance": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "source_verified",
+        "monotone_alignment",
+        "fixed_transposition",
+        "tempo_warp",
+        "terminal_gaps_allowed",
+        "similarity_only_acceptance"
       ],
       "additionalProperties": false
     }
@@ -303,6 +359,9 @@
         "maximum": 127
       },
       "minItems": 1
+    },
+    "matcher_flags": {
+      "$ref": "#/$defs/matcherFlags"
     }
   },
   "required": [
@@ -381,17 +440,17 @@
           }
         }
       },
-          "then": {
-            "properties": {
-              "occurrences": {
-                "items": {
-                  "required": [
-                    "note_index"
-                  ]
-                }
-              }
-            },
-            "required": [
+      "then": {
+        "properties": {
+          "occurrences": {
+            "items": {
+              "required": [
+                "note_index"
+              ]
+            }
+          }
+        },
+        "required": [
           "part_name",
           "program",
           "prototype_note_index",
@@ -408,25 +467,25 @@
           }
         }
       },
-          "then": {
-            "properties": {
-              "channel": {
-                "const": 9
-              },
-              "part_index": {
-                "const": -1
-              },
-              "occurrences": {
-                "items": {
-                  "properties": {
-                    "transpose_semitones": {
-                      "const": 0
-                    }
-                  }
+      "then": {
+        "properties": {
+          "channel": {
+            "const": 9
+          },
+          "part_index": {
+            "const": -1
+          },
+          "occurrences": {
+            "items": {
+              "properties": {
+                "transpose_semitones": {
+                  "const": 0
                 }
               }
-            },
-            "required": [
+            }
+          }
+        },
+        "required": [
           "bar_count",
           "duration_policy",
           "kit_programs",
@@ -434,6 +493,36 @@
           "meter_numerator",
           "source_part_indices",
           "source_tracks"
+        ]
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "matcher_flags"
+        ]
+      },
+      "then": {
+        "properties": {
+          "occurrences": {
+            "items": {
+              "required": [
+                "note_index",
+                "note_count",
+                "edit_count",
+                "inserted_note_indices",
+                "deleted_prototype_note_indices",
+                "substituted_note_pairs",
+                "matched_note_pairs",
+                "max_timing_error_beats",
+                "max_duration_error_beats",
+                "source_verified"
+              ]
+            }
+          }
+        },
+        "required": [
+          "matcher_flags"
         ]
       }
     }

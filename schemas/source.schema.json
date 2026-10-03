@@ -100,21 +100,28 @@
           }
         },
         "matched_note_pairs": {
-          "type": "array",
-          "items": {
-            "type": "array",
-            "prefixItems": [
-              {
-                "$ref": "#/$defs/nonNegativeInteger"
-              },
-              {
-                "$ref": "#/$defs/nonNegativeInteger"
-              }
-            ],
-            "items": false,
-            "minItems": 2,
-            "maxItems": 2
-          }
+          "$ref": "#/$defs/pairArray"
+        },
+        "edit_count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "inserted_note_indices": {
+          "$ref": "#/$defs/integerArray"
+        },
+        "deleted_prototype_note_indices": {
+          "$ref": "#/$defs/integerArray"
+        },
+        "substituted_note_pairs": {
+          "$ref": "#/$defs/pairArray"
+        },
+        "max_timing_error_beats": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "max_duration_error_beats": {
+          "$ref": "#/$defs/nonNegativeNumber"
+        },
+        "source_verified": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -263,6 +270,9 @@
             "maximum": 127
           },
           "minItems": 1
+        },
+        "matcher_flags": {
+          "$ref": "#/$defs/matcherFlags"
         }
       },
       "required": [
@@ -373,8 +383,181 @@
               "source_tracks"
             ]
           }
+        },
+        {
+          "if": {
+            "required": [
+              "matcher_flags"
+            ]
+          },
+          "then": {
+            "properties": {
+              "occurrences": {
+                "items": {
+                  "required": [
+                    "note_index",
+                    "note_count",
+                    "edit_count",
+                    "inserted_note_indices",
+                    "deleted_prototype_note_indices",
+                    "substituted_note_pairs",
+                    "matched_note_pairs",
+                    "max_timing_error_beats",
+                    "max_duration_error_beats",
+                    "source_verified"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "matcher_flags"
+            ]
+          }
         }
       ],
+      "additionalProperties": false
+    },
+    "pairArray": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          {
+            "$ref": "#/$defs/nonNegativeInteger"
+          }
+        ],
+        "items": false,
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "matcherFlags": {
+      "type": "object",
+      "properties": {
+        "source_verified": {
+          "type": "boolean"
+        },
+        "monotone_alignment": {
+          "type": "boolean"
+        },
+        "fixed_transposition": {
+          "type": "boolean"
+        },
+        "tempo_warp": {
+          "type": "boolean"
+        },
+        "terminal_gaps_allowed": {
+          "type": "boolean"
+        },
+        "similarity_only_acceptance": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "source_verified",
+        "monotone_alignment",
+        "fixed_transposition",
+        "tempo_warp",
+        "terminal_gaps_allowed",
+        "similarity_only_acceptance"
+      ],
+      "additionalProperties": false
+    },
+    "metadataRepair": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "invalid_key_signature_retyped_as_sequencer_specific"
+        },
+        "track_index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "event_index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "tick": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "offset_basis": {
+          "const": "unwrapped_smf_bytes"
+        },
+        "event_offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "status_offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "meta_type_offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "payload_offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "original_meta_type": {
+          "const": 89
+        },
+        "replacement_meta_type": {
+          "const": 127
+        },
+        "original_payload_hex": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{2})+$",
+          "minLength": 4,
+          "maxLength": 33554432
+        },
+        "reason": {
+          "enum": [
+            "signed_key_out_of_range",
+            "mode_not_major_or_minor",
+            "signed_key_out_of_range+mode_not_major_or_minor"
+          ]
+        },
+        "original_smf_sha256": {
+          "$ref": "#/$defs/hex64"
+        },
+        "recovered_smf_sha256": {
+          "$ref": "#/$defs/hex64"
+        }
+      },
+      "required": [
+        "kind",
+        "track_index",
+        "event_index",
+        "tick",
+        "offset_basis",
+        "event_offset",
+        "status_offset",
+        "meta_type_offset",
+        "payload_offset",
+        "original_meta_type",
+        "replacement_meta_type",
+        "original_payload_hex",
+        "reason",
+        "original_smf_sha256",
+        "recovered_smf_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "saturatedSeedKeyTypes": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "single",
+          "pair"
+        ]
+      },
+      "properties": {
+        "single": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "pair": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      },
+      "maxProperties": 2,
       "additionalProperties": false
     }
   },
@@ -451,27 +634,129 @@
         },
         "top_k": {
           "$ref": "#/$defs/positiveInteger"
+        },
+        "min_notes": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 128
+        },
+        "max_notes": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 128
+        },
+        "max_edit_fraction": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.15
+        },
+        "max_edits": {
+          "$ref": "#/$defs/nonNegativeInteger",
+          "maximum": 16
+        },
+        "seed_notes": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 5
+        },
+        "seed_beat_bucket": {
+          "$ref": "#/$defs/positiveNumber"
+        },
+        "span_beat_bucket": {
+          "$ref": "#/$defs/positiveNumber"
+        },
+        "max_seed_offsets": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "max_seed_pairs": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "min_seed_support": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "max_shift_candidates": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "max_groups": {
+          "$ref": "#/$defs/positiveInteger"
         }
       },
-      "required": [
-        "duration_error_fraction",
-        "duration_tolerance",
-        "lengths",
-        "max_beats",
-        "max_bucket",
-        "max_candidates",
-        "max_comparisons",
-        "max_gap_beats",
-        "max_stream_notes",
-        "max_windows",
-        "min_beats",
-        "mode",
-        "onset_merge_beats",
-        "pitch_error_fraction",
-        "timing_tolerance",
-        "top_k"
-      ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "duration_error_fraction",
+            "duration_tolerance",
+            "lengths",
+            "max_beats",
+            "max_bucket",
+            "max_candidates",
+            "max_comparisons",
+            "max_gap_beats",
+            "max_stream_notes",
+            "max_windows",
+            "min_beats",
+            "mode",
+            "onset_merge_beats",
+            "pitch_error_fraction",
+            "timing_tolerance",
+            "top_k"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "min_notes"
+                ]
+              },
+              {
+                "required": [
+                  "max_notes"
+                ]
+              },
+              {
+                "required": [
+                  "max_edit_fraction"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "duration_error_fraction",
+            "duration_tolerance",
+            "max_beats",
+            "max_bucket",
+            "max_candidates",
+            "max_comparisons",
+            "max_edit_fraction",
+            "max_edits",
+            "max_gap_beats",
+            "max_groups",
+            "max_notes",
+            "max_seed_offsets",
+            "max_seed_pairs",
+            "max_shift_candidates",
+            "max_stream_notes",
+            "max_windows",
+            "min_beats",
+            "min_notes",
+            "min_seed_support",
+            "onset_merge_beats",
+            "seed_beat_bucket",
+            "seed_notes",
+            "span_beat_bucket",
+            "timing_tolerance",
+            "top_k"
+          ],
+          "not": {
+            "required": [
+              "mode"
+            ]
+          }
+        }
+      ]
     },
     "curation_truncated": {
       "type": "boolean"
@@ -680,6 +965,9 @@
       "type": "string",
       "minLength": 1
     },
+    "index_variant": {
+      "const": "exact_first_cached_v1"
+    },
     "musical_sha256": {
       "$ref": "#/$defs/hex64"
     },
@@ -750,6 +1038,81 @@
           },
           "windows_considered": {
             "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "proposed_pairs": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "seed_support_rejections": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "exact_signature_hits": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "alignment_cache_hits": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "dp_calls": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "overlap_rejections": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "length_rejections": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "terminal_timing_rejections": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "timing_feasibility_rejections": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "pitch_feasibility_rejections": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "anchor_alignment_hits": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "anchor_alignment_fallbacks": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "anchor_alignment_rejections": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "exact_fast_path_hits": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "seed_key_calls": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "seed_keys_bypassed": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "exact_key_cache_hits": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "posting_entries_visited": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "seed_index_keys": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "seed_index_postings": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "max_seed_bucket_size": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "saturated_seed_postings_dropped": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "saturated_seed_key_types": {
+            "$ref": "#/$defs/saturatedSeedKeyTypes"
+          },
+          "groups": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "group_limit_reached": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -761,7 +1124,6 @@
           "note_limit_reached",
           "overlapping_occurrences_removed",
           "part_index",
-          "raw_groups",
           "repeat_groups",
           "saturated_seed_buckets",
           "skyline_notes",
@@ -849,6 +1211,13 @@
       "items": {
         "type": "string"
       }
+    },
+    "metadata_repairs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/metadataRepair"
+      },
+      "maxItems": 1024
     }
   },
   "required": [
@@ -908,6 +1277,176 @@
         "properties": {
           "source_sha256": {
             "$ref": "#/$defs/hex64"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "config": {
+            "required": [
+              "min_notes",
+              "max_notes",
+              "max_edit_fraction"
+            ]
+          }
+        },
+        "required": [
+          "config"
+        ]
+      },
+      "then": {
+        "properties": {
+          "part_stats": {
+            "items": {
+              "required": [
+                "proposed_pairs",
+                "seed_support_rejections",
+                "exact_signature_hits",
+                "alignment_cache_hits",
+                "dp_calls",
+                "overlap_rejections",
+                "length_rejections",
+                "terminal_timing_rejections",
+                "timing_feasibility_rejections",
+                "pitch_feasibility_rejections",
+                "anchor_alignment_hits",
+                "anchor_alignment_fallbacks",
+                "anchor_alignment_rejections",
+                "groups",
+                "group_limit_reached"
+              ]
+            }
+          },
+          "phrases": {
+            "items": {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "melodic"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "required": [
+                  "matcher_flags"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "config": {
+            "required": [
+              "mode"
+            ]
+          }
+        },
+        "required": [
+          "config"
+        ]
+      },
+      "then": {
+        "properties": {
+          "part_stats": {
+            "items": {
+              "required": [
+                "raw_groups"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "part_stats"
+        ],
+        "properties": {
+          "part_stats": {
+            "contains": {
+              "anyOf": [
+                {
+                  "required": [
+                    "exact_fast_path_hits"
+                  ]
+                },
+                {
+                  "required": [
+                    "seed_key_calls"
+                  ]
+                },
+                {
+                  "required": [
+                    "seed_keys_bypassed"
+                  ]
+                },
+                {
+                  "required": [
+                    "exact_key_cache_hits"
+                  ]
+                },
+                {
+                  "required": [
+                    "posting_entries_visited"
+                  ]
+                },
+                {
+                  "required": [
+                    "seed_index_keys"
+                  ]
+                },
+                {
+                  "required": [
+                    "seed_index_postings"
+                  ]
+                },
+                {
+                  "required": [
+                    "max_seed_bucket_size"
+                  ]
+                },
+                {
+                  "required": [
+                    "saturated_seed_postings_dropped"
+                  ]
+                },
+                {
+                  "required": [
+                    "saturated_seed_key_types"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "part_stats": {
+            "items": {
+              "required": [
+                "exact_fast_path_hits",
+                "seed_key_calls",
+                "seed_keys_bypassed",
+                "exact_key_cache_hits",
+                "posting_entries_visited",
+                "seed_index_keys",
+                "seed_index_postings",
+                "max_seed_bucket_size",
+                "saturated_seed_postings_dropped",
+                "saturated_seed_key_types"
+              ]
+            }
           }
         }
       }

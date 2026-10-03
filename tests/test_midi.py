@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from io import BytesIO
+import json
 from pathlib import Path
 import struct
 
@@ -48,6 +49,24 @@ def _riff_chunk(chunk_id: bytes, payload: bytes, *, pad: bool = True) -> bytes:
 def _riff_rmid(*chunks: bytes, form: bytes = b"RMID") -> bytes:
     body = form + b"".join(chunks)
     return b"RIFF" + len(body).to_bytes(4, "little") + body
+
+
+def _raw_invalid_key_smf(*, malformed_tail: bytes = b"") -> bytes:
+    track = (
+        b"\x00\xff\x51\x03\x07\xa1\x20"
+        b"\x00\xff\x58\x04\x03\x02\x18\x08"
+        b"\x0c\xff\x59\x02\xff\xff"
+        b"\x00\x90\x3c\x50"
+        b"\x78\x80\x3c\x00"
+        + malformed_tail
+        + b"\x00\xff\x2f\x00"
+    )
+    return (
+        b"MThd\x00\x00\x00\x06\x00\x00\x00\x01\x01\xe0"
+        + b"MTrk"
+        + len(track).to_bytes(4, "big")
+        + track
+    )
 
 
 def test_source_ticks_and_meter_changes_drive_bar_length(tmp_path: Path) -> None:
@@ -296,6 +315,86 @@ def test_loads_aligned_riff_rmid_data_chunk_with_provenance(tmp_path: Path) -> N
 
     assert song.parts[0].notes == [Note(12, 36, 67, 88)]
     assert song.warnings == ["riff_rmid_unwrapped"]
+
+
+def test_invalid_key_recovery_is_explicit_and_preserves_musical_data(
+    tmp_path: Path,
+) -> None:
+    source = _raw_invalid_key_smf()
+    path = tmp_path / "invalid-key.mid"
+    path.write_bytes(source)
+
+    with pytest.raises(mido.KeySignatureError):
+        load_midi(path)
+
+    song = load_midi(path, recover_invalid_keys=True)
+
+    assert path.read_bytes() == source
+    assert song.parts[0].notes == [Note(12, 132, 60, 80)]
+    assert song.tempos == [(0, 500_000)]
+    assert song.meters == [(0, 3, 4)]
+    assert song.warnings == [
+        "invalid_key_signature_metadata_recovered: 1 event(s) retyped "
+        "as sequencer-specific; see metadata_repairs"
+    ]
+    assert len(song.metadata_repairs) == 1
+    receipt = song.metadata_repairs[0]
+    assert receipt["kind"] == "invalid_key_signature_retyped_as_sequencer_specific"
+    assert receipt["tick"] == 12
+    assert receipt["offset_basis"] == "unwrapped_smf_bytes"
+    assert receipt["original_payload_hex"] == "ffff"
+    assert receipt["reason"] == "mode_not_major_or_minor"
+    assert receipt["original_smf_sha256"] != receipt["recovered_smf_sha256"]
+    json.dumps(song.metadata_repairs)
+
+
+def test_valid_file_ignores_recovery_option_and_has_no_receipts(tmp_path: Path) -> None:
+    path = _write_midi(
+        tmp_path,
+        [[mido.MetaMessage("key_signature", key="F", time=0)]],
+    )
+
+    strict = load_midi(path)
+    opted_in = load_midi(path, recover_invalid_keys=True)
+
+    assert opted_in == strict
+    assert strict.metadata_repairs == []
+    assert not any("recovered" in warning for warning in strict.warnings)
+
+
+def test_rmid_recovery_offsets_are_relative_to_unwrapped_smf(tmp_path: Path) -> None:
+    smf = _raw_invalid_key_smf()
+    wrapped = _riff_rmid(
+        _riff_chunk(b"JUNK", b"prefix-data"),
+        _riff_chunk(b"data", smf),
+    )
+    path = tmp_path / "invalid-key-rmid.mid"
+    path.write_bytes(wrapped)
+
+    song = load_midi(path, recover_invalid_keys=True)
+
+    receipt = song.metadata_repairs[0]
+    assert receipt["offset_basis"] == "unwrapped_smf_bytes"
+    assert receipt["meta_type_offset"] == smf.index(b"\xff\x59") + 1
+    data_chunk = wrapped.index(b"data" + len(smf).to_bytes(4, "little"))
+    smf_start_in_riff = data_chunk + 8
+    assert wrapped[smf_start_in_riff + receipt["meta_type_offset"]] == 0x59
+    assert smf_start_in_riff + receipt["meta_type_offset"] != receipt["meta_type_offset"]
+    assert song.warnings[0] == "riff_rmid_unwrapped"
+    assert len([warning for warning in song.warnings if "recovered" in warning]) == 1
+    assert path.read_bytes() == wrapped
+
+
+def test_opt_in_recovery_fails_closed_on_other_malformed_events(
+    tmp_path: Path,
+) -> None:
+    source = _raw_invalid_key_smf(malformed_tail=b"\x00\x90\x40\xff")
+    path = tmp_path / "invalid-key-and-channel-data.mid"
+    path.write_bytes(source)
+
+    with pytest.raises(ValueError, match="channel data byte"):
+        load_midi(path, recover_invalid_keys=True)
+    assert path.read_bytes() == source
 
 
 def test_riff_parser_rejects_truncation_smuggling_and_invalid_chunk_boundaries(

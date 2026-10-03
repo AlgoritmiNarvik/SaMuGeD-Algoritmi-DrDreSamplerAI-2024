@@ -4,7 +4,7 @@ from pathlib import Path
 import mido
 import pytest
 
-from samuged.dataset import _work, code_digest, digest, discover, finalize, source_labels
+from samuged.dataset import _work, build, code_digest, digest, discover, finalize, source_labels
 from samuged.phrases import Config
 from dataclasses import asdict
 
@@ -109,3 +109,51 @@ def test_missing_file_is_accounted_for(tmp_path):
 
 def test_word_order_artist_aliases_group_conservatively():
     assert source_labels('Jackson_Michael/Smooth_Criminal.mid')['artist_key'] == source_labels('Michael_Jackson/Smooth_Criminal.1.mid')['artist_key']
+
+
+@pytest.mark.parametrize('algorithm', ['aligned', 'aligned_indexed'])
+def test_aligned_worker_exports_source_verified_occurrences(tmp_path, algorithm):
+    from samuged.aligned import AlignedConfig
+    source = tmp_path/'source.mid'
+    output = tmp_path/'aligned'
+    write_song(source)
+    row = _work((str(source), 'Artist/source.mid', str(output),
+                 asdict(AlignedConfig()), 'aligned-run', True, False, algorithm, False))
+    assert row['status'] == 'ok'
+    assert row['phrases']
+    for phrase in row['phrases']:
+        assert phrase['matcher_flags']['monotone_alignment']
+        assert (output/phrase['midi_path']).is_file()
+        assert all(occ['matched_note_pairs'] and occ['source_verified']
+                   for occ in phrase['occurrences'])
+
+
+def test_build_rejects_mismatched_algorithm_configuration(tmp_path):
+    from samuged.aligned import AlignedConfig
+    with pytest.raises(TypeError, match='AlignedConfig'):
+        build(tmp_path, tmp_path/'out', Config(), algorithm='aligned')
+    with pytest.raises(TypeError, match='reference algorithm requires Config'):
+        build(tmp_path, tmp_path/'out', AlignedConfig())
+    with pytest.raises(ValueError, match='algorithm'):
+        build(tmp_path, tmp_path/'out', Config(), algorithm='unknown')
+
+
+def test_recovery_is_opt_in_and_source_receipts_are_saved(tmp_path):
+    source = tmp_path/'source.mid'
+    write_song(source)
+    midi = mido.MidiFile(source)
+    midi.tracks[0].insert(0, mido.MetaMessage('key_signature', key='C'))
+    midi.save(source)
+    original = source.read_bytes().replace(b'\xff\x59\x02\x00\x00', b'\xff\x59\x02\x08\x00', 1)
+    source.write_bytes(original)
+    args = (str(source), 'Artist/source.mid', str(tmp_path/'out'), asdict(Config()),
+            'recovery-run', False, False)
+    strict = _work(args)
+    assert strict['status'] == 'error'
+    assert strict['error_type'] == 'KeySignatureError'
+    recovered = _work((*args, 'reference', True))
+    assert recovered['status'] == 'ok'
+    assert len(recovered['metadata_repairs']) == 1
+    assert recovered['metadata_repairs'][0]['original_payload_hex'] == '0800'
+    assert recovered['phrases']
+    assert source.read_bytes() == original

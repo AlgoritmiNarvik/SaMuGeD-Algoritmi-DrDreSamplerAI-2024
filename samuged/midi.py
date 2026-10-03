@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
+from hashlib import sha256
 from io import BytesIO
 import os
 from pathlib import Path
 from typing import Iterable
 
 import mido
+
+from .metadata_recovery import KeySignatureRepair, recover_invalid_key_signatures
 
 
 MAX_MIDI_BYTES = 16 * 1024 * 1024
@@ -51,6 +54,7 @@ class MidiSong:
     tempos: list[tuple[int, int]]
     meters: list[tuple[int, int, int]]
     warnings: list[str]
+    metadata_repairs: list[dict[str, object]] = field(default_factory=list)
 
 
 class _Warnings:
@@ -161,13 +165,48 @@ def _unwrap_midi_payload(data: bytes) -> tuple[bytes, bool]:
     return midi_payload, True
 
 
-def load_midi(path: str | Path) -> MidiSong:
+def _metadata_repair_receipt(
+    repair: KeySignatureRepair,
+    *,
+    original_smf_sha256: str,
+    recovered_smf_sha256: str,
+) -> dict[str, object]:
+    """Convert one internal repair record to stable JSON-safe provenance."""
+
+    return {
+        "kind": "invalid_key_signature_retyped_as_sequencer_specific",
+        "track_index": repair.track_index,
+        "event_index": repair.event_index,
+        "tick": repair.tick,
+        "offset_basis": "unwrapped_smf_bytes",
+        "event_offset": repair.event_offset,
+        "status_offset": repair.status_offset,
+        "meta_type_offset": repair.meta_type_offset,
+        "payload_offset": repair.payload_offset,
+        "original_meta_type": repair.original_meta_type,
+        "replacement_meta_type": repair.replacement_meta_type,
+        "original_payload_hex": repair.original_payload.hex(),
+        "reason": repair.reason,
+        "original_smf_sha256": original_smf_sha256,
+        "recovered_smf_sha256": recovered_smf_sha256,
+    }
+
+
+def load_midi(
+    path: str | Path, *, recover_invalid_keys: bool = False
+) -> MidiSong:
     """Load a format 0 or 1 standard MIDI file without converting source ticks.
 
     The caller is responsible for choosing a trusted path. The extension, header
     magic, byte size and parsed workload are checked before data is returned.
+    Invalid key-signature metadata can be made ignorable in memory only when
+    ``recover_invalid_keys`` is explicitly enabled. Strict parsing remains the
+    default.
     """
+    if not isinstance(recover_invalid_keys, bool):
+        raise TypeError("recover_invalid_keys must be a bool")
     source = _coerce_path(path, purpose="input")
+    metadata_repairs: list[dict[str, object]] = []
 
     try:
         with source.open("rb") as infile:
@@ -186,7 +225,23 @@ def load_midi(path: str | Path) -> MidiSong:
                 raise ValueError("MIDI file changed while it was being read")
             # ASVS 5.2.2: validate the extension and the SMF or RIFF RMID structure.
             midi_payload, was_rmid = _unwrap_midi_payload(file_data)
-            midi = mido.MidiFile(file=BytesIO(midi_payload), clip=False)
+            try:
+                midi = mido.MidiFile(file=BytesIO(midi_payload), clip=False)
+            except mido.KeySignatureError:
+                if not recover_invalid_keys:
+                    raise
+                recovered = recover_invalid_key_signatures(midi_payload)
+                original_hash = sha256(midi_payload).hexdigest()
+                recovered_hash = sha256(recovered.data).hexdigest()
+                metadata_repairs = [
+                    _metadata_repair_receipt(
+                        repair,
+                        original_smf_sha256=original_hash,
+                        recovered_smf_sha256=recovered_hash,
+                    )
+                    for repair in recovered.repairs
+                ]
+                midi = mido.MidiFile(file=BytesIO(recovered.data), clip=False)
     except ValueError:
         raise
     except (EOFError, OSError) as exc:
@@ -202,6 +257,12 @@ def load_midi(path: str | Path) -> MidiSong:
     warnings = _Warnings()
     if was_rmid:
         warnings.add("riff_rmid_unwrapped")
+    if metadata_repairs:
+        warnings.add(
+            "invalid_key_signature_metadata_recovered: "
+            f"{len(metadata_repairs)} event(s) retyped as sequencer-specific; "
+            "see metadata_repairs"
+        )
     track_names: dict[int, str] = {}
     part_by_key: dict[tuple[int, int, int], Part] = {}
     pending: dict[tuple[int, int, int], deque[tuple[int, int, Part]]] = {}
@@ -313,6 +374,7 @@ def load_midi(path: str | Path) -> MidiSong:
             for tick, numerator, denominator in meters
         ],
         warnings=warnings.finish(),
+        metadata_repairs=metadata_repairs,
     )
 
 
