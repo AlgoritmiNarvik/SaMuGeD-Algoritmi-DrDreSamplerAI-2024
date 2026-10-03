@@ -1,6 +1,6 @@
 # Local delivery
 
-This page is the entry point for the local SaMuGeD delivery as observed on 2026-10-03 at 13:07 CEST. It separates finished artifacts from work that was still running. Nothing described here has been pushed or published.
+This page is the entry point for the local SaMuGeD delivery at the user's requested pause on 2026-10-03. All research computations have stopped and automatic continuation is paused. Nothing described here has been pushed or published. See the [pause checkpoint](PAUSE_CHECKPOINT.md) for exact hashes and manual continuation commands, the [short Russian report](STATUS_REPORT_RU.md) for the status and the [presentation](../../output/presentations/samuged_status_2026-10-03.pptx) for the full illustrated report.
 
 ## Start here
 
@@ -12,7 +12,7 @@ The release accounts for 17,232 input paths. There are 16,995 successfully parse
 
 The completed [aligned closed corpus](../../research_local/lakh_aligned_closed_v01) is the easiest place to inspect the enhanced candidate variant now. Its full artifact audit and all 112,309 schema rows pass. Its [256 source selection replay](../../research_local/selection_sample_closed_v02) also passes with zero failures, including every one of the 28 metadata-recovered sources and balanced groups of 114 search-limited and 114 unlimited sources. Its [portable archive](../../research_local/releases/closed_v01.tar.gz) passes archive and extracted-recipient verification. The archive is 205,245,269 bytes with SHA256 `3c2fe6777a3155292baa6b35641a603681f4f32cb3cf97328838844eca5b0804`. See its [dataset card](../../research_local/releases/closed_v01/DATASET_CARD.md) and [verification report](../../research_local/releases/closed_v01.portable_verification_v01.json).
 
-The current [six-page paper PDF](../../output/pdf/samuged_recurring_phrases.pdf) is a reviewed draft snapshot, SHA256 `53fb7151bb3903a3d9a6b17191432c27fbe9d702c3707fe0470e6c625c09285b`. It is not the final replacement because later full-corpus variants are still being checked. Its exact evidence boundary is recorded in the adjacent [input receipt](../../output/pdf/samuged_recurring_phrases.inputs.json).
+The current [six-page paper PDF](../../output/pdf/samuged_recurring_phrases.pdf) is the reviewed pause snapshot, SHA256 `10ef7decc9ac551c51efd1c080744a58517ab0c054e2e0629ecba24dd4649eb6`. It includes the reference corpus, the audited indexed and closed comparisons and the complete reference selection replay. All 132 input paths and hashes match the adjacent [input receipt](../../output/pdf/samuged_recurring_phrases.inputs.json), SHA256 `aa0b4f24e3a436c57a8be3f63c6862b82ecb45d88c0dbc3cc3037dc9d14febd5`. The unvalidated melody corpus is outside this paper's evidence boundary. This remains a local scientific draft without human phrase-quality labels.
 
 ## Algorithm choice
 
@@ -22,7 +22,7 @@ The current [six-page paper PDF](../../output/pdf/samuged_recurring_phrases.pdf)
 
 `aligned_closed` applies a narrow selection correction over aligned candidates. It replaces a shorter selection only with a containing, source-verified, edit-free recurrence under fixed support, geometry and score rules. On 500 newly seeded synthetic cases it raised recovered positive cases from 404/423 to 420/423 and occurrence F1 from 0.831091 to 0.894309. It did not improve the reused six-song Theme Transformer or five-work JKU diagnostics. The full corpus audit, schema check and a stratified 256-source selection replay pass. This method is an improved candidate variant with documented tradeoffs and is not promoted over `reference`.
 
-`aligned_melody` adds a small structural part-role prior without changing the recurrence score. It improved POP909 `MELODY` track-role agreement in a separate heldout role study, but track role is not phrase quality. Its reused JKU diagnostic was slightly lower on polyphonic establishment F1. The full build was still running at this checkpoint, so it is not a delivered full-corpus result.
+`aligned_melody` adds a small structural part-role prior without changing the recurrence score. It improved POP909 `MELODY` track-role agreement in a separate heldout role study, but track role is not phrase quality. Its reused JKU diagnostic was slightly lower on polyphonic establishment F1. The full build completed with 95,077 phrase rows. Manifests reconcile, but its full artifact audit, schema validation and selection replay have not started, so it is not a validated dataset delivery.
 
 These methods retrieve repeated symbolic structure. None predicts catchiness, listener salience, hooks or involuntary musical imagery.
 
@@ -41,10 +41,11 @@ The reference release contains 44,511 percussion rows from 15,268 sources with p
 | Reference v04 archive | Complete and portable verification passed | 95,009 archive members, including 94,950 MIDI excerpts |
 | Extracted reference v04 | Complete and recipient verification passed | Metadata, checksums and 94,950 extracted MIDI excerpts |
 | Reference selection replay | Complete and passed | All 16,995 successful sources, zero discrepancies |
-| Full `aligned_indexed` corpus | Build, schema and ordinary audit passed | All-successful selection replay still running |
+| Full `aligned_indexed` corpus | Build, schema, ordinary audit and all-successful selection replay passed | All 16,995 successful sources replayed with zero discrepancies; no release archive yet |
 | Full `aligned_closed` corpus and archive | Build, schema, artifact audit, 256-source replay, archive and extracted checks passed | Replay is bounded, not all-successful |
-| Full `aligned_melody` corpus | Build still running | No completed full-corpus audit or replay yet |
-| Paper | Current six-page draft is available | Final replacement and its new receipt remain pending |
+| Full `aligned_melody` corpus | Build complete, manifest accounting checked | 95,077 rows; full artifact audit, schema validation and replay not started |
+| Paper | Updated six-page pause draft and receipt available | All 132 inputs verified; excludes the unvalidated melody corpus |
+| Report and continuation | 25-slide presentation and PDF, short written report and pause checkpoint | Automatic continuation paused, no active research jobs |
 | Human review | 64-pair packet is generated, independently reconstructed and browser checked | A/B play and stop work; an actual null export used the visible fallback; no human ratings |
 
 An ordinary dataset audit and a selection replay answer different questions. The audit checks saved manifests, source reconstruction, provenance and MIDI exports. A selection replay reruns candidate generation and final selection for its declared cohort. Do not describe an unfinished replay as passed.

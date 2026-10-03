@@ -46,13 +46,13 @@ The prepared role cohort is [`research_local/external/pop909_role_v01`](../../re
 
 ## Current paper draft
 
-The current local paper output is [`output/pdf/samuged_recurring_phrases.pdf`](../../output/pdf/samuged_recurring_phrases.pdf), six pages, SHA256 `53fb7151bb3903a3d9a6b17191432c27fbe9d702c3707fe0470e6c625c09285b`. Its input receipt is [`samuged_recurring_phrases.inputs.json`](../../output/pdf/samuged_recurring_phrases.inputs.json), SHA256 `a62351ba259d74b3fb346d34cedc6f2f0be22d5f22f6c7c81450bddd147e847c`; all 98 paths and hashes matched at the 10:16 Oslo checkpoint. The generator SHA256 is `51f5ad65455e67d2d0b4bb10da542bddbd91100200ed76d376a689c2b4a010a1`. The layout has been rendered and visually checked. This remains a draft snapshot while later full builds are evaluated. The paper reports local symbolic evidence and states that human validation is pending.
+The current local paper output is [`output/pdf/samuged_recurring_phrases.pdf`](../../output/pdf/samuged_recurring_phrases.pdf), six pages, SHA256 `10ef7decc9ac551c51efd1c080744a58517ab0c054e2e0629ecba24dd4649eb6`. Its input receipt is [`samuged_recurring_phrases.inputs.json`](../../output/pdf/samuged_recurring_phrases.inputs.json), SHA256 `aa0b4f24e3a436c57a8be3f63c6862b82ecb45d88c0dbc3cc3037dc9d14febd5`; all 132 paths and hashes matched during pause closeout. The generator SHA256 is `536bf43707424043394a7a8cfafc2cdf9d77aee8c50b981960e448b9c0a893c3`. All six pages were rendered and visually checked. The paper binds the reference corpus, audited indexed and closed comparisons and complete reference selection replay. It excludes the unvalidated full melody corpus and remains a local scientific draft. Human validation is pending. The previous promoted PDF and receipt remain preserved under `research_local/samuged_recurring_phrases.pre_pause_checkpoint_v01.*`.
 
 ## Additional completed evidence
 
 The optional part-role study is [`part_ranking_v01`](../../research_local/part_ranking_v01), with independent audit [`part_ranking_audit_v01`](../../research_local/part_ranking_audit_v01). The fixed prior improves top-one MELODY-part agreement from 76 to 110 of 120 heldout official POP909 files. These are track-role labels, not phrase-quality labels. Its [study notes](part_ranking.md) report the frozen development choice, partial candidate replay scope and Lakh pilot.
 
-The certified percussion experiment is [`certified_drums_v01`](../../research_local/certified_drums_v01). Preferred strict replay is [`certified_drums_strict_root_v01`](../../research_local/certified_drums_strict_root_v01), audit SHA256 `a53316d6353e85ef9539f3eaf5d9fb6706d05d08414322efa1e42054ea80a801`. All 360 cases pass source, oracle and detector replay checks. Both modes return no outputs on 120 heldout certified negatives and recover all 60 heldout positive families. The [notes](certified_drum_controls.md) distinguish this conditioned symbolic test from natural-music specificity.
+The certified percussion experiment is [`certified_drums_v01`](../../research_local/certified_drums_v01). Preferred strict replay is [`certified_drums_strict_root_v01`](../../research_local/certified_drums_strict_root_v01), audit SHA256 `a53316d6353e85ef9539f3eaf5d9fb6706d05d08414322efa1e42054ea80a801`. All 360 cases pass source, oracle and detector replay checks. Both modes return no outputs on 120 heldout certified negatives and recover at least one target edge in all 60 heldout positive cases. Direct target-edge coverage is 120/180, so case recovery is not complete occurrence recovery. The [notes](certified_drum_controls.md) distinguish this conditioned symbolic test from natural-music specificity.
 
 The [`selection_external_v01`](../../research_local/selection_external_v01) comparison covers 16 inputs under three selectors. Root replicated all 48 saved outputs at [`selection_external_root_v01`](../../research_local/selection_external_root_v01). Theme note F1 is unchanged, and the part prior slightly lowers JKU polyphonic establishment F1. These are reused development diagnostics, reported in [selection_external.md](selection_external.md). The paper reconstructs the metrics against verified external inputs.
 
@@ -62,7 +62,7 @@ The preferred installed-package check is [`packaging_smoke_v05`](../../research_
 
 The [recurrence figures](recurrence_examples.md) bind deterministic melodic and percussion examples to exact source notes and tempo maps. The [paired listening packet](paired_review.md) provides a checked local A/B interface. Both are unlabelled inspection aids.
 
-## Completed aligned variants and active work
+## Completed aligned builds and pending checks
 
 The full `aligned_closed` corpus at
 [`lakh_aligned_closed_v01`](../../research_local/lakh_aligned_closed_v01)
@@ -94,13 +94,31 @@ exported rows, comprising 50,568 melodic and 44,511 percussion rows. Its first
 audit stopped because a valid U+0085 character inside one part name exposed
 use of line-boundary-aware `splitlines()` for JSONL. The Unicode-safe full
 artifact audit now passes all source and MIDI rows with zero failures, and
-all 112,311 schema rows pass. Its all-successful selection replay remains
-active; packaging is queued after that replay passes.
+all 112,311 schema rows pass. Its all-successful selection replay completed
+at [`selection_sample_indexed_v02`](../../research_local/selection_sample_indexed_v02):
+all 16,995 successful sources passed with zero discrepancies. Completion receipt
+SHA256 is `8b2c75f94017767d1b8da6a253b9330712ddea13a53601e4e012b0c2b09a3830`.
+The historical directory name does not change the actual `all_successful` mode.
+Root verified exact coverage and canonical source records, then separately
+matched all five bound dataset files including the complete source manifest.
+Its release package has not been built.
 
-The `aligned_melody` full build remains active at this checkpoint. Its audit,
-selection replay and release must be checked separately before it is listed
-as a completed dataset. All variant outputs preserve their own configuration
-and source snapshots and remain separate from the reference corpus.
+The `aligned_melody` full build also completed naturally before the pause.
+Its source and phrase manifests reconcile 17,232 inputs and 95,077 phrases
+(50,566 melodic and 44,511 percussion). Their SHA256 values are
+`e7a7bc1888f2522a4f61d0a596d869b374b93f53fa5e32866a46bd8bab04d1e4`
+and `49c3e10c1768382ee468a4ee31bf5c340fefc38725171f4e93a58d4b825feb2e`.
+Its full artifact audit, schema validation, replay and release have not started.
+The corrected [build inventory](../../research_local/melody_pause_inventory_v02.json)
+checks all 29 files against the actual frozen runner directory. The first private
+inventory's mismatch claim was a wrong-base-path error, not changed frozen code.
+
+The user requested a pause. Automatic continuation is `PAUSED`, downstream
+waiters are stopped and no research computation remains active. The
+[pause checkpoint](PAUSE_CHECKPOINT.md) records the final boundary and commands.
+The [presentation](../../output/presentations/samuged_status_2026-10-03.pptx)
+and its [PDF copy](../../output/pdf/samuged_status_2026-10-03.pdf) give the status
+in Russian, including metric denominators and unfinished publication work.
 
 ## Claim limits
 
