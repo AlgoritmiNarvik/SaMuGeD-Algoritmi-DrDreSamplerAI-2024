@@ -129,6 +129,8 @@ python scripts/package_dataset.py --dataset research_local/my_reference_run --ou
 
 Add `--screening PATH` for a validated supplementary split view. Add `--archive` to create a deterministic local archive including extracted MIDI. The package checks current manifest bindings and MIDI hashes again, provides `SHA256SUMS` and refuses to overwrite an existing output. An old audit without manifest/configuration bindings must be rerun. These commands do not publish anything.
 
+Add `--selection-replay PATH` to include a completed [selection replay](selection_sample_audit.md), bound to the exact primary manifests and audit. The package distinguishes a bounded sample from explicit replay of every successfully parsed source. Parse errors remain outside that successful-source replay and stay visible in the primary artifact audit. The [paired ratings analyzer](paired_ratings_analysis.md) validates future listening exports while retaining missing responses as null; it does not create human labels.
+
 The paper generator is `scripts/make_paper.py`. Its PDF input receipt records the exact dataset and evaluation artifacts used. Published claims must be limited to the measurements represented by those artifacts. The live [work log](WORK_LOG.md) distinguishes completed builds, experimental results and pending validation.
 
 ## Evidence and remaining publication work

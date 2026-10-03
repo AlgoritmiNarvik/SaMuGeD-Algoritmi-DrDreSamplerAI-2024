@@ -41,6 +41,7 @@ Start with `--limit 128` and a separate output directory for a deterministic pil
 - [External selector comparison](docs/research/selection_external.md): closed selection and the melody prior on reused annotated inputs.
 - [Annotation protocol](docs/research/annotation_protocol.md): blinded local review with empty human rating fields.
 - [Paired listening review](docs/research/paired_review.md): anonymous A/B comparisons with source verified playback.
+- [Rating analysis](docs/research/paired_ratings_analysis.md): checked exports, null preservation and agreement summaries.
 - [Recurrence examples](docs/research/recurrence_examples.md): source timelines and piano rolls for melody and drums.
 - [Installed package check](docs/research/installed_package_check.md): isolated wheel installation and CLI validation.
 - [Historical project notes](docs/legacy_project_notes.md): earlier applications, setup and plans.
