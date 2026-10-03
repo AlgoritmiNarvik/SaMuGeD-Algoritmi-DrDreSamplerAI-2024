@@ -99,3 +99,59 @@ nice -n 10 python scripts/screen_splits.py \
 ```
 
 An earlier frozen comparison attempt is preserved at `research_local/indexed_full_comparison_v01`. It stopped before producing results because version 1 treated detector outcome as immutable source identity. The separate diagnosis at `research_local/indexed_full_comparison_outcome_diagnosis_v01.json` identified 37 outcome differences and no other source identity field differences. Version 2 records outcomes as measured transitions. The failed v1 receipt is not scientific evidence.
+
+## Preferred v3 common content comparison
+
+The preferred comparison is complete at `research_local/indexed_full_comparison_v03`. It compares the same audited reference build with `aligned_indexed` using `algorithm-variant-comparison-v3` and the `common-content-projection-v1` field definitions. The completion receipt verifies the four result artifacts, the source snapshot and the case cohort. The independent inventory check rehashed all 34,474 principal and per-source record files with zero mismatches.
+
+Root independently reconstructed tuple-based note and interval projections
+from both complete phrase manifests, without using the comparison projection
+functions. All eight changed-source counts and exact source-ID sets agree.
+The check is saved at `research_local/indexed_content_projection_root_check_v01.json`.
+
+The full semantic payload changed for 16,911 sources, all in the melodic output. This comparison excludes only `phrase_id`, `midi_path` and `rank_in_file` from that payload. The new common content projection reports the following source counts:
+
+| Projection | Melodic changed sources | Percussion changed sources |
+| --- | ---: | ---: |
+| Ordered prototype sequence | 16,891 | 0 |
+| Duplicate preserving prototype multiset | 16,873 | 0 |
+| Top one prototype | 16,033 | 0 |
+| Ordered recurrence intervals | 16,892 | 0 |
+
+Selected melodic prototype counts are 50,439 for reference and 50,568 for `aligned_indexed` (difference +129). Selected percussion prototype counts are 44,511 for both builds. Nineteen sources have full semantic payload differences while the common recurrence projection remains equal. The projection excludes scores, matcher details, edit paths and other algorithm-specific metadata; it retains prototype notes, source ticks and occurrence intervals. Eighteen sources differ in prototype order while their duplicate preserving prototype multisets remain equal. These are differential output counts, not accuracy or musical quality measures.
+
+The v3 output binds the following input manifests:
+
+| Input | SHA256 |
+| --- | --- |
+| Reference `sources.jsonl` | `062691ad29739cd58bdfb8c55258d63d72868d3ee3e4c30badeceaa917c8c76f` |
+| Reference `phrases.jsonl` | `f7a1ccff7483bb70a07c0c3f04b7cd6d5090942b524272eac942d0ee3739160e` |
+| Reference `summary.json` | `980e2f09d388d1d624bb9a98b0468f456be2091d685389f459e0dcea05cfcfd0` |
+| Reference `build_config.json` | `31c1a727769e523c6a3247c847ff62673544fbbed6a68a9a074f918630d568f0` |
+| Reference `audit.json` | `e89f8275936e2813f577ba42eaf092c930a8a7170bc7777fecd04dbac4e37ecf` |
+| Indexed `sources.jsonl` | `0cac11bb2289cadca8555b0d5eb222d185e9bb797b74bc6c266b16544206143f` |
+| Indexed `phrases.jsonl` | `84cb5483eaa38981542a0358a2d0f610b5274b25284a6651440a868e502e68b3` |
+| Indexed `summary.json` | `ab0b12887a4ff902ab6e62409afd2c14911f5e1382068fb2015e54aa4a7008fe` |
+| Indexed `build_config.json` | `c69b7780b815b7813c7b74c61b071bb42cd958fc2e04684f9b8f70b136707bb8` |
+| Indexed `audit.json` | `8936468ac01b79855edbb8c8d450fb888980c1ac8f1731d5215ea6d6117c765f` |
+
+The v3 output artifacts are:
+
+| Artifact | Bytes | SHA256 |
+| --- | ---: | --- |
+| `aggregate.json` | 7,244,286 | `7a8780622721bf631f0e18c1da1ace3945be7f8a44ad9dabdb63aaebeaad723d` |
+| `raw_results.json` | 477,060,224 | `3981725d74ec9123652082d9df5a0631b876bd66798336001659092482da4a25` |
+| `input_inventory.json` | 5,014,344 | `dcf1277b6727b1b018db8391c24cceaab0a4e69f8ea77666b521f6b4bd20ea23` |
+| `run_log.json` | 650 | `2c0b650de2e5e4cc005b9e95afd347be7c08defcdd006173269cd04eaeace2e9` |
+| `experiment_receipt.json` | 6,013 | `c77eecbcfd081c5945a264f1beaf4d235a72af4a61e56c1e7e4f2fee4a8a97ae` |
+| `completion_receipt.json` | 1,334 | `a199baf734e1743959cce3a485e32bd508054bb272f41697f0dcb279f081e3d1` |
+| `source_snapshot.json` | 2,508 | `a4888af1a4bbe09db54dfa33589af87d5b09260be9f919e7c63c280e0c5dca7` |
+
+The completion receipt records case cohort SHA256 `85495d3299cd659db011ee042f27c9a32655f0da782da1ef35443581008d0624`, configuration SHA256 `fcdf1ba963a959dd47202bd848bf121df9f6d40dc06a0a243f63d5315b29e205` and source snapshot SHA256 `b199ab4547d26436c6573aa99ed50ebf9aba8c9f1fb2d6da0c0dd03b81aa5def`. The comparison script in that snapshot has SHA256 `282f1cc25809f19facfa4bf23d37cd92b000bc91aaf32ce0d964da7689b78a2d`. Reproduction used `source .venv/bin/activate` and:
+
+```bash
+nice -n 10 python scripts/compare_variants.py \
+  --left research_local/lakh_phrases_v03 \
+  --right research_local/lakh_aligned_indexed_v01 \
+  --output research_local/indexed_full_comparison_v03
+```
