@@ -2,6 +2,8 @@
 
 Recurring MIDI phrases with source coordinates and separate drum patterns.
 
+SaMuGeD began as a MIDI sampling project: find repeated musical ideas, collect them as reusable phrases and explore them in music production. Earworms carries that idea into a dataset and a loop player.
+
 [Dataset](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases) · [Listen and download loops](https://huggingface.co/spaces/AlmazErmilov/samuged-earworms) · [Research note PDF](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/paper/samuged_recurring_phrases.pdf)
 
 ## Method
@@ -57,6 +59,21 @@ python -m samuged.cli build --source 'datasets/Lakh MIDI Clean' \
 Use a new output directory. Add `--limit 128` for a pilot. Source MIDI is not bundled.
 
 [Methods and verification](docs/research/README.md) · [Publication and rendering](docs/publication/README.md) · [Release status](docs/research/DELIVERY.md) · [Consumer guide](docs/research/consumer_guide.md) · [Familiar song selection](docs/research/familiar_hooks.md)
+
+## Project roadmap
+
+The original roadmap connects music structure analysis, phrase extraction, feature search and DAW use. It records the project's starting ideas, not a list of completed features.
+
+![Original SaMuGeD roadmap](docs/Roadmap_for_SaMuGeD.png)
+
+| Original direction | Where it stands |
+| --- | --- |
+| Find repeated phrases | The current dataset exports melodic and drum patterns with verified source occurrences. |
+| Explore segmentation and phrase boundaries | [SF segmenter experiments](archived/Peiyi_trying_sth_sfsegmenter/) are retained. The current method uses its own candidate and boundary rules. |
+| Group and search musical patterns | [SimilarMidis](SaMuGed-SimilarMidis/README.md) retains the earlier feature similarity application and clustering notebook. |
+| Reuse phrases in music production | The player offers looping audio and MIDI downloads for DAWs. A dedicated DAW plugin is not part of this release. |
+
+The [original planning notes](docs/legacy_project_notes.md) retain the earlier tasks on bar structure, note histograms, segment lengths and silence settings, alongside historical setup instructions.
 
 ## Inspiration
 
