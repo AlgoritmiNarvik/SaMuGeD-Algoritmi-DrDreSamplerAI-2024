@@ -12,6 +12,7 @@ import mido
 
 from .aligned import AlignedConfig, extract_aligned
 from .aligned_indexed import extract_indexed
+from .closed_patterns import extract_closed_patterns
 from .audit_alignment import (
     EXPECTED_MATCHER_FLAGS,
     validate_aligned_config,
@@ -27,7 +28,7 @@ from .phrases import Config, extract, signature, skyline, window
 _SOURCE_COLUMNS = ("source_id", "source_sha256", "source_path",
                    "artist_from_path", "title_from_path", "song_key", "split",
                    "split_group", "ticks_per_beat")
-_ALIGNED_ALGORITHMS = frozenset({"aligned", "aligned_indexed"})
+_ALIGNED_ALGORITHMS = frozenset({"aligned", "aligned_indexed", "aligned_closed"})
 
 
 def _read(path: Path) -> list[dict]:
@@ -195,6 +196,9 @@ def _reextract_record(song, record: dict, config: dict) -> list[str]:
         found = extract_aligned(song, AlignedConfig(**config["config"]))
     elif algorithm == "aligned_indexed":
         found = extract_indexed(song, AlignedConfig(**config["config"]))
+    elif algorithm == "aligned_closed":
+        found = extract_closed_patterns(song, AlignedConfig(**config["config"]), algorithm="aligned_indexed")
+        found["algorithm"] = algorithm
     else:
         found = extract(song, Config(**config["config"]))
     phrases = [{**phrase, "kind": "melodic"} for phrase in found.pop("phrases")]
@@ -401,6 +405,8 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
                         extract_aligned(error_song, AlignedConfig(**config["config"]))
                     elif algorithm == "aligned_indexed":
                         extract_indexed(error_song, AlignedConfig(**config["config"]))
+                    elif algorithm == "aligned_closed":
+                        extract_closed_patterns(error_song, AlignedConfig(**config["config"]), algorithm="aligned_indexed")
                     else:
                         extract(error_song, Config(**config["config"]))
                     if config.get("percussion"):
@@ -429,6 +435,17 @@ def audit(source: Path, output: Path, *, require_full: bool = False,
                     location, "source metadata repair presence differs from current loader")
             require(record.get("musical_sha256") == musical_digest(song), location,
                     "source musical fingerprint mismatch")
+            if algorithm == "aligned_closed":
+                require(record.get("algorithm") == algorithm, location,
+                        "closed source algorithm differs from build")
+                require(record.get("selection") == "closed-exact-extension-v1", location,
+                        "closed source selection policy differs")
+                trace = record.get("selection_trace")
+                require(isinstance(trace, list), location, "closed selection trace is missing")
+                require(type(record.get("closed_extension_count")) is int
+                        and isinstance(trace, list)
+                        and record["closed_extension_count"] == len(trace), location,
+                        "closed extension count differs from trace")
             if reextract:
                 for problem in _reextract_record(song, record, config):
                     require(False, location, problem)

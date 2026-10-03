@@ -1221,6 +1221,100 @@
         "$ref": "#/$defs/metadataRepair"
       },
       "maxItems": 1024
+    },
+    "algorithm": {
+      "const": "aligned_closed"
+    },
+    "selection": {
+      "const": "closed-exact-extension-v1"
+    },
+    "closed_extension_count": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "selection_trace": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "raw_rank": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "replaced_note_count": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "replacement_note_count": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "support": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "selected_index": {
+            "$ref": "#/$defs/nonNegativeInteger"
+          },
+          "replaced_family_id": {
+            "$ref": "#/$defs/hex64"
+          },
+          "replacement_family_id": {
+            "$ref": "#/$defs/hex64"
+          },
+          "replaced_score": {
+            "$ref": "#/$defs/score"
+          },
+          "replacement_score": {
+            "$ref": "#/$defs/score"
+          },
+          "replaced_intervals": {
+            "type": "array",
+            "minItems": 3,
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/nonNegativeInteger"
+                },
+                {
+                  "$ref": "#/$defs/positiveInteger"
+                }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "replacement_intervals": {
+            "type": "array",
+            "minItems": 3,
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/nonNegativeInteger"
+                },
+                {
+                  "$ref": "#/$defs/positiveInteger"
+                }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        },
+        "required": [
+          "raw_rank",
+          "replaced_note_count",
+          "replacement_note_count",
+          "support",
+          "selected_index",
+          "replaced_family_id",
+          "replacement_family_id",
+          "replaced_score",
+          "replacement_score",
+          "replaced_intervals",
+          "replacement_intervals"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [
@@ -1452,6 +1546,25 @@
             }
           }
         }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "algorithm"
+        ],
+        "properties": {
+          "algorithm": {
+            "const": "aligned_closed"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "selection",
+          "closed_extension_count",
+          "selection_trace"
+        ]
       }
     }
   ],

@@ -133,9 +133,13 @@ def _work(task):
         song = (load_midi(path, recover_invalid_keys=True) if recover_invalid_keys
                 else load_midi(path))
         stage = "extraction"
-        if algorithm in {"aligned", "aligned_indexed"}:
+        if algorithm in {"aligned", "aligned_indexed", "aligned_closed"}:
             from .aligned import AlignedConfig, extract_aligned
-            if algorithm == "aligned_indexed":
+            if algorithm == "aligned_closed":
+                from .closed_patterns import extract_closed_patterns
+                found = extract_closed_patterns(song, AlignedConfig(**config), algorithm="aligned_indexed")
+                found["algorithm"] = algorithm
+            elif algorithm == "aligned_indexed":
                 from .aligned_indexed import extract_indexed
                 found = extract_indexed(song, AlignedConfig(**config))
             else:
@@ -264,9 +268,9 @@ def finalize(records: list[dict], output: Path, metadata: dict) -> dict:
 
 def build(source: Path, output: Path, cfg, *, workers=4, limit=None, export=True,
           percussion=False, algorithm="reference", recover_invalid_keys=False):
-    if algorithm not in {"reference", "aligned", "aligned_indexed"}:
-        raise ValueError("algorithm must be reference, aligned or aligned_indexed")
-    if algorithm in {"aligned", "aligned_indexed"}:
+    if algorithm not in {"reference", "aligned", "aligned_indexed", "aligned_closed"}:
+        raise ValueError("algorithm must be reference, aligned, aligned_indexed or aligned_closed")
+    if algorithm in {"aligned", "aligned_indexed", "aligned_closed"}:
         from .aligned import AlignedConfig
         if not isinstance(cfg, AlignedConfig):
             raise TypeError("aligned algorithm requires AlignedConfig")

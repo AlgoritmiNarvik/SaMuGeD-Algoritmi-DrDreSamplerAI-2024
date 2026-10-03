@@ -111,7 +111,7 @@ def test_word_order_artist_aliases_group_conservatively():
     assert source_labels('Jackson_Michael/Smooth_Criminal.mid')['artist_key'] == source_labels('Michael_Jackson/Smooth_Criminal.1.mid')['artist_key']
 
 
-@pytest.mark.parametrize('algorithm', ['aligned', 'aligned_indexed'])
+@pytest.mark.parametrize('algorithm', ['aligned', 'aligned_indexed', 'aligned_closed'])
 def test_aligned_worker_exports_source_verified_occurrences(tmp_path, algorithm):
     from samuged.aligned import AlignedConfig
     source = tmp_path/'source.mid'
