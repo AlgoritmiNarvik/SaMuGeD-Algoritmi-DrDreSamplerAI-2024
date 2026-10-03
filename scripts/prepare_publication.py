@@ -56,7 +56,7 @@ The project code uses MIT, reproduced in SOFTWARE_LICENSE.txt.
 External evaluation datasets are excluded from this release.
 
 Dataset https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases
-Demo https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops
+Demo https://huggingface.co/spaces/AlmazErmilov/samuged-earworms
 Code https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSamplerAI-2024
 """
 
@@ -73,7 +73,7 @@ def repackage(metadata: Path, archive: Path, output: Path, name: str) -> dict:
     (target / "DATASET_CARD.md").write_text(public_card(release))
     review = target / "review.html"
     if review.exists():
-        review.write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>SaMuGeD Earworms</title><h1>SaMuGeD Earworms</h1><p>Ostinato / Catchy musical hooks.</p><p><a href="https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops">Open the loop player</a></p><p>Listener labels are not part of this release.</p></html>')
+        review.write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>SaMuGeD Earworms</title><h1>SaMuGeD Earworms</h1><p>Ostinato / Catchy musical hooks.</p><p><a href="https://huggingface.co/spaces/AlmazErmilov/samuged-earworms">Open the loop player</a></p><p>Listener labels are not part of this release.</p></html>')
     metadata_files = {p.relative_to(target).as_posix(): p for p in target.rglob("*") if p.is_file() and p.name != "SHA256SUMS"}
     metadata_hashes = {n: digest(p) for n, p in metadata_files.items()}
     (target / "SHA256SUMS").write_text("".join(f"{v}  {n}\n" for n, v in sorted(metadata_hashes.items())))

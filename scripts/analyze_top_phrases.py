@@ -207,6 +207,11 @@ def build(dataset, source_root, chart_path, output, count=50):
     shutil.copytree(font_root, output / "fonts")
     for path in sorted(font_root.iterdir()):
         receipt["inputs"][str(path.resolve())] = {"sha256": _file_sha256(path), "bytes": path.stat().st_size}
+    branding_root = font_root.parent / "merkur"
+    shutil.copytree(branding_root, output / "branding")
+    for path in sorted(branding_root.iterdir()):
+        receipt["inputs"][str(path.resolve())] = {"sha256": _file_sha256(path), "bytes": path.stat().st_size}
+    shutil.copyfile(Path(__file__).with_name("loop_downloads.js"), output / "loop_downloads.js")
     (output / "index.html").write_text(template.replace("__DATA__", script_safe_json(packet)), encoding="utf-8")
     (output / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     receipt["outputs"] = {str(path.relative_to(output)): {"sha256": _file_sha256(path), "bytes": path.stat().st_size} for path in sorted(output.rglob("*")) if path.is_file()}

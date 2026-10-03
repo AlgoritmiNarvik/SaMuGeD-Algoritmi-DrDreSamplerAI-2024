@@ -33,7 +33,7 @@ def main() -> None:
     parser.add_argument("--space", type=Path, required=True)
     parser.add_argument("--owner", required=True)
     parser.add_argument("--dataset-name", default="samuged-recurring-phrases")
-    parser.add_argument("--space-name", default="samuged-earworm-loops")
+    parser.add_argument("--space-name", default="samuged-earworms")
     parser.add_argument("--receipt", type=Path, required=True)
     parser.add_argument("--publish", action="store_true")
     args = parser.parse_args()

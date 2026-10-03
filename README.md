@@ -2,7 +2,7 @@
 
 Recurring MIDI phrases with source coordinates and separate drum patterns.
 
-[Dataset](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases) · [Listen and download loops](https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops) · [Research note PDF](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/paper/samuged_recurring_phrases.pdf)
+[Dataset](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases) · [Listen and download loops](https://huggingface.co/spaces/AlmazErmilov/samuged-earworms) · [Research note PDF](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/paper/samuged_recurring_phrases.pdf)
 
 ## Method
 
@@ -38,7 +38,7 @@ flowchart LR
     class F evidence
 ```
 
-The Space includes top 50 motifs, popular songs and drum patterns, plus ten familiar song selections and a [Tool case study](docs/research/tool_motifs.md) with 27 riffs, 14 drum patterns and 20 riff plus drum versions. Audio loops until stopped. Download 48 kHz stereo WAV, FLAC or loop MIDI. Five CSV rankings are included.
+The Space includes top 50 listening collections, ten familiar song selections and [Tool’s ostinatos](docs/research/tool_motifs.md) with 37 riffs and 20 drum patterns from 12 songs. Source drums play by default where available. Tool offers 27 aligned three mode comparisons. Download 48 kHz stereo WAV, FLAC or loop MIDI. The separate atlas provides recurrence counts and note plots. Its audio uses the same SoundFont renderer. Schism, Lateralus and Forty Six & 2 are interface supplements, outside the dataset.
 
 There are **no listener labels** for these fragments. Repetition does not prove catchiness or recognition. Familiar song evidence applies to songs, not these exact MIDI fragments. Filename identities, search limits and duplicate arrangements affect coverage.
 

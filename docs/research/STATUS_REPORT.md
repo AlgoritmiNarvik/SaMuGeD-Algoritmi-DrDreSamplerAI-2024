@@ -50,6 +50,6 @@ Percussion has synthetic and more difficult tests. In the certified negative coh
 
 This is an archival pause report. The primary release is `closed_v01`, with 95,077 phrase rows: 50,566 melodic and 44,511 percussion. The conservative `reference_v04` package has 94,950 rows: 50,439 melodic and 44,511 percussion. Neither package contains listener labels, and listener ratings are not required for the algorithmic recurrence release.
 
-The dataset is [Hugging Face: `AlmazErmilov/samuged-recurring-phrases`](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases). The static demo is [Hugging Face Space: `AlmazErmilov/samuged-earworm-loops`](https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops). The demo shows real source loop cycles and a separate song-level evidence view for familiar-hook selection. These are algorithmic evidence views, not listener annotations.
+The dataset is [Hugging Face: `AlmazErmilov/samuged-recurring-phrases`](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases). The static demo is [Hugging Face Space: `AlmazErmilov/samuged-earworms`](https://huggingface.co/spaces/AlmazErmilov/samuged-earworms). The demo shows real source loop cycles and a separate song-level evidence view for familiar-hook selection. These are algorithmic evidence views, not listener annotations.
 
 For current publication wording and the Lakh rights caveat, see [the research guide](README.md) and [the primary sources note](sources.md).

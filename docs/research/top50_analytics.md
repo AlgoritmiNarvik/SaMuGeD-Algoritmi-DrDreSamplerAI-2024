@@ -1,8 +1,8 @@
 # Top 50 recurrence analytics
 
-The top 50 analytics are algorithmic recurrence annotations. They do not use listener ratings and do not infer perceptual earworm labels. The archived browser atlas contains five 50-row CSV views, copied MIDI excerpts and a machine-readable input/output receipt. Its browser audio is a symbolic MIDI synthesis preview, not an original recording.
+The top 50 analytics are algorithmic recurrence annotations. They do not use listener ratings and do not infer perceptual earworm labels. The archived browser atlas contains five 50-row CSV views, copied MIDI excerpts and a machine-readable input/output receipt. The public atlas now plays source derived SoundFont loops, not original recordings.
 
-The public dataset is [SaMuGeD Earworms](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases), and the rendered loop demo is the [SaMuGeD Earworms Space](https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops). Both are public.
+The public dataset is [SaMuGeD Earworms](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases), and the rendered loop demo is the [SaMuGeD Earworms Space](https://huggingface.co/spaces/AlmazErmilov/samuged-earworms). Both are public.
 
 The primary release is `closed_v01` with 95,077 phrases, including 50,566 melodic and 44,511 percussion phrases. `reference_v04` contains 94,950 phrases, including 50,439 melodic and 44,511 percussion phrases. Neither release includes listener labels.
 
@@ -40,7 +40,7 @@ All five views contain 50 positions. Across them there are 236 unique listening 
 
 A separate read-only reconstruction from the full phrase manifest reproduced all five ordered rankings. The final root check verifies all 13 input hashes and 244 output hashes and confirms that the final UI corrections did not change any ranking or source-derived snippet. The archived offline ZIP at `research_local/top50_v01/samuged_top50_analytics.zip` contains 245 files, is 668,686 bytes and passes ZIP integrity checking. Its SHA256 is `d9333aab1d78f5ead5eb386eca1ecc76bda7826faf145244dbe3c584a20bb6b2`. Final receipt SHA256 is `420df0affac7e9d5dd9abfc19358c4e2c244804e238c25e5ec782fcf4d0f45a6`. The archived root verification at `research_local/top50_v01/final_root_verification.json` records this boundary. These exact values are retained as historical evidence from the archived Russian snapshot.
 
-The archived browser interface supports search, all five views, a note plot, a recurrence timeline, source disclosure, CSV and MIDI downloads, prototype playback and alternate occurrences. Timing integrates the actual source MIDI tempo map. Its audio is a symbolic browser synthesis preview, not an original recording or a General MIDI soundfont. Forty rendered source cycles loop continuously in the linked Space. A separate song-level evidence view supports familiar-hook selection. Search-limit and candidate-truncation warnings remain visible on relevant results. The timeline runs from tick zero to the final saved occurrence, not necessarily the song's end.
+The public atlas supports search, all five views, a detector note plot, a recurrence timeline, source disclosure and CSV, WAV, FLAC and MIDI downloads. All 236 displayed phrases use the same authentic FluidR3 GM SoundFont pipeline as the main player, with 48 kHz stereo PCM 24 bit WAV and continuous Web Audio buffer looping. The earlier triangle tone and noise previews are removed. The audio covers a complete source cycle, which can extend beyond the plotted detector excerpt. Source tempo and instrument programs are preserved. The labelled piano preview for 2 Become 1 changes only its timbre. Search limit and candidate truncation warnings remain visible. The timeline runs from tick zero to the final saved occurrence, not necessarily the song's end.
 
 Open `http://127.0.0.1:8877/index.html` while the local preview runs. The HTML also opens directly as a self-contained file. To restart its preview:
 
@@ -62,3 +62,5 @@ python -m scripts.analyze_top_phrases \
 ```
 
 The public release includes the algorithmic recurrence tables and source-derived evidence described above. External evaluation data such as POP909, Theme and JKU are not distributed. Their results and citations can be described separately. The hosted files and public player have been verified.
+
+The live listening collection has an editorial Schism feature in place of 2 Become 1. The original published CSV ranking is retained as the source analysis. The atlas identifies its separate analysis mode and links back to the main loop player. Source drum accompaniment is selected where available.
