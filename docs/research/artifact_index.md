@@ -6,7 +6,12 @@ This index records the local evidence boundary observed on 2026-10-03. It separa
 
 The preferred local corpus is [`research_local/lakh_phrases_v03`](../../research_local/lakh_phrases_v03). Its independent audit is [`audit.json`](../../research_local/lakh_phrases_v03/audit.json), SHA256 `e89f8275936e2813f577ba42eaf092c930a8a7170bc7777fecd04dbac4e37ecf`, and reports `passed: true`, 17,232 discovered sources, 16,995 verified sources, 237 recorded parse errors and 94,950 exported MIDI phrase rows. The phrase counts are 50,439 melodic and 44,511 percussion. The source and phrase manifest hashes are `062691ad29739cd58bdfb8c55258d63d72868d3ee3e4c30badeceaa917c8c76f` and `f7a1ccff7483bb70a07c0c3f04b7cd6d5090942b524272eac942d0ee3739160e`.
 
-The local release package is [`research_local/releases/reference_v03`](../../research_local/releases/reference_v03). Its archive is [`reference_v03.tar.gz`](../../research_local/releases/reference_v03.tar.gz), 173,102,352 bytes, SHA256 `0917f946e662aec35563ab01d43682707a10be302560848530499a025400732d`. [`reference_v03.verification.json`](../../research_local/releases/reference_v03.verification.json) reports `passed: true`, 94,984 archive members, 94,983 verified payload checksums and 33 verified metadata checksums. This is a local unpublished candidate package. It does not establish redistribution rights or human quality labels.
+The preferred local release package is [`research_local/releases/reference_v04`](../../research_local/releases/reference_v04). Its archive is [`reference_v04.tar.gz`](../../research_local/releases/reference_v04.tar.gz), 181,957,781 bytes, SHA256 `76bab9daf6ad75cc952bc361ee6f2b1badf6de106c52f9b9574d11a31de676a2`. The [portable verification report](../../research_local/releases/reference_v04.portable_verification_v01.json), SHA256 `161cd27f46e96c9472e91eed4fbc66533d5ac86ca696dc58d88c5c9e90abbeee`, passes all 95,009 archive members, including 94,950 MIDI and 58 metadata payloads plus the checksum list. It includes a consumer guide, duplicate screening and the completed selection replay for every successful source. This is a local unpublished candidate package. It does not establish redistribution rights or human quality labels. The earlier `reference_v03` package remains unchanged as a historical snapshot.
+
+The full archive was also extracted into a new directory and verified in recipient mode.
+[`reference_v04.extracted_verification_v01.json`](../../research_local/releases/reference_v04.extracted_verification_v01.json),
+SHA256 `bb0494a51193ea4e55c40be5e914061031a5382b083d86bab0d83d60ffc7460b`,
+passes all 94,950 MIDI payloads and metadata with scope `metadata_and_extracted_midi`.
 
 ## Duplicate and split sensitivity
 
@@ -31,7 +36,7 @@ Each entry below passed `samuged.experiment.verify_completed_experiment` in this
 
 Other receipt backed diagnostics include [`metamorphic_v01`](../../research_local/metamorphic_v01), [`shortlist_sensitivity_v01`](../../research_local/shortlist_sensitivity_v01) and [`drum_cache_changes_v01`](../../research_local/drum_cache_changes_v01). Their completion receipts verify successfully. They are sensitivity or implementation audits and do not replace the reference detector or provide human quality evidence.
 
-The supplementary [selection replay sample](selection_sample_audit.md) at [`selection_sample_reference_v02`](../../research_local/selection_sample_reference_v02) re-extracts 256 fixed sources from the completed reference corpus. All 28 recovered sources and 228 balanced limited/unlimited cases pass with no failures. The full ordinary audit remains separate and does not claim whole-corpus algorithm replay.
+The supplementary [selection replay](selection_sample_audit.md) at [`selection_all_reference_v01`](../../research_local/selection_all_reference_v01) re-extracts all 16,995 successful reference sources with zero failures. Its completion receipt SHA256 is `3e606ae6fcf60fd979df9a6e238514f54887e5d0631ebed6102fb66b84cbf830`. The ordinary audit separately verifies all source and MIDI artifacts and reproduces the 237 recorded input errors. The earlier 256-source sample remains preserved at `selection_sample_reference_v02`.
 
 ## External inputs
 

@@ -1,6 +1,17 @@
-# Selection replay sample
+# Selection replay
 
-The full ordinary dataset audit checks every recorded source, occurrence geometry and MIDI export. Complete algorithm selection replay is more expensive and has a different scope. This additional audit re-extracts a frozen, deliberately stratified sample. It never changes the original dataset audit.
+The full ordinary dataset audit checks every recorded source, occurrence geometry and MIDI export. Complete algorithm selection replay is more expensive and has a different scope. This additional audit re-extracts either every successful source or a frozen, deliberately stratified sample. It never changes the original dataset audit.
+
+The completed full reference replay is `research_local/selection_all_reference_v01`.
+All 16,995 successful sources passed with no discrepancies, including the 28
+metadata-recovered sources. The 237 parse errors remain separately accounted
+for by the ordinary audit. Wall time was 4,378.880 seconds and summed worker
+time 8,746.157 seconds under concurrent workloads. The completion receipt has
+SHA256 `3e606ae6fcf60fd979df9a6e238514f54887e5d0631ebed6102fb66b84cbf830`.
+An independent coverage check at
+`research_local/selection_all_reference_root_check_v01.json` reconstructs the
+successful source ID set and all canonical source record hashes. The complete
+replay is included in the local `reference_v04` release.
 
 ```sh
 source .venv/bin/activate
@@ -41,7 +52,7 @@ uses completion-order collection for bounded progress messages every 100
 completed sources. Final raw rows are sorted by source hash and source ID, so
 worker scheduling does not change the receipt or aggregate ordering.
 
-The preferred reference run is `research_local/selection_sample_reference_v02`. All 256 selected sources passed, comprising all 28 metadata-recovered sources, 114 other search-limited sources and 114 non-limited sources. No failures occurred. Wall time was 37.734 seconds and summed worker time 147.143 seconds under concurrent corpus workloads. The frozen selection-record hash is `46a1d9a356d642234c9499afb96c2f3f5bad8ddab09f20dfc7a3242596f4b1b3`, receipt hash `782341430f4b163f2c994aa61706f89bdf3e9fb8c24e971b9ce2b8ddc9d4baed` and source snapshot hash `706682c884757146a0c7cfd42455d9a9055465610b69b81dbcfbb191f23666bb`.
+The earlier bounded reference run is `research_local/selection_sample_reference_v02`. All 256 selected sources passed, comprising all 28 metadata-recovered sources, 114 other search-limited sources and 114 non-limited sources. No failures occurred. Wall time was 37.734 seconds and summed worker time 147.143 seconds under concurrent corpus workloads. The frozen selection-record hash is `46a1d9a356d642234c9499afb96c2f3f5bad8ddab09f20dfc7a3242596f4b1b3`, receipt hash `782341430f4b163f2c994aa61706f89bdf3e9fb8c24e971b9ce2b8ddc9d4baed` and source snapshot hash `706682c884757146a0c7cfd42455d9a9055465610b69b81dbcfbb191f23666bb`.
 
 The earlier 16-source smoke at `research_local/selection_sample_audit_v01` used a preceding script snapshot and selected only recovered sources. Both receipts remain unchanged. Passing a sample does not mean the entire source corpus has been re-extracted, does not validate an untested implementation change and does not supply human musical quality labels.
 

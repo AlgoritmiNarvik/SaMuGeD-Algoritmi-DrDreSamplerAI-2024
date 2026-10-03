@@ -2054,7 +2054,7 @@ def render(
     heading("Abstract")
     p("This note describes a local pipeline for finding recurring symbolic phrases in multitrack MIDI. "
       "Melodic candidates are checked with pitch, onset and duration constraints. A separate percussion detector "
-      "preserves simultaneous kit strikes and compares meter aware patterns without pitch transposition. Every "
+      "retains distinct simultaneous kit pitches and compares meter aware patterns without pitch transposition. Every "
       "output links to source coordinates and a checksum. Controlled planted patterns test the implemented rules. "
       "The collection contains recurring candidates. It has no listener evidence for hooks, salience or memorability.")
     story.append(pipeline())
@@ -2122,9 +2122,10 @@ def render(
       "curation limits are retained in the source manifest, so the output is a selected candidate set rather than an "
       "exhaustive catalogue.")
     heading("Percussion patterns")
-    p("The percussion branch combines kit parts while preserving simultaneous instruments. It compares kit pitch and "
-      "strike onset, with no melodic transposition. Candidates span configured bar counts without crossing a meter "
-      "change. Tick zero and meter changes define bar origins, so pickup handling is a known limitation.")
+    p("The percussion branch retains distinct simultaneous kit pitches and merges exact onset/pitch duplicates "
+      "across parts. Matching uses kit pitch and strike onset, without transposition, gate length or velocity. "
+      "Candidates span configured bar counts without crossing a meter change. Tick zero and meter changes "
+      "define bar origins, so pickup handling is a known limitation.")
     def displayed(value: float | None) -> str:
         return "n/a" if value is None else f"{value:g}"
     table([
@@ -2145,8 +2146,10 @@ def render(
             p("Closed exact selection can replace a shorter family with a containing longer family. Both "
               "must have the same support of at least three exact occurrences, with one-to-one containment "
               "and a shared endpoint. The recurrence score may decrease by at most 0.02 per replacement "
-              "step. This can recover full repeated phrases, but periodic passages can also be extended "
-              "beyond a listener's preferred boundary.", "SmallLocal")
+              "step. This recovers planted longer repeats in controlled cases, not established human phrase "
+              "boundaries. Periodic passages can extend beyond a listener's preferred boundary. This project-specific "
+              "selector differs from geometric compression [8] and multiparametric closed-pattern mining [9]; "
+              "no general pattern-discovery novelty is claimed.", "SmallLocal")
         if part_ranking:
             p("The optional melody selector uses a part prior of 0.65 × onset monophony + 0.35 × voice "
               "independence. It ranks candidates by recurrence score + 0.08 × (prior - 0.5) before closed "
@@ -2402,9 +2405,10 @@ def render(
     p(primary_replay_scope, "SmallLocal")
     if supplementary_replay_scope is not None:
         p(supplementary_replay_scope, "SmallLocal")
-    p("The audit reconstructs source and excerpt semantics inside the same repository. It is a consistency check, not "
-      "external certification. Human phrase labels for this Lakh collection are uncollected. Redistribution of musical content requires a "
-      "separate rights review. Software licensing does not establish rights to compositions or arrangements.")
+    p("The audit checks source and excerpt consistency within this repository, without external certification. "
+      "Human phrase labels remain uncollected. Lakh is distributed under CC BY 4.0 but reports inconsistent MIDI "
+      "attribution [1]. This audit does not establish rights to compositions, arrangements or excerpts. "
+      "The candidate release remains unpublished pending a separate rights review.")
     p(f"Run fingerprint: <font name='Courier'>{summary['run_key']}</font>", "SmallLocal")
     p(f"Source manifest SHA256: <font name='Courier'>{summary['source_manifest_sha256']}</font>", "SmallLocal")
     p(f"Phrase manifest SHA256: <font name='Courier'>{summary['phrase_manifest_sha256']}</font>", "SmallLocal")
@@ -2417,6 +2421,8 @@ def render(
         ("5", "Raffel et al. (2014). mir_eval.", "https://colinraffel.com/publications/ismir2014mir_eval.pdf"),
         ("6", "Theme Transformer. Theme retrieval annotations and evaluation.", "https://atosystem.github.io/ThemeTransformer/themeRetrieval.html"),
         ("7", "Wang et al. (2020). POP909: A pop-song dataset for music arrangement generation.", "https://github.com/music-x-lab/POP909-Dataset"),
+        ("8", "Meredith (2013). COSIATEC and SIATECCompress: Pattern discovery by geometric compression.", "https://vbn.aau.dk/en/publications/cosiatec-and-siateccompress-pattern-discovery-by-geometric-compre/"),
+        ("9", "Lartillot (2014). In-depth motivic analysis based on multiparametric closed pattern and cyclic sequence mining.", "https://archives.ismir.net/ismir2014/paper/000308.pdf"),
     ]
     for number, title, url in refs:
         p(f"[{number}] <link href='{escape(url, quote=True)}' color='#265e83'>{escape(title)}</link>", "SmallLocal")

@@ -24,7 +24,7 @@ Start with `--limit 128` and a separate output directory for a deterministic pil
 
 `--algorithm aligned_indexed` enables note insertion and deletion alignment. It improves some controlled tests but is slower and has mixed external results. The fixed-length `reference` algorithm remains the default. Both use the same independent percussion branch.
 
-`--algorithm aligned_closed` adds a tested selection rule that can extend an exact repeated phrase while preserving at least three occurrences. It uses the indexed alignment detector and records each replacement. The [closed-pattern study](docs/research/closed_patterns.md) separates its synthetic improvement from unlabelled changes in real songs.
+`--algorithm aligned_closed` adds a tested selection rule that can extend a verified exact repeat while preserving at least three occurrences. It uses the indexed alignment detector and records each replacement. The [closed-pattern study](docs/research/closed_patterns.md) separates its synthetic improvement from unlabelled changes in real songs.
 
 `--algorithm aligned_melody` also gives a small preference to parts with monophonic note structure. The fixed optional rule improved agreement with the official melody part on a heldout POP909 cohort. It does not estimate hook quality. The [part-ranking study](docs/research/part_ranking.md) records the development decision, independent checks and Lakh pilot changes.
 
