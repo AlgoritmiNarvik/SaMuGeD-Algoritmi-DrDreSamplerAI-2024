@@ -3,7 +3,7 @@
 Ostinato / Catchy musical hooks. Separate drum patterns are included.
 
 The public dataset contains the audited closed corpus and a reference baseline.
-The static Space contains 518 rendered cycles across three top 50 listening collections, ten familiar songs and Tool’s ostinatos. Tool has 37 riffs and 20 drum patterns from 12 songs, with 27 aligned three mode comparisons. Popular songs opens first, with Schism as a personal featured selection. The separate atlas retains five analysis views and uses the same SoundFont audio.
+The static Space contains 630 rendered cycles across three top 50 listening collections, ten familiar songs and Tool’s ostinatos. Tool has 69 riffs and 36 drum patterns from 28 songs, with 59 aligned three mode comparisons. Popular songs opens first, with Schism as a personal featured selection. The separate atlas retains five analysis views and uses the same SoundFont audio.
 The ten familiar song selections have separate song level research evidence.
 They are not listener validated fragment labels.
 
