@@ -10,3 +10,5 @@ This SVG contains only the outlined SaMuGeD Earworms wordmark. The font file is 
 Font source SHA256: 48951adf0706a23f29eb6471451bbbc2f7b499fd29095e13acedf1dd030eee84
 
 A 0.3 px outline keeps fine mesh edges visible at interface sizes.
+
+The sharing card and favicon reuse the outlined Adamas artwork. Supporting text in the card uses outlined Inter glyphs under the adjacent Inter SIL OFL license.

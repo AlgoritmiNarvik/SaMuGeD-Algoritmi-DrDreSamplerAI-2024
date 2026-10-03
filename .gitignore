@@ -60,3 +60,8 @@ output/
 /tmp/pdfs/
 .pytest_cache/
 .DS_Store
+
+# Private session notes belong under research_local/, never public docs.
+docs/research/WORK_LOG.md
+docs/research/PAUSE_CHECKPOINT.md
+docs/research/STATUS_REPORT.md

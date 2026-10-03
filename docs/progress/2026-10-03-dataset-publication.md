@@ -8,7 +8,7 @@ Popular songs opens first, with Schism as a personal featured selection in place
 
 The main player retains its layout, volume slider and Play loop and Stop controls. With drums, Melody only and Drums only select the available layers. Inter and square corners are retained. Informational descriptions are shorter. The separate Top 50 analytics view keeps its five original tabs, a visible mode label and a link back to the player. WAV, FLAC and loop MIDI links are styled as download buttons.
 
-Peiyi Wu, Asle Fjæran Øren, Shayan Dadman and Almaz Ermilov are the authors in that order. The cards, citation and six page research note use the agreed title. The README contains two colored Mermaid diagrams. No listener labels, peer review or DOI are claimed. The broad research continuation remains paused.
+Peiyi Wu, Asle Fjæran Øren, Shayan Dadman and Almaz Ermilov are the authors in that order. The cards, citation and six page research note use the agreed title. The README contains two colored Mermaid diagrams. No listener labels, peer review or DOI are claimed.
 
 Local validation passes 637 tests. Publication receipts and remote hashes are saved under research_local/publication_v03. The final clean export and hosted playback checks are recorded with the delivery artifacts.
 

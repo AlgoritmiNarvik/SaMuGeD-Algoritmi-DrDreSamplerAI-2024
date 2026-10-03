@@ -95,8 +95,7 @@ explicit file inventories and records both remote commit IDs. Local metadata
 copies used for archive verification are excluded from the upload.
 
 Verify the hosted dataset, Parquet row counts, archive checksums and Space
-playback after upload. The research continuation remains paused. Publication
-does not restart the unfinished melody variant or require new listener ratings.
+playback after upload. The experimental melody variant is excluded from the release.
 
 The [Tool case study](../research/tool_motifs.md) retains bass riffs and separate percussion. The interface uses square edges, dark gray panels and the Inter font. Its SIL OFL license is under `docs/assets/inter/`. Two Mermaid charts in the root README describe the method and outputs.
 
@@ -105,3 +104,9 @@ The piano preview for 2 Become 1 retains source notes, velocities, tempo and cyc
 Both listening views start at 50 percent volume and include a volume slider. The SaMuGeD Earworms wordmark uses Adamas by Colorblind. Other text uses Inter. Only the outlined logo is distributed, with source and use terms in `docs/assets/adamas/NOTICE.txt`. Popular songs has no Featured badge or introductory paragraph.
 
 Playback uses lossless FLAC. The WAV button decodes it at 48 kHz and exports stereo PCM 24 bit in the browser. Playback volume does not change downloads. Original render hashes remain in the rendering receipts.
+
+## Sharing preview
+
+Both player pages use the Adamas wordmark and a versioned 1200 by 630 sharing image. The Space card sets the same image through Hugging Face's [thumbnail field](https://huggingface.co/docs/hub/spaces-config-reference). Open Graph and Twitter card metadata cover direct player links. Messaging services can retain an older cached preview.
+
+The outlined artwork and generated PNG are under `docs/assets/adamas/`. Regenerate them with `python scripts/build_social_preview.py` in the project environment, with fonttools and `rsvg-convert` available. The original font file is not redistributed.

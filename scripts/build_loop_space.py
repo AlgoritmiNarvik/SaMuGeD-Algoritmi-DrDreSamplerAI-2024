@@ -254,7 +254,9 @@ def build(base: Path, output: Path, compact_audio: bool = False) -> dict:
 title: SaMuGeD Earworms (Ostinato / Catchy musical hooks)
 emoji: 🎹
 colorFrom: indigo
-colorTo: green
+colorTo: gray
+thumbnail: https://huggingface.co/spaces/AlmazErmilov/samuged-earworms/resolve/main/branding/social-preview-adamas-v1.png
+short_description: Recurring musical phrases with melody and drums
 sdk: static
 app_file: index.html
 pinned: false
