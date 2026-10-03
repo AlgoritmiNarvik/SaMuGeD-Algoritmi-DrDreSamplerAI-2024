@@ -10,7 +10,7 @@ For research from the source tree, start in the repository root. The module comm
 uv venv .venv --python 3.12
 source .venv/bin/activate
 uv pip install -r requirements-research.lock
-python -m samuged.cli build --source SOURCE_MIDI_DIR --output NEW_DATASET_DIR --limit 128
+python -m samuged.cli build --source SOURCE_MIDI_DIR --output NEW_DATASET_DIR --limit 128 --percussion --recover-invalid-keys
 ```
 
 For an installed tool, install a supplied wheel into a clean environment and use its console entrypoint. Replace the wheel name with the file actually supplied.
@@ -19,7 +19,7 @@ For an installed tool, install a supplied wheel into a clean environment and use
 uv venv .venv --python 3.12
 source .venv/bin/activate
 uv pip install samuged_phrases-0.2.0-py3-none-any.whl
-samuged build --source SOURCE_MIDI_DIR --output NEW_DATASET_DIR --limit 128
+samuged build --source SOURCE_MIDI_DIR --output NEW_DATASET_DIR --limit 128 --percussion --recover-invalid-keys
 python -m samuged.audit --source SOURCE_MIDI_DIR --output NEW_DATASET_DIR
 ```
 

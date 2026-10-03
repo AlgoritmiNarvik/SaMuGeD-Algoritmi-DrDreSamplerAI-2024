@@ -445,6 +445,7 @@ def package(dataset: Path, output: Path, *, allow_pilot=False, archive=False,
     if (repository/"schemas").is_dir():
         shutil.copytree(repository/"schemas", output/"schemas")
     shutil.copyfile(repository/"LICENSE", output/"SOFTWARE_LICENSE.txt")
+    shutil.copyfile(repository / "docs/research/consumer_guide.md", output / "CONSUMER_GUIDE.md")
     card = f"""# SaMuGeD recurring phrase candidates
 
 Local candidate release, unpublished. Scope: {'full local corpus' if full else 'pilot only'}.
@@ -466,6 +467,8 @@ The collection contains repeated symbolic melodic phrases and separate drum patt
 `sources.jsonl` accounts for all selected input paths, including failures and no-match files. `phrases.jsonl` keeps the per-source candidate collection. `views/*.unique.jsonl` selects one representative per canonical family, and `views/family_membership.jsonl` preserves all source links with phrase, source file and split group counts. These are file and grouping frequencies, not composition counts. Family equality is the detector's stated canonicalization, not proof of musical identity. Rows marked `overlap_excluded` must not be used as train/validation/test examples.
 
 MIDI files use paths in `midi_path`, relative to the complete archive root. This metadata directory intentionally does not copy MIDI payloads; the optional archive includes them. Original full-song source MIDI files are not bundled. Source-relative paths and SHA256 values identify the local Lakh MIDI Clean inventory.
+
+The [consumer guide](CONSUMER_GUIDE.md) explains archive verification, source and phrase joins, search limits, coordinate units and separate melodic and percussion access. Its research commands require the matching code checkout.
 
 ## Method and quality
 
