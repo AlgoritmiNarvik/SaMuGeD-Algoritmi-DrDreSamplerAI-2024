@@ -110,7 +110,14 @@ def _read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def curate(dataset: Path, sources: Path, output: Path) -> dict:
+def curate(dataset: Path, sources: Path, output: Path, config: dict | None = None) -> dict:
+    source_pages = SOURCE_PAGES if config is None else config["sources"]
+    selections = SELECTIONS if config is None else config["selections"]
+    expected = {"melodic": 3, "percussion": 2} if config is None else config["per_song"]
+    if not selections or set(source_pages) != set(selections):
+        raise ValueError("source pages and nonempty selections must cover the same songs")
+    if set(expected) != {"melodic", "percussion"} or any(type(n) is not int or n < 1 for n in expected.values()):
+        raise ValueError("per song counts must be positive integers for each kind")
     if output.exists():
         raise FileExistsError(f"output already exists: {output}")
     rows = {row["phrase_id"]: row for row in _read_jsonl(dataset / "phrases.jsonl")}
@@ -119,8 +126,8 @@ def curate(dataset: Path, sources: Path, output: Path) -> dict:
     selected_ids = set()
     source_packets = []
 
-    for source_path, choices in SELECTIONS.items():
-        if source_path not in SOURCE_PAGES or source_path not in source_rows:
+    for source_path, choices in selections.items():
+        if source_path not in source_pages or source_path not in source_rows:
             raise ValueError(f"missing source metadata: {source_path}")
         source = source_rows[source_path]
         source_file = sources / source_path
@@ -129,6 +136,9 @@ def curate(dataset: Path, sources: Path, output: Path) -> dict:
         source_hash = sha256(source_file.read_bytes()).hexdigest()
         if source_hash != source["source_sha256"]:
             raise ValueError(f"source hash mismatch: {source_path}")
+
+        if source_pages[source_path].get("sha256", source_hash) != source_hash:
+            raise ValueError(f"download receipt hash mismatch: {source_path}")
 
         chosen_for_source = []
         melodic = percussion = 0
@@ -148,17 +158,17 @@ def curate(dataset: Path, sources: Path, output: Path) -> dict:
             selected_ids.add(phrase_id)
             chosen_for_source.append((phrase_id, rationale))
 
-        if len(chosen_for_source) != 5 or melodic != 3 or percussion != 2:
+        if melodic != expected["melodic"] or percussion != expected["percussion"]:
             raise ValueError(
-                f"{source_path} must have 3 melodic and 2 percussion selections"
+                f"{source_path} must match per song counts: {expected}"
             )
 
         source_packets.append(
             {
                 "source_path": source_path,
                 "source_sha256": source_hash,
-                "source_url": SOURCE_PAGES[source_path]["source_url"],
-                "download_url": SOURCE_PAGES[source_path]["download_url"],
+                "source_url": source_pages[source_path]["source_url"],
+                "download_url": source_pages[source_path]["download_url"],
                 "source_status": source["status"],
                 "drum_available": bool(source.get("drum_stats", {}).get("input_hits")),
                 "drum_source_tracks": source.get("drum_stats", {}).get("source_tracks", []),
@@ -174,9 +184,9 @@ def curate(dataset: Path, sources: Path, output: Path) -> dict:
     candidates = []
     chosen_notes = []
     rank = 0
-    for source_path, choices in SELECTIONS.items():
+    for source_path, choices in selections.items():
         source = source_rows[source_path]
-        page = SOURCE_PAGES[source_path]
+        page = source_pages[source_path]
         for phrase_id, rationale in choices:
             rank += 1
             row = rows[phrase_id]
@@ -245,7 +255,8 @@ def curate(dataset: Path, sources: Path, output: Path) -> dict:
             name: {"sha256": sha256((dataset / name).read_bytes()).hexdigest(), "bytes": (dataset / name).stat().st_size}
             for name in ("phrases.jsonl", "sources.jsonl", "build_config.json", "summary.json")
         },
-        "selected_source_files": 2,
+        "selected_source_files": len(selections),
+        "per_song": expected,
         "selected_phrase_count": len(candidates),
         "selected_melodic_count": sum(row["kind"] == "melodic" for row in candidates),
         "selected_percussion_count": sum(row["kind"] == "percussion" for row in candidates),
@@ -259,8 +270,10 @@ def main() -> int:
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--selection-config", type=Path, help="explicit source pages, phrase IDs and per song counts")
     args = parser.parse_args()
-    packet = curate(args.dataset, args.source, args.output)
+    config = json.loads(args.selection_config.read_text()) if args.selection_config else None
+    packet = curate(args.dataset, args.source, args.output, config)
     print(json.dumps({"selected_ids": [row["phrase_id"] for row in packet["candidates"]], "count": len(packet["candidates"])}, indent=2))
     return 0
 

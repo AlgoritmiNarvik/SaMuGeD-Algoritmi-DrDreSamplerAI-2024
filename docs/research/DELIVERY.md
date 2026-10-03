@@ -2,7 +2,7 @@
 
 This page separates the current publication from the research pause recorded on 2026-10-03. The pause checkpoint remains an archival record of the stopped computations, saved hashes and continuation commands. The public dataset and demo below were published on 3 October 2026.
 
-The dataset is [Hugging Face: `AlmazErmilov/samuged-recurring-phrases`](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases). The demo is [Hugging Face Space: `AlmazErmilov/samuged-earworms`](https://huggingface.co/spaces/AlmazErmilov/samuged-earworms). The demo has 518 source derived audio cycles. Tool’s ostinatos includes 37 riffs and 20 drum patterns from 12 songs, with 27 aligned three mode comparisons. Source drums are selected by default where available. Schism leads Popular songs as an editorial feature. External Tool arrangements are interface supplements only. The separate analytics view retains its original five tabs and uses the same SoundFont audio. Inter and the existing player layout are retained.
+The dataset is [Hugging Face: `AlmazErmilov/samuged-recurring-phrases`](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases). The demo is [Hugging Face Space: `AlmazErmilov/samuged-earworms`](https://huggingface.co/spaces/AlmazErmilov/samuged-earworms). The demo has 630 source derived audio cycles. Tool’s ostinatos includes 69 riffs and 36 drum patterns from 28 songs, with 59 aligned three mode comparisons. Source drums are selected by default where available. Schism leads Popular songs as an editorial feature. External Tool arrangements are interface supplements only. The separate analytics view retains its original five tabs and uses the same SoundFont audio. Inter and the existing player layout are retained.
 
 The bounded top-50 analytics remain an algorithmic recurrence result. Listener ratings were excluded from the current scope and are not a release gate. The local recurrence atlas and its ignored generated files remain documented in [top50_analytics.md](top50_analytics.md) for the local checkout.
 
@@ -12,7 +12,7 @@ The public name is SaMuGeD Earworms, with the subtitle Ostinato / Catchy musical
 
 The public archives retain the original musical payloads and update the presentation metadata. Primary archive SHA256 is `d4147e67af63694793906a624bbac487004cb200d851df6b2b0cbfb895c113bc`. Reference archive SHA256 is `de04606b364b3bb7b3cbd747209a2e7764bd342bb2df422546d551012c43cf2b`. Both public archives passed portable verification. The public PDF was regenerated with 132 matching input hashes. [Read the PDF](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/paper/samuged_recurring_phrases.pdf).
 
-Dataset commit is `56f1d5b722ff7d6ff3541edae5fef91de235945b`. Space commit is `f96ced8d0812bdca7c34c44469ea0d145ea4e9bd`. The [publication guide](../publication/README.md) explains preparation and rendering.
+Dataset commit is `56f1d5b722ff7d6ff3541edae5fef91de235945b`. Space commit is `9dda154dc5ddedb8d3fca078659f8199f49891cf`. The [publication guide](../publication/README.md) explains preparation and rendering.
 
 ## Historical local packages
 

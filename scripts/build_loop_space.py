@@ -56,7 +56,7 @@ def _copy_render(root: Path, output: Path) -> dict:
 def attach_atlas_audio(atlas: Path, output: Path) -> None:
     """Bind every displayed atlas phrase to a verified source cycle render."""
     from scripts.make_review import script_safe_json
-    shutil.copytree(Path(__file__).resolve().parents[1] / "docs/assets/merkur", atlas / "branding", dirs_exist_ok=True)
+    shutil.copytree(Path(__file__).resolve().parents[1] / "docs/assets/adamas", atlas / "branding", dirs_exist_ok=True)
     packet = _json(atlas / "analysis.json")
     packet["audio"], bindings = {}, {}
     for pid in sorted(packet["snippets"]):
@@ -116,17 +116,17 @@ def build(base: Path, output: Path, compact_audio: bool = False) -> dict:
         render_entries.update(_copy_render(tool_root, output))
     if layers.exists():
         render_entries.update(_copy_render(layers, output))
-    for name in ("atlas_audio", "piano_audio", "schism_audio", "source_layers", "external_tool_audio", "external_tool_layers", "drum_solos"):
+    for name in ("atlas_audio", "piano_audio", "schism_audio", "source_layers", "external_tool_audio", "external_tool_layers", "drum_solos", "tool_expansion_audio", "tool_expansion_layers", "tool_expansion_solos"):
         if (base / name).exists():
             render_entries.update(_copy_render(base / name, output))
     provenance = output / "rendering"
     provenance.mkdir()
-    for name, root in (("recurrence", base / "recurrence_audio"), ("familiar", base / "familiar_audio"), ("tool", tool_root), ("tool_layers", layers), ("atlas", base / "atlas_audio"), ("piano", base / "piano_audio"), ("schism", base / "schism_audio"), ("source_layers", base / "source_layers"), ("external_tool", base / "external_tool_audio"), ("external_tool_layers", base / "external_tool_layers"), ("drum_solos", base / "drum_solos")):
+    for name, root in (("recurrence", base / "recurrence_audio"), ("familiar", base / "familiar_audio"), ("tool", tool_root), ("tool_layers", layers), ("atlas", base / "atlas_audio"), ("piano", base / "piano_audio"), ("schism", base / "schism_audio"), ("source_layers", base / "source_layers"), ("external_tool", base / "external_tool_audio"), ("external_tool_layers", base / "external_tool_layers"), ("drum_solos", base / "drum_solos"), ("tool_expansion_audio", base / "tool_expansion_audio"), ("tool_expansion_layers", base / "tool_expansion_layers"), ("tool_expansion_solos", base / "tool_expansion_solos")):
         if name == "tool" and tool is None:
             continue
         if name == "tool_layers" and not layers.exists():
             continue
-        if name in ("atlas", "piano", "schism", "source_layers", "external_tool", "external_tool_layers", "drum_solos") and not root.exists():
+        if name in ("atlas", "piano", "schism", "source_layers", "external_tool", "external_tool_layers", "drum_solos", "tool_expansion_audio", "tool_expansion_layers", "tool_expansion_solos") and not root.exists():
             continue
         for filename in ("manifest.json", "receipt.json"):
             shutil.copyfile(root / filename, provenance / f"{name}_{filename}")
@@ -163,6 +163,10 @@ def build(base: Path, output: Path, compact_audio: bool = False) -> dict:
         external = _json(base / "external_tool/selection.json")
         rows_by_group["tool"] = [*rows_by_group["tool"], *external["candidates"]]
         shutil.copyfile(base / "external_tool/selection.json", provenance / "external_tool_selection.json")
+    if (base / "tool_expansion/selection.json").exists():
+        expansion = _json(base / "tool_expansion/selection.json")
+        rows_by_group["tool"] = [*rows_by_group["tool"], *expansion["candidates"]]
+        shutil.copyfile(base / "tool_expansion/selection.json", provenance / "tool_expansion_selection.json")
     song_counts = {}
     for group, selections in rows_by_group.items():
         for rank, selection in enumerate(selections, 1):
@@ -229,7 +233,7 @@ def build(base: Path, output: Path, compact_audio: bool = False) -> dict:
     shutil.copyfile(Path(__file__).with_name("loop_downloads.js"), output / "loop_downloads.js")
     shutil.copyfile(base / "font/usr/share/doc/fluid-soundfont-gm/copyright", output / "soundfont-license.txt")
     shutil.copytree(Path(__file__).resolve().parents[1] / "docs/assets/inter", output / "fonts")
-    shutil.copytree(Path(__file__).resolve().parents[1] / "docs/assets/merkur", output / "branding")
+    shutil.copytree(Path(__file__).resolve().parents[1] / "docs/assets/adamas", output / "branding")
     if (base / "atlas").exists():
         shutil.copytree(base / "atlas", output / "atlas")
         shutil.rmtree(output / "atlas/fonts")
@@ -275,7 +279,7 @@ recurrence, a curated popular song collection and drum patterns. The original hi
 
 WAV is stereo PCM 24 bit at 48 kHz. Download FLAC or loop MIDI for a DAW.
 The interface uses Inter under SIL OFL, included in fonts/OFL.txt.
-The Merkur wordmark by Malwin Béla Hürkey is for noncommercial use. See branding/NOTICE.txt.
+The Adamas wordmark is by Colorblind. The font file is not distributed. See branding/NOTICE.txt.
 Both players start at 50 percent volume and provide a volume slider.
 The authentic FluidR3 GM SoundFont was used with FluidSynth. Its licence is
 in soundfont-license.txt. Original commercial recordings are not bundled.
@@ -294,7 +298,7 @@ attribution remains incomplete. No independent clearance is claimed.
     text = text.replace("compare Riff only with With drums", "compare Melody only with With drums")
     text += "\nAll atlas phrases use the same SoundFont audio as the main player. Source drums are selected by default where the source passage has a usable drum layer. Melody only remains available.\n"
     if schism:
-        text += "\nSchism is the first Popular songs selection and a separate Tool listening supplement. Its featured position is editorial. 2 Become 1 is excluded from this listening collection. The frozen corpus and original CSV rankings are unchanged. The downloaded Schism, Lateralus and Forty Six & 2 arrangements have no explicit redistribution license on their source pages. They are interface supplements outside the Lakh attribution claim and are not added to the dataset. See rendering/schism_selection.json for its source and extraction receipt.\n"
+        text += "\nSchism is the first Popular songs selection and a separate Tool listening supplement. Its featured position is editorial. 2 Become 1 is excluded from this listening collection. The frozen corpus and original CSV rankings are unchanged. The external Tool arrangements have no explicit redistribution license on their source pages. They are interface supplements outside the Lakh attribution claim and are not added to the dataset. See rendering/schism_selection.json, rendering/external_tool_selection.json and rendering/tool_expansion_selection.json when present for source and extraction receipts.\n"
     text += "\nPlayback uses lossless FLAC. The WAV button decodes it at 48 kHz and exports stereo PCM 24 bit in the browser. Playback volume does not change downloads. This avoids storing two copies of the same audio in the Space. Original render hashes remain in the rendering receipts.\n"
     card.write_text(text)
     if compact_audio:

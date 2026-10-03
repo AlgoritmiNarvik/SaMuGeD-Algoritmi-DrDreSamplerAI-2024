@@ -102,6 +102,6 @@ The [Tool case study](../research/tool_motifs.md) retains bass riffs and separat
 
 The piano preview for 2 Become 1 retains source notes, velocities, tempo and cycle length. It changes the loop MIDI program to 0 and records the original program 25 in metadata. Source instrument and Piano preview are separate choices, the primary dataset is unchanged.
 
-Both listening views start at 50 percent volume and include a volume slider. The SaMuGeD Earworms wordmark uses Merkur by Malwin Béla Hürkey. Other text uses Inter. The outlined wordmark has a separate noncommercial license in `docs/assets/merkur/NOTICE.txt`. Popular songs has no Featured badge or introductory paragraph.
+Both listening views start at 50 percent volume and include a volume slider. The SaMuGeD Earworms wordmark uses Adamas by Colorblind. Other text uses Inter. Only the outlined logo is distributed, with source and use terms in `docs/assets/adamas/NOTICE.txt`. Popular songs has no Featured badge or introductory paragraph.
 
 Playback uses lossless FLAC. The WAV button decodes it at 48 kHz and exports stereo PCM 24 bit in the browser. Playback volume does not change downloads. Original render hashes remain in the rendering receipts.

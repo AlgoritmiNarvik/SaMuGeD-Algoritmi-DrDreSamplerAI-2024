@@ -1,0 +1,12 @@
+SaMuGeD Earworms wordmark
+
+Set in Adamas by Colorblind.
+Source: https://www.fontspace.com/adamas-font-f14156
+
+The designer allows personal and commercial use. Selling or redistributing the font file is prohibited. Credit is welcomed.
+
+This SVG contains only the outlined SaMuGeD Earworms wordmark. The font file is not distributed. The wordmark is separate from the repository MIT code license.
+
+Font source SHA256: 48951adf0706a23f29eb6471451bbbc2f7b499fd29095e13acedf1dd030eee84
+
+A 0.3 px outline keeps fine mesh edges visible at interface sizes.
