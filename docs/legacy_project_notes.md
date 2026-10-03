@@ -52,6 +52,6 @@ For Unix-based systems (e.g., Linux, macOS), use the command below to install al
 pip install -r requirements_unix.txt
 ```
 
-## Straight Outta Compton Opening Scene Dr Dre
+## Inspiration
 
-[![Straight Outta Compton Opening Scene Dr Dre](https://img.youtube.com/vi/eiknHyeNCpY/0.jpg)](https://www.youtube.com/embed/eiknHyeNCpY)
+[![Watch the video](https://img.youtube.com/vi/eiknHyeNCpY/0.jpg)](https://www.youtube.com/watch?v=eiknHyeNCpY)
