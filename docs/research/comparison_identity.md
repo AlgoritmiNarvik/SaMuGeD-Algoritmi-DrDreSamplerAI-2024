@@ -32,6 +32,8 @@ kind, part_index, source_track, channel, program, start_tick, end_tick,
 ticks_per_beat, pitches, onsets_beats, durations_beats, velocities
 ```
 
+The projection reads each source record's phrase payload. Current payloads store PPQ at source level, so the projected `ticks_per_beat` value is null. The strict source identity gate above checks equal PPQ separately. Direct reconstruction from phrase manifests, which contain actual PPQ, gives the same changed source sets; raw projection hashes use the record representation. Consumers must use source PPQ or the exported phrase manifest when interpreting tick units.
+
 The recurrence projection contains the same prototype fields plus `occurrences`. Each occurrence contains only `start_tick`, `end_tick` and `transpose_semitones`, sorted lexicographically by those three fields. Similarity, edit counts, inserted and deleted indices, substitutions, matched note pairs, timing residuals and source verification flags are excluded from this projection. This makes it an interval identity view rather than an alignment trace.
 
 For each `melodic` and `percussion` kind the comparison reports exact changed source IDs and counts for:
@@ -71,7 +73,7 @@ source .venv/bin/activate
 python scripts/compare_variants.py \
   --left research_local/lakh_phrases_v03 \
   --right research_local/lakh_aligned_indexed_v01 \
-  --output research_local/indexed_full_comparison_v02
+  --output research_local/my_variant_comparison
 ```
 
 The result is an output and selection differential. It is not an accuracy or perceptual quality evaluation.

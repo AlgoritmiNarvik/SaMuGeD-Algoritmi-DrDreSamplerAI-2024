@@ -84,3 +84,14 @@ only when the selected IDs equal every `status: ok` source in the manifest and
 the recorded successful and error totals agree. A bounded replay remains a
 sample even when all of its cases pass. No packaging option modifies the
 dataset's `audit.json` or promotes a sample to a full selection replay.
+
+## Completed closed sample
+
+The full `aligned_closed` corpus has a separate completed replay at
+`research_local/selection_sample_closed_v02`. All 256 selected sources pass,
+including all 28 metadata-recovered sources, 114 other search-limited sources
+and 114 unlimited sources. Wall time is 248.877 seconds and summed worker time
+is 987.177 seconds under concurrent jobs. The completion receipt SHA256 is
+`86555f8e7b1e58870796b511ac639108ad26a9ab800d709a0b78ff58241a004b`.
+The replay is included in the verified local `closed_v01` archive. It does not
+claim full-corpus candidate-generation replay.

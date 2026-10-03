@@ -30,6 +30,7 @@ Start with `--limit 128` and a separate output directory for a deterministic pil
 
 ## Research and artifacts
 
+- [Local delivery](docs/research/DELIVERY.md): ready archives, improved algorithm variants, listening packet and paper status.
 - [Research guide](docs/research/README.md): methods, schemas, reproducible commands and interpretation limits.
 - [Artifact index](docs/research/artifact_index.md): exact local dataset, release and experiment receipts.
 - [Work log](docs/research/WORK_LOG.md): measured results and the state of local full builds.

@@ -62,9 +62,45 @@ The preferred installed-package check is [`packaging_smoke_v05`](../../research_
 
 The [recurrence figures](recurrence_examples.md) bind deterministic melodic and percussion examples to exact source notes and tempo maps. The [paired listening packet](paired_review.md) provides a checked local A/B interface. Both are unlabelled inspection aids.
 
-## Unfinished builds
+## Completed aligned variants and active work
 
-The full corpus outputs [`research_local/lakh_aligned_indexed_v01`](../../research_local/lakh_aligned_indexed_v01), [`research_local/lakh_aligned_closed_v01`](../../research_local/lakh_aligned_closed_v01) and [`research_local/lakh_aligned_melody_v01`](../../research_local/lakh_aligned_melody_v01) are not yet independently verified releases. The indexed extraction finished all 17,232 inputs with 95,079 exported rows, comprising 50,568 melodic and 44,511 percussion rows; its summary SHA256 is `ab0b12887a4ff902ab6e62409afd2c14911f5e1382068fb2015e54aa4a7008fe`. Its first audit stopped because a valid U+0085 character inside one part name exposed use of line-boundary-aware `splitlines()` for JSONL. Exact source and phrase lines were validated without mutation, and the replacement Unicode-safe full artifact audit now passes all 95,079 MIDI excerpts and 16,995 successful sources with zero failures. Schema validation passes all 112,311 source and phrase rows. The all-successful selection replay remains active. Closed and melody extraction remain active at this checkpoint. They are not preferred references and must remain separate from `lakh_phrases_v03` and `aligned_frozen_v02` until their own audit and receipt checks pass.
+The full `aligned_closed` corpus at
+[`lakh_aligned_closed_v01`](../../research_local/lakh_aligned_closed_v01)
+contains 50,566 melodic and 44,511 percussion rows. Its ordinary full audit
+passes all 95,077 MIDI excerpts and 16,995 successfully parsed sources with
+zero failures; all 112,309 manifest rows pass schemas. The separate
+[`selection_sample_closed_v02`](../../research_local/selection_sample_closed_v02)
+replay passes 256 sources, including all 28 recovered sources, 114 other
+search-limited sources and 114 unlimited sources. Its completion receipt
+SHA256 is `86555f8e7b1e58870796b511ac639108ad26a9ab800d709a0b78ff58241a004b`.
+This remains a sample replay, not a full selection rerun.
+
+The enhanced candidate package is
+[`closed_v01.tar.gz`](../../research_local/releases/closed_v01.tar.gz),
+205,245,269 bytes, SHA256
+`3c2fe6777a3155292baa6b35641a603681f4f32cb3cf97328838844eca5b0804`.
+Its [portable archive verification](../../research_local/releases/closed_v01.portable_verification_v01.json)
+passes 95,145 members, including 95,077 MIDI excerpts and 67 metadata payloads
+plus the checksum list. Report SHA256 is
+`cbcf2179dc569e9600c781521018e983a20687c7516aadbfe856ad113fddd5fb`.
+Its [extracted recipient verification](../../research_local/releases/closed_v01.extracted_verification_v01.json)
+also passes every payload, report SHA256
+`e000fd9f5d035f49e4fb43d602c3081ad1abd461d0e22086a059f1c1560b144c`.
+The [full comparison note](closed_full_comparison.md) records the changes
+relative to indexed alignment and the separately verified split view.
+
+The full `aligned_indexed` extraction finished all 17,232 inputs with 95,079
+exported rows, comprising 50,568 melodic and 44,511 percussion rows. Its first
+audit stopped because a valid U+0085 character inside one part name exposed
+use of line-boundary-aware `splitlines()` for JSONL. The Unicode-safe full
+artifact audit now passes all source and MIDI rows with zero failures, and
+all 112,311 schema rows pass. Its all-successful selection replay remains
+active; packaging is queued after that replay passes.
+
+The `aligned_melody` full build remains active at this checkpoint. Its audit,
+selection replay and release must be checked separately before it is listed
+as a completed dataset. All variant outputs preserve their own configuration
+and source snapshots and remain separate from the reference corpus.
 
 ## Claim limits
 
