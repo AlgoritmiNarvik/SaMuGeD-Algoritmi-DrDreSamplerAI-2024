@@ -1,0 +1,314 @@
+{
+  "per_song": {
+    "melodic": 2,
+    "percussion": 1
+  },
+  "sources": {
+    "Tool/The_Pot.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_pot/1822-1-0-60580",
+      "download_url": "https://midifind.com/files/0-0-1-60580-20",
+      "sha256": "884a64f3a4d33ac73c199492f96cc9f2d0c98dd59f71f3508812889d6b56e99d"
+    },
+    "Tool/Vicarious.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_vicarious_2/1822-1-0-60654",
+      "download_url": "https://midifind.com/files/0-0-1-60654-20",
+      "sha256": "d0c669e2029d83a8af24ff45f525c64525c814b658ddc7c01b31ac652e7618d0"
+    },
+    "Tool/Jambi.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_jambi_3/1822-1-0-60538",
+      "download_url": "https://midifind.com/files/0-0-1-60538-20",
+      "sha256": "4a98a125be974ac427f20d67dc5e0df276b63cee2361532d056129aa8b6503a7"
+    },
+    "Tool/Parabola.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_parabola_3/1822-1-0-60573",
+      "download_url": "https://midifind.com/files/0-0-1-60573-20",
+      "sha256": "4454b0198e95363f9226b9f423a49301d5b5ae8cdf6ebe847cf355d7cdb723d0"
+    },
+    "Tool/The_Grudge.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_the_grudge/1822-1-0-60631",
+      "download_url": "https://midifind.com/files/0-0-1-60631-20",
+      "sha256": "c7ae1a6b25898ac194be5895d1fda19c209340403d40c3a9d1bb0372c2507e76"
+    },
+    "Tool/Aenema.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_aenema_3/1822-1-0-60497",
+      "download_url": "https://midifind.com/files/0-0-1-60497-20",
+      "sha256": "5ca6fd3a6d91539f40f26f57e8c5a02a9030e34d130683fa8d3dc6420317deaa"
+    },
+    "Tool/Rosetta_Stoned.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_rosetta_stoned_3/1822-1-0-60601",
+      "download_url": "https://midifind.com/files/0-0-1-60601-20",
+      "sha256": "9e52291002e60595a9cbfb681788c1262a045d33055cb49d636d2a299ba6bd36"
+    },
+    "Tool/Right_in_Two.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_right_in_two_2/1822-1-0-60596",
+      "download_url": "https://midifind.com/files/0-0-1-60596-20",
+      "sha256": "b43420e3af97ac19cc64d6cd6a4661aa6e22f989df156aecdab3072dd830c3d7"
+    },
+    "Tool/Pushit.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_pushit_2/1822-1-0-60590",
+      "download_url": "https://midifind.com/files/0-0-1-60590-20",
+      "sha256": "74f2b4c3b99ca0d823e74a72961adc3ba1bf015dea3a7781b954e852bcf54562"
+    },
+    "Tool/Reflection.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_reflection/1822-1-0-60593",
+      "download_url": "https://midifind.com/files/0-0-1-60593-20",
+      "sha256": "b3d32550c3f778fb96007a37e8d150f4d6c5da669cfe6411861663a75620cd28"
+    },
+    "Tool/The_Patient.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_the_patient/1822-1-0-60637",
+      "download_url": "https://midifind.com/files/0-0-1-60637-20",
+      "sha256": "d192c9a2f7767a25d4f1586cee6a0ca85852276f56e2b750803c277334d4fc6a"
+    },
+    "Tool/Triad.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_triad_2/1822-1-0-60651",
+      "download_url": "https://midifind.com/files/0-0-1-60651-20",
+      "sha256": "40dc7bbfa52589adedca031e56f3aaf13b9f0b44c568b9d716d3253e7798c23d"
+    },
+    "Tool/Ticks_and_Leeches.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_ticks_and_leeches/1822-1-0-60646",
+      "download_url": "https://midifind.com/files/0-0-1-60646-20",
+      "sha256": "b29acbdfa78e75728e68b37679266afe129e08456d83c160da14e5b797f66570"
+    },
+    "Tool/Jimmy.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_jimmy_2/1822-1-0-60544",
+      "download_url": "https://midifind.com/files/0-0-1-60544-20",
+      "sha256": "dfb1b4a4fe57ac8cdde41c25e891a50f0308cc9e7b1561534c5ce72534e4e15e"
+    },
+    "Tool/Third_Eye.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_third_eye/1822-1-0-60643",
+      "download_url": "https://midifind.com/files/0-0-1-60643-20",
+      "sha256": "31435796f31e27374f091e46da310c12f0df201406a9cc40053175bdfc75ee57"
+    },
+    "Tool/10000_Days.mid": {
+      "source_url": "https://midifind.com/files/t/tool/tool_10000_days_wings_part_2_2/1822-1-0-60494",
+      "download_url": "https://midifind.com/files/0-0-1-60494-20",
+      "sha256": "ccb2e7ebf87853747a82651d8f6e43e2241c71f88193331a19ee29c92d0b1793"
+    }
+  },
+  "selections": {
+    "Tool/The_Pot.mid": [
+      [
+        "dbda1954955171b041a97d4c22e15ec5",
+        "Bass phrase with 4 pitches and 28 verified occurrences. Rendered over 8 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "a1df64f169f83f2633d553d7c3c925f3",
+        "Guitar phrase with 4 pitches and 15 verified occurrences. Rendered over 8 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "6d197c1af9498fe95df124d4fccdd246",
+        "Separate source percussion pattern with 12 verified occurrences and 5 GM drum pitches."
+      ]
+    ],
+    "Tool/Vicarious.mid": [
+      [
+        "2a488e6035d109fbd7148ef4d2b8dc1e",
+        "bass [justin chancellor] phrase with 5 pitches and 13 verified occurrences. Rendered over 10 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "acbd96c17338d0de773e844b75f9809e",
+        "guitar [adam jones] phrase with 3 pitches and 9 verified occurrences. Rendered over 14 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "900bd68bf17aa16a6fddd8a6b7d9c147",
+        "Separate source percussion pattern with 8 verified occurrences and 5 GM drum pitches."
+      ]
+    ],
+    "Tool/Jambi.mid": [
+      [
+        "3b8f547e7044317eb9e0c60011752641",
+        "Bass phrase with 5 pitches and 13 verified occurrences. Rendered over 9 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "752a542e6a3432ff29c7abc1ec26e75d",
+        "Guitar phrase with 3 pitches and 12 verified occurrences. Rendered over 13.5 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "2776b8453c58b348d6d7c3ece26d652c",
+        "Separate source percussion pattern with 7 verified occurrences and 4 GM drum pitches."
+      ]
+    ],
+    "Tool/Parabola.mid": [
+      [
+        "aeb0e30e831baf2fc72102dc6f2cc7bc",
+        "Adam phrase with 6 pitches and 8 verified occurrences. Rendered over 8 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "7f854ea1e517b1e31c19c7b5370f3f28",
+        "Adam phrase with 6 pitches and 7 verified occurrences. Rendered over 8 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "a57887ada92db7d7738089e08e02ea52",
+        "Separate source percussion pattern with 7 verified occurrences and 6 GM drum pitches."
+      ]
+    ],
+    "Tool/The_Grudge.mid": [
+      [
+        "1b4e9469f6664c3565d33668e9c73e65",
+        "Bass phrase with 5 pitches and 17 verified occurrences. Rendered over 5 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "d11fea07562456239ad6a1be982f68c8",
+        "Guitar phrase with 4 pitches and 9 verified occurrences. Rendered over 7.5 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "d451824cf057eff0ad8996235c70ccea",
+        "Separate source percussion pattern with 9 verified occurrences and 7 GM drum pitches."
+      ]
+    ],
+    "Tool/Aenema.mid": [
+      [
+        "7f80cc69578b2c200049c2d93ad6ff4d",
+        "Bass phrase with 3 pitches and 6 verified occurrences. Rendered over 6 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "48f483a6addf243ad05f97086fba7ff8",
+        "Lead Guitar phrase with 3 pitches and 8 verified occurrences. Rendered over 6 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "9462c97d13399ddc9c5fe991e70ecaa6",
+        "Separate source percussion pattern with 8 verified occurrences and 4 GM drum pitches."
+      ]
+    ],
+    "Tool/Rosetta_Stoned.mid": [
+      [
+        "ef5e680ff8d697a24983c951128e108a",
+        "Bass phrase with 4 pitches and 10 verified occurrences. Rendered over 5.5 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "97d54fb6e346aacaee81e28814b8e147",
+        "Guitar phrase with 5 pitches and 23 verified occurrences. Rendered over 6 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "637052925551dd34b6830433e50670cc",
+        "Separate source percussion pattern with 8 verified occurrences and 6 GM drum pitches."
+      ]
+    ],
+    "Tool/Right_in_Two.mid": [
+      [
+        "a7f8a02a0f9cad5e055dddd832f7a6ff",
+        "Bass phrase with 7 pitches and 7 verified occurrences. Rendered over 11 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "53124d1a36466c5edfa3d5256a3a696e",
+        "Guitar phrase with 5 pitches and 8 verified occurrences. Rendered over 22 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "d7095f1551a7afbce77e8b5e86ad0a7a",
+        "Separate source percussion pattern with 6 verified occurrences and 5 GM drum pitches."
+      ]
+    ],
+    "Tool/Pushit.mid": [
+      [
+        "50b5b0f8af1398636eb1c9982f589a55",
+        "Justin Chancellor phrase with 6 pitches and 14 verified occurrences. Rendered over 12 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "d80e53ae19aace4e9b7799d288e85435",
+        "Adam Jones phrase with 5 pitches and 13 verified occurrences. Rendered over 12 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "d25e0933bcf999dc88884f3d3463d3d0",
+        "Separate source percussion pattern with 18 verified occurrences and 7 GM drum pitches."
+      ]
+    ],
+    "Tool/Reflection.mid": [
+      [
+        "1d6a8a0c00a6d3f178ae439dcc83e85f",
+        "Bass phrase with 6 pitches and 59 verified occurrences. Rendered over 8 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "78cd34213d3e6b14df9cb06ef544023e",
+        "Guitar 1 phrase with 6 pitches and 14 verified occurrences. Rendered over 8 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "7179008815bdd077705dd54d63a7c967",
+        "Separate source percussion pattern with 16 verified occurrences and 7 GM drum pitches."
+      ]
+    ],
+    "Tool/The_Patient.mid": [
+      [
+        "2b612427a1c8bc7fd4e2a7fe3f7b4959",
+        "Bass phrase with 7 pitches and 13 verified occurrences. Rendered over 10 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "508dd3eb093dcded2524ae88b59d2f20",
+        "Guitar 2 phrase with 4 pitches and 12 verified occurrences. Rendered over 7.5 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "392c901eb3034dc10caead8188a20c96",
+        "Separate source percussion pattern with 6 verified occurrences and 5 GM drum pitches."
+      ]
+    ],
+    "Tool/Triad.mid": [
+      [
+        "15a568a8df44dcc4ee5e33ab5d8dda00",
+        "Justin Chancellor phrase with 3 pitches and 28 verified occurrences. Rendered over 12 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "eea45c3a3383908d0c7a0591b86bc358",
+        "Adam Jones Disto phrase with 3 pitches and 18 verified occurrences. Rendered over 6 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "d03998615efbdb1e24ac1fec442b8573",
+        "Separate source percussion pattern with 8 verified occurrences and 5 GM drum pitches."
+      ]
+    ],
+    "Tool/Ticks_and_Leeches.mid": [
+      [
+        "8fcda05d393f12457fc01e8c8f0cc75f",
+        "Bass phrase with 6 pitches and 9 verified occurrences. Rendered over 8 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "1719387f9f7326e3305d1fd142a3907e",
+        "Guitar 1 phrase with 6 pitches and 6 verified occurrences. Rendered over 8 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "aa20cec7e8e689ecead9a8211f87cefb",
+        "Separate source percussion pattern with 8 verified occurrences and 4 GM drum pitches."
+      ]
+    ],
+    "Tool/Jimmy.mid": [
+      [
+        "e48be98b477ebd5177a557d063548786",
+        "Bass phrase with 6 pitches and 22 verified occurrences. Rendered over 10 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "a62525e1a486e50e3a23e2f9042b902d",
+        "Guitar phrase with 3 pitches and 9 verified occurrences. Rendered over 9 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "90a87d93c394ad3ba0bfca0618b94088",
+        "Separate source percussion pattern with 7 verified occurrences and 7 GM drum pitches."
+      ]
+    ],
+    "Tool/Third_Eye.mid": [
+      [
+        "be3835211e29b88805162d8944ee9cf4",
+        "Bass phrase with 4 pitches and 26 verified occurrences. Rendered over 6 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "160a519e0af98e4faeaeaea1a20e58f0",
+        "Guitar 1 phrase with 5 pitches and 15 verified occurrences. Rendered over 9 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "b7edb65e5a3d09c4f3266b4144ac1f75",
+        "Separate source percussion pattern with 6 verified occurrences and 6 GM drum pitches."
+      ]
+    ],
+    "Tool/10000_Days.mid": [
+      [
+        "6f5fc424d34d2b812f336d093bd8f701",
+        "Bass phrase with 7 pitches and 9 verified occurrences. Rendered over 12 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "9365ca8396865bf80892f33d34fd4642",
+        "Guitar phrase with 3 pitches and 18 verified occurrences. Rendered over 4.5 quarter note beats with source drums in the same window. Selected for source part contrast and distinct note content, without listener ratings."
+      ],
+      [
+        "41852d6a04b798810b5b8caf2869ae04",
+        "Separate source percussion pattern with 3 verified occurrences and 8 GM drum pitches."
+      ]
+    ]
+  }
+}
