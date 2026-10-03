@@ -44,3 +44,32 @@ worker scheduling does not change the receipt or aggregate ordering.
 The preferred reference run is `research_local/selection_sample_reference_v02`. All 256 selected sources passed, comprising all 28 metadata-recovered sources, 114 other search-limited sources and 114 non-limited sources. No failures occurred. Wall time was 37.734 seconds and summed worker time 147.143 seconds under concurrent corpus workloads. The frozen selection-record hash is `46a1d9a356d642234c9499afb96c2f3f5bad8ddab09f20dfc7a3242596f4b1b3`, receipt hash `782341430f4b163f2c994aa61706f89bdf3e9fb8c24e971b9ce2b8ddc9d4baed` and source snapshot hash `706682c884757146a0c7cfd42455d9a9055465610b69b81dbcfbb191f23666bb`.
 
 The earlier 16-source smoke at `research_local/selection_sample_audit_v01` used a preceding script snapshot and selected only recovered sources. Both receipts remain unchanged. Passing a sample does not mean the entire source corpus has been re-extracted, does not validate an untested implementation change and does not supply human musical quality labels.
+
+## Including a completed replay in a release
+
+Packaging accepts a completed replay explicitly and copies its portable receipt,
+source snapshot and declared result artifacts into a separate evidence directory:
+
+```sh
+python scripts/package_dataset.py \
+  --dataset research_local/lakh_phrases_v03 \
+  --output research_local/releases/reference_with_replay \
+  --selection-replay research_local/selection_sample_reference_v02
+```
+
+The package command rechecks the experiment completion receipt, executable
+source snapshot, result hashes, dataset source and phrase manifest hashes,
+build configuration, summary, audit hash and run key. It also checks that every
+selected source ID, source hash and manifest-record hash is present exactly
+once and that every raw case passed. A copied replay is verified again after it
+is placed at `evidence/selection_replay/`; symlinks and files outside the
+declared experiment set are rejected.
+
+The primary artifact audit remains separately represented by
+`release.json.audit_scope.primary_audit_passed` and its existing
+`audit_sha256`. Replay counts and the completion receipt hash are supplementary
+fields under `audit_scope.selection_replay`. The all-successful flag is true
+only when the selected IDs equal every `status: ok` source in the manifest and
+the recorded successful and error totals agree. A bounded replay remains a
+sample even when all of its cases pass. No packaging option modifies the
+dataset's `audit.json` or promotes a sample to a full selection replay.

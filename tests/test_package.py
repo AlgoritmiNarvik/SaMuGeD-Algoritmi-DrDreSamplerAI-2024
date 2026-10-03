@@ -8,8 +8,10 @@ import mido
 import pytest
 
 from samuged.audit import audit
+from samuged import experiment
 from samuged.dataset import atomic_json, build, canonical_json, file_digest
 from samuged.phrases import Config
+from scripts.audit_selection_sample import run_sample
 from scripts.package_dataset import package, unique_views
 from scripts.screen_splits import screen
 
@@ -230,3 +232,136 @@ def test_package_rejects_self_hashed_but_semantically_invalid_screening(tmp_path
         package(dataset, output, screening=screening)
 
     assert not output.exists()
+
+
+def _selection_replay(tmp_path: Path) -> tuple[Path, Path, Path]:
+    source, dataset, _ = _audited_dataset(tmp_path)
+    replay = tmp_path / "selection-replay"
+    result = run_sample(dataset, source, replay, count=None, workers=1, all_successful=True)
+    assert result["failure_count"] == 0
+    return source, dataset, replay
+
+
+def _refresh_completion(replay: Path, artifact: str) -> None:
+    completion_path = replay / "completion_receipt.json"
+    completion = json.loads(completion_path.read_text())
+    data = (replay / artifact).read_bytes()
+    completion["artifacts"][artifact] = {
+        "bytes": len(data),
+        "sha256": sha256(data).hexdigest(),
+    }
+    atomic_json(completion_path, completion)
+
+
+def test_package_copies_verified_selection_replay_as_supplementary_evidence(tmp_path):
+    _source, dataset, replay = _selection_replay(tmp_path)
+    result = package(dataset, tmp_path / "release", selection_replay=replay)
+
+    evidence = tmp_path / "release" / "evidence" / "selection_replay"
+    assert (evidence / "completion_receipt.json").is_file()
+    assert result["audit_scope"]["primary_audit_passed"] is True
+    assert result["selection_replay"]["selection_count"] == 1
+    assert result["selection_replay"]["selection_covers_all_successful_sources"] is True
+    release = json.loads((tmp_path / "release" / "release.json").read_text())
+    assert release["audit_scope"]["audit_sha256"] == file_digest(dataset / "audit.json")
+    assert release["selection_replay"]["completion_sha256"] == file_digest(
+        evidence / "completion_receipt.json"
+    )
+    assert "supplementary completed selection replay" in (
+        tmp_path / "release" / "DATASET_CARD.md"
+    ).read_text()
+
+
+def test_package_rejects_selection_replay_stale_dataset_binding(tmp_path):
+    _source, dataset, replay = _selection_replay(tmp_path)
+    selection_path = replay / "selection.json"
+    selection = json.loads(selection_path.read_text())
+    selection["dataset_artifacts"]["summary.json"]["sha256"] = "0" * 64
+    body_keys = (
+        "version", "dataset_artifacts", "dataset_run_key", "dataset_algorithm",
+        "full_audit", "selection", "selected",
+    )
+    selection["selection_sha256"] = experiment.sha256_json(
+        {key: selection[key] for key in body_keys}
+    )
+    atomic_json(selection_path, selection)
+    _refresh_completion(replay, "selection.json")
+
+    with pytest.raises(ValueError, match="selection replay dataset binding mismatch"):
+        package(dataset, tmp_path / "release", selection_replay=replay)
+
+
+def test_package_rejects_selection_cohort_changed_after_start_receipt(tmp_path):
+    _source, dataset, replay = _selection_replay(tmp_path)
+    selection_path = replay / "selection.json"
+    selection = json.loads(selection_path.read_text())
+    selection["selected"][0]["source_id"] = "not-the-frozen-source"
+    body_keys = (
+        "version", "dataset_artifacts", "dataset_run_key", "dataset_algorithm",
+        "full_audit", "selection", "selected",
+    )
+    selection["selection_sha256"] = experiment.sha256_json(
+        {key: selection[key] for key in body_keys}
+    )
+    atomic_json(selection_path, selection)
+    _refresh_completion(replay, "selection.json")
+
+    with pytest.raises(ValueError, match="selection replay config selection hash mismatch"):
+        package(dataset, tmp_path / "release", selection_replay=replay)
+
+
+def test_package_rejects_selection_replay_missing_case(tmp_path):
+    _source, dataset, replay = _selection_replay(tmp_path)
+    raw_path = replay / "raw_results.json"
+    raw = json.loads(raw_path.read_text())
+    raw["cases"] = []
+    atomic_json(raw_path, raw)
+    _refresh_completion(replay, "raw_results.json")
+
+    with pytest.raises(ValueError, match="raw case coverage mismatch"):
+        package(dataset, tmp_path / "release", selection_replay=replay)
+
+
+def test_package_rejects_selection_replay_failed_case(tmp_path):
+    _source, dataset, replay = _selection_replay(tmp_path)
+    raw_path = replay / "raw_results.json"
+    raw = json.loads(raw_path.read_text())
+    raw["cases"][0]["status"] = "failed"
+    atomic_json(raw_path, raw)
+    _refresh_completion(replay, "raw_results.json")
+
+    with pytest.raises(ValueError, match="selection replay contains a failed case"):
+        package(dataset, tmp_path / "release", selection_replay=replay)
+
+
+def test_package_rejects_passed_case_with_failure_details(tmp_path):
+    _source, dataset, replay = _selection_replay(tmp_path)
+    raw_path = replay / "raw_results.json"
+    raw = json.loads(raw_path.read_text())
+    raw["cases"][0]["failures"] = ["tampered after replay"]
+    atomic_json(raw_path, raw)
+    _refresh_completion(replay, "raw_results.json")
+
+    with pytest.raises(ValueError, match="passed case contains failures"):
+        package(dataset, tmp_path / "release", selection_replay=replay)
+
+
+def test_package_rejects_raw_detector_evidence_tamper(tmp_path):
+    _source, dataset, replay = _selection_replay(tmp_path)
+    raw_path = replay / "raw_results.json"
+    raw = json.loads(raw_path.read_text())
+    raw["cases"][0]["detector_evidence_sha256"] = "0" * 64
+    atomic_json(raw_path, raw)
+    _refresh_completion(replay, "raw_results.json")
+
+    with pytest.raises(ValueError, match="raw case evidence mismatch"):
+        package(dataset, tmp_path / "release", selection_replay=replay)
+
+
+def test_package_rejects_selection_replay_symlink_root(tmp_path):
+    _source, dataset, replay = _selection_replay(tmp_path)
+    linked = tmp_path / "selection-replay-link"
+    linked.symlink_to(replay, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="selection replay root must not be a symlink"):
+        package(dataset, tmp_path / "release", selection_replay=linked)
