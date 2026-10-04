@@ -130,7 +130,7 @@ The revision renders the existing loop MIDIs without extracting phrases again. I
 
 The opening Schism example reads actual source notes, verified occurrence spans and aligned drum hits. Song, Phrase and Loop animate the same note objects into the selected cycle. Highlights use the audio clock. The diagram is a piano roll, not staff notation or an inferred time signature. Reduced motion disables zoom transitions. The main player and example share playback and volume.
 
-Desktop method cards stay open beside the example and select its diagram stages. On phones, the explanation starts collapsed to keep Play within easy reach.
+The explanation starts open on desktop and phones. Its cards select the example diagram stages. On phones, users can collapse it with the summary button. Changing viewport size preserves their choice.
 
 ## Public cards and citation
 
