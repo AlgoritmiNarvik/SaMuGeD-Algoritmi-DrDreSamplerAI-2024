@@ -82,6 +82,8 @@ async function play({replace=false}={}){
  document.getElementById('status').textContent='Loading selected loop';
  document.getElementById('play').textContent='Stop loop';document.getElementById('intro-play').textContent=selected?.phrase_id===catalog.explainer?.phrase_id?'Stop phrase':'Play Schism';
  try{
+  // iPhone Web Audio otherwise uses an ambient session that obeys silent mode.
+  try{if(typeof navigator!=='undefined'&&navigator.audioSession)navigator.audioSession.type='playback'}catch{}
   if(!context||context.state==='closed'){context=new AudioContext();gain=null;playing=null}
   context.onstatechange=()=>{if(wantsPlayback&&playing&&context.state==='running'&&document.getElementById('status').textContent.startsWith('Audio paused')){document.getElementById('status').textContent='Looping until stopped';document.getElementById('play').textContent='Stop loop'}if(wantsPlayback&&['suspended','interrupted'].includes(context.state)){document.getElementById('status').textContent='Audio paused by the browser. Press Play loop to resume.';document.getElementById('play').textContent='Play loop';document.getElementById('intro-play').textContent=selected?.phrase_id===catalog.explainer?.phrase_id?'Resume phrase':'Play Schism'}};
   await context.resume();
