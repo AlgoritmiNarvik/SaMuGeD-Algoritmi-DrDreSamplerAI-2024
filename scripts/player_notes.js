@@ -68,7 +68,7 @@
  function showRelated(){
   navigation.hidden=relatedScope==='intro'||!related.length;select.replaceChildren();markerGroup?.replaceChildren();
   navigationTitle.textContent=`Phrases in this song · ${related.length}`;
-  navigationHelp.textContent=related.length>1?'Choose a prepared loop below or click its marker on the song map.':'One prepared loop for this song in this player. Click the song map to explore the source notes.';
+  navigationHelp.textContent=related.length>1?'Choose a prepared loop or its marker on the song map. Times show where each phrase starts in the song.':'One prepared loop for this song in this player. Click the song map to explore the source notes.';
   navigationControls.hidden=related.length<2;
   const listScroll=document.getElementById('rows')?.scrollTop;
   if(relatedScope==='main'&&related.length)document.querySelectorAll('.song-phrase-options').forEach(n=>n.remove());
