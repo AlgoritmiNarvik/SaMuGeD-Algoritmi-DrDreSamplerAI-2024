@@ -61,30 +61,27 @@
  const previous=document.createElement('button'),next=document.createElement('button'),select=document.createElement('select');
  previous.type=next.type='button';previous.textContent='←';next.textContent='→';previous.setAttribute('aria-label','Previous phrase in this song');next.setAttribute('aria-label','Next phrase in this song');select.setAttribute('aria-label','Prepared phrases in this song');
  const navigationControls=document.createElement('div');navigationControls.className='note-navigation-controls';
- navigationControls.append(previous,select,next);navigation.append(navigationTitle,navigationControls,navigationHelp);svg.after(navigation);
+ navigationControls.append(previous,select,next);navigation.append(navigationTitle,navigationControls,navigationHelp);svg.before(navigation);
  const navigate=pid=>{if(pid!==row?.phrase_id&&related.some(r=>r.phrase_id===pid))onNavigate(pid)};
  previous.onclick=()=>navigate(related[related.findIndex(r=>r.phrase_id===row.phrase_id)-1]?.phrase_id);
  next.onclick=()=>navigate(related[related.findIndex(r=>r.phrase_id===row.phrase_id)+1]?.phrase_id);select.onchange=()=>navigate(select.value);
  function showRelated(){
   navigation.hidden=relatedScope==='intro'||!related.length;select.replaceChildren();markerGroup?.replaceChildren();
   navigationTitle.textContent=`Phrases in this song · ${related.length}`;
-  navigationHelp.textContent=related.length>1?'Choose a prepared loop or its marker on the song map. Times show where each phrase starts in the song.':'One prepared loop for this song in this player. Click the song map to explore the source notes.';
+  navigationHelp.textContent=related.length>1?'Choose another passage from this song. Times mark its start. Use the playback controls above to change the current mix.':'One prepared loop for this song in this player. Click the song map to explore the source notes.';
   navigationControls.hidden=related.length<2;
-  const listScroll=document.getElementById('rows')?.scrollTop;
-  if(relatedScope==='main'&&related.length)document.querySelectorAll('.song-phrase-options').forEach(n=>n.remove());
-  const listOptions=document.createElement('div');listOptions.className='song-phrase-options';
-  const listTitle=document.createElement('div');listTitle.className='note-navigation-title';listTitle.textContent=`${related.length} prepared ${related.length===1?'phrase':'phrases'}`;listOptions.append(listTitle);
+
   const current=related.findIndex(r=>r.phrase_id===row.phrase_id);
   previous.disabled=current<=0;next.disabled=current>=related.length-1;
   related.forEach((item,i)=>{
-   const label=`${i+1} / ${related.length} · ${item.label} · ${item.start.toFixed(1)} s`,option=document.createElement('option');option.value=item.phrase_id;option.textContent=label;select.append(option);
-   if(related.length>1){const b=document.createElement('button');b.type='button';b.textContent=`${i+1} · ${item.label} · ${item.start.toFixed(1)} s`;b.setAttribute('aria-pressed',String(item.phrase_id===row.phrase_id));b.onclick=()=>navigate(item.phrase_id);listOptions.append(b)}
+   const label=`${i+1} / ${related.length} · ${item.kind==='percussion'?'Drums':'Melody'} · ${item.label} · ${item.start.toFixed(1)} s`,option=document.createElement('option');option.value=item.phrase_id;option.textContent=label;select.append(option);
+
    if(!markerGroup)return;
    const marker=el('g',{role:'button',tabindex:0,'aria-label':`Play phrase ${label}`,class:'note-phrase-marker'}),xx=X+item.start/song.duration*W;
    marker.append(el('rect',{x:xx-5,y:384,width:Math.max(10,(item.end-item.start)/song.duration*W),height:24,fill:'transparent'}),el('line',{x1:xx,x2:xx,y1:386,y2:405,class:item.phrase_id===row.phrase_id?'current':''}));
    marker.addEventListener('click',event=>{event.stopPropagation();navigate(item.phrase_id)});marker.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate(item.phrase_id)}});markerGroup.append(marker);
   });select.value=row?.phrase_id||'';
-  if(relatedScope==='main'&&related.length){const selectedRow=document.querySelector('#rows .row[aria-pressed=true]');selectedRow?.after(listOptions);document.getElementById('rows').scrollTop=listScroll}
+
  }
  const currentCamera=now=>motion?cameraAt(motion.from,motion.to,(now-motion.start)/motion.duration):camera;
  function setup(){
