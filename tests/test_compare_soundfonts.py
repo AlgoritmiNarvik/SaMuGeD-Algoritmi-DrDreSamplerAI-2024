@@ -1,7 +1,7 @@
 from pathlib import Path
 import mido
 import pytest
-from scripts.compare_soundfonts import repeat_cycle
+from scripts.compare_soundfonts import repeat_cycle, render_with_headroom
 from samuged.audio_loops import _read_wave, write_pcm24_wave
 import numpy as np
 
@@ -36,3 +36,31 @@ def test_pcm24_retains_sign_and_detail_below_pcm16_step(tmp_path: Path):
     np.testing.assert_allclose(restored, source, atol=2 / 8388608)
     assert restored[0, 0] > 0
     assert restored[0, 1] < 0
+
+
+def test_synthesis_retries_before_normalization_can_hide_clipping(monkeypatch):
+    gains = []
+    def render(*args, synthesis_gain):
+        gains.append(synthesis_gain)
+        return {'input_peak': min(1.0, 4 * synthesis_gain), 'synthesis_gain': synthesis_gain}
+    monkeypatch.setattr('scripts.compare_soundfonts._render_audio', render)
+    result = render_with_headroom(None, None, None, None, 1)
+    assert gains == [0.45, 0.225]
+    assert result['input_peak'] == pytest.approx(0.9)
+    assert result['synthesis_gain'] == 0.225
+
+
+def test_synthesis_retry_is_bounded(monkeypatch):
+    monkeypatch.setattr('scripts.compare_soundfonts._render_audio', lambda *a, **k: {'input_peak': 1.0})
+    with pytest.raises(ValueError, match='headroom'):
+        render_with_headroom(None, None, None, None, 1)
+
+
+def test_synthesis_checks_peak_outside_the_selected_cycle(monkeypatch):
+    gains = []
+    def render(*args, synthesis_gain):
+        gains.append(synthesis_gain)
+        return {'input_peak': 0.1, 'synthesis_peak': min(1.0, 4 * synthesis_gain)}
+    monkeypatch.setattr('scripts.compare_soundfonts._render_audio', render)
+    render_with_headroom(None, None, None, None, 1)
+    assert gains == [0.45, 0.225]

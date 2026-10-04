@@ -14,6 +14,9 @@ The comparison is generated locally with the command below. It is separate from 
 | FluidSynth with MuseScore General 0.2.0 | Complete GM bank with documented sample sources | Shares some source samples with FluidR3 |
 | BASSMIDI with Arachno | Same bank through another whole MIDI engine | Proprietary runtime, separate license and effects defaults |
 | Timbres of Heaven 4.00(G) with FluidSynth or BASSMIDI | Complete GS bank with two whole MIDI render setups | Louder samples need lower synthesis gain, redistribution needs permission |
+| Musyng Kite with FluidSynth | Complete GM/GS bank with another guitar, bass and drum palette | About 1 GB of samples, individual balances need listening |
+| Shan SGM Pro 17 with FluidSynth | Updated full bank with adjusted instrument balance | Some sounds retain a vintage character |
+| ColomboGMGS2 17.02 Vanilla with FluidSynth | Full bank with GM2/GS and XG drum mappings | Shares some sample sources with other banks |
 | Muse Sounds | Expressive score playback | A different score and instrument workflow, not a direct replacement for our batch renderer |
 
 Sources: [GeneralUser GS documentation](https://github.com/mrbumpy409/GeneralUser-GS/blob/main/documentation/README.md), [sfizz](https://sfz.tools/sfizz/), [Muse Sounds](https://sounds.musescore.org/).
@@ -53,3 +56,11 @@ With Timbres enabled, the comparison contains forty two renders, seven setups fo
 All forty two decoded FLAC files were verified as 48 kHz stereo with 24 bit samples, matching frame counts and no output clipping. Timbres input peaks in FluidSynth were 0.19 to 0.31 after reducing synthesis gain. In the earlier five setup run, MuseScore General took 0.19 to 0.34 seconds per version and BASSMIDI with Arachno took 0.06 to 0.93 seconds, including FLAC conversion. These local timings do not establish a performance ranking. The BASSMIDI intermediate buffer is floating point, which retains values above full scale until normalization.
 
 HALion was not auditioned because its engine and GM library were not installed on the comparison host. Individual bass, guitar and drum library experiments were removed from the listening page. The comparison now uses complete instrument banks.
+
+## Further bank auditions
+
+Pass `--musyng`, `--sgm-pro` and `--colombo` with the matching SF2 paths to include Musyng Kite, Shan SGM Pro 17 and ColomboGMGS2 17.02 Vanilla. With all options enabled the page contains ten setups for the same six phrases. These three banks use FluidSynth and do not introduce instrument specific modules.
+
+The comparison retries FluidSynth at half the synthesis gain if the complete intermediate render's peak reaches 0.95. This preserves headroom in the integer intermediate before the existing peak normalization. It records the final synthesis gain and peak and fails after eight attempts if headroom cannot be obtained. This check does not establish sample quality or detect distortion already present in a bank's samples.
+
+Sources: [Musyng Kite author thread](https://www.kvraudio.com/forum/viewtopic.php?t=351893), [Shan SGM Pro 17 release](https://www.reddit.com/r/soundfonts/comments/1wezdu3/shan_sgm_pro_17_es8c_soundfont_released/) and [ColomboGMGS2 author page](https://sourceforge.net/projects/colombogmgs2-sf2/). Musyng Kite's SF2 was obtained from the [archived bank collection](https://archive.org/details/500-soundfonts-full-gm-sets). These files are for local audition. No new bank or generated audio is included in the code repository or public Space.
