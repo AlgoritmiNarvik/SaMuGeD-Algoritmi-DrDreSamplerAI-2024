@@ -33,6 +33,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('space', 'dataset', 'source-root', 'soundfont'):
         parser.add_argument('--'+name, type=Path, required=True)
+    parser.add_argument('--include-source', action='append', default=[], help='Additional source path to prepare for demo curation')
     parser.add_argument('--workers', type=int, default=3, choices=range(1, 5))
     args = parser.parse_args()
     root = args.space
@@ -40,7 +41,7 @@ def main():
     if _sha256_file(args.soundfont) != catalog['audio_renderer']['sha256']:
         raise ValueError('SoundFont must match the published renderer')
     current = {r['phrase_id']:r for g in catalog['groups'].values() for r in g['rows']}
-    source_paths = {r['source_path'] for r in current.values()}
+    source_paths = {r['source_path'] for r in current.values()} | set(args.include_source)
     wanted = []
     for line in (args.dataset/'phrases.jsonl').open():
         row = json.loads(line)
