@@ -203,6 +203,11 @@ def build(dataset, source_root, chart_path, output, count=50):
     for key, rows in views.items():
         write_csv(output / f"top50_{key}.csv", rows)
     template = Path(__file__).with_name("top_phrases.html").read_text(encoding="utf-8")
+    # Standalone analytics has detector snippets, but no rendered source note maps.
+    for asset in ('<link rel="stylesheet" href="../note_explorer.css">',
+                  '<script src="../player_notes.js"></script>',
+                  '<script src="../atlas_notes.js"></script>'):
+        template = template.replace(asset, "")
     font_root = Path(__file__).resolve().parents[1] / "docs" / "assets" / "inter"
     shutil.copytree(font_root, output / "fonts")
     for path in sorted(font_root.iterdir()):

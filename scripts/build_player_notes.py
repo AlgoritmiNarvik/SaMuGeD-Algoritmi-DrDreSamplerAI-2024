@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import sys
+from urllib.parse import urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from samuged.midi import load_midi
 from samuged.audio_loops import _sha256_file, seconds_between
@@ -20,6 +21,24 @@ def main():
     out.mkdir(exist_ok=True)
     songs = {}
     rows = {r['phrase_id']: r for g in catalog['groups'].values() for r in g['rows']}
+    main_ids = set(rows)
+    atlas_ids = set()
+    index = {}
+    atlas_path = root / 'atlas' / 'analysis.json'
+    if atlas_path.exists():
+        atlas = json.loads(atlas_path.read_text())
+        for ranking in atlas['views'].values():
+            for row in ranking:
+                pid = row['phrase_id']
+                atlas_ids.add(pid)
+                if pid in rows or pid not in atlas['audio']:
+                    continue
+                binding = atlas['audio'][pid]
+                rows[pid] = dict(row)
+                for key in ('with_drums', 'drums_only'):
+                    if key in binding:
+                        rows[pid][key] = {'phrase_id': Path(urlparse(binding[key]['wav']).path).parent.name}
+    durations = {}
     def packed(song):
         ticks = {0, *(n.start for p in song.parts for n in p.notes), *(n.end for p in song.parts for n in p.notes)}
         times = {t: round(seconds_between(song, 0, t), 5) if t else 0 for t in ticks}
@@ -37,6 +56,7 @@ def main():
             song = load_midi(path, recover_invalid_keys=True)
             notes = packed(song)
             songs[digest] = song
+            durations[digest] = max((n[1] for n in notes), default=0)
             payload = {'notes': notes, 'duration': max((n[1] for n in notes), default=0),
                        'parts': [{'index': p.index, 'name': p.name, 'drum': p.is_drum} for p in song.parts]}
             (out / f'{digest}.json').write_text(json.dumps(payload, separators=(',', ':')))
@@ -47,8 +67,19 @@ def main():
         start, end = meta['cycle_start_tick'], meta['cycle_end_tick']
         payload = {'song': digest, 'part': meta['part']['index'], 'drum': meta['part']['is_drum'],
                    'start': seconds_between(song, 0, start) if start else 0,
-                   'end': seconds_between(song, 0, end), 'variants': variants}
+                   'end': seconds_between(song, 0, end), 'variants': variants,
+                   'source_duration': durations[digest],
+                   'beat_grid': [[round(seconds_between(song, start, t), 5) if t > start else 0,
+                                  round((t - start) / song.ticks_per_beat, 3)]
+                                 for t in range(start, end + 1, max(1, song.ticks_per_beat // 2))]}
+
+        index.setdefault(digest, []).append({'phrase_id': pid, 'start': payload['start'], 'end': payload['end'],
+                                             'label': 'Drum pattern' if row['kind'] == 'percussion' else (meta['part']['name'] or 'Melody'),
+                                             'kind': row['kind'], 'scopes': [s for s, ids in [('main', main_ids), ('atlas', atlas_ids)] if pid in ids]})
         (out / f'{pid}.json').write_text(json.dumps(payload, separators=(',', ':')))
+    for items in index.values():
+        items.sort(key=lambda item: (item['start'], item['kind'], item['phrase_id']))
+    (out / 'index.json').write_text(json.dumps(index, separators=(',', ':')))
     (root / 'player_notes.js').write_bytes(Path(__file__).with_name('player_notes.js').read_bytes())
     print(f'Note views: {len(rows)} phrases, {len(songs)} verified source songs')
 

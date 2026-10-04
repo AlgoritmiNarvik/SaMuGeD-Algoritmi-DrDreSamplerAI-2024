@@ -69,6 +69,8 @@ def main():
                                    .replace('<strong>40</strong>', f'<strong>{count}</strong>'))
     (root / 'loop_explainer.js').write_bytes(Path(__file__).with_name('loop_explainer.js').read_bytes())
     (root / 'player_notes.js').write_bytes(Path(__file__).with_name('player_notes.js').read_bytes())
+    (root / 'note_explorer.css').write_bytes(Path(__file__).with_name('note_explorer.css').read_bytes())
+    (root / 'atlas_notes.js').write_bytes(Path(__file__).with_name('atlas_notes.js').read_bytes())
     atlas = root / 'atlas'
     packet = json.loads((atlas / 'analysis.json').read_text())
     packet['audio_renderer'] = catalog['audio_renderer']
