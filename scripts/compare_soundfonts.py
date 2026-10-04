@@ -38,10 +38,11 @@ def repeat_cycle(source: Path, destination: Path, period_ticks: int, repetitions
     result.save(destination)
 
 
-def render_with_headroom(midi, bank, engine, destination, cycle_seconds, gain=0.45):
+def render_with_headroom(midi, bank, engine, destination, cycle_seconds, gain=0.45, *, effects_profile=None):
     """Reduce synthesis gain when the integer intermediate reaches full scale."""
     for _ in range(8):
-        details = _render_audio(midi, bank, engine, destination, cycle_seconds, synthesis_gain=gain)
+        options = {} if effects_profile is None else {'effects_profile': effects_profile}
+        details = _render_audio(midi, bank, engine, destination, cycle_seconds, synthesis_gain=gain, **options)
         if details.get('synthesis_peak', details['input_peak']) < 0.95:
             return details
         gain *= 0.5
