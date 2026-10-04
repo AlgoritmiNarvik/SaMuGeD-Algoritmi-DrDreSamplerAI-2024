@@ -29,15 +29,20 @@
   if([41,43,45,47,48,50].includes(p))return 'Toms';
   if([51,53,59].includes(p))return 'Ride';if([49,52,55,57].includes(p))return 'Crash';return 'Percussion';
  }
+ function drumLaneY(i,count,only){return (only?12:184)+(i+.5)*(only?344:174)/Math.max(1,count)}
  const drumOrder=['Kick','Snare','Closed hat','Open hat','Toms','Ride','Crash','Percussion'];
  const drumColors={Kick:'#b8a5e4',Snare:'#d5af99','Closed hat':'#91b5ba','Open hat':'#91b5ba',Toms:'#b39abf',Ride:'#c7b98c',Crash:'#c7b98c',Percussion:'#a9a5b2'};
  function drumDecay(p){return ({'Closed hat':.16,'Open hat':.65,Ride:.95,Crash:1.4,Kick:.42,Snare:.48,Toms:.55})[drumLane(p)]||.4}
  // Symbolic MIDI envelopes, not isolated audio waveforms or measured sample decay.
- function drumEnvelope(start,y,p,velocity,compact=false){
-  const length=drumDecay(p);
-  const height=(compact?2.5:5)+(compact?2:6)*clamp(velocity,0,127)/127;
-  const a=start+.008,b=start+length*.24,c=start+length;
-  return `M${start} ${y}L${a} ${y-height}C${b} ${y-height*.2} ${b} ${y-height*.08} ${c} ${y}C${b} ${y+height*.08} ${b} ${y+height*.2} ${a} ${y+height}Z`;
+ function drumEnvelope(start,y,p,velocity,compact=false,laneHeight=40){
+  const length=drumDecay(p), count=compact?8:12;
+  const height=Math.min(laneHeight*.39,compact?20:42)*(.35+.65*clamp(velocity,0,127)/127);
+  // One cached path per hit keeps per-frame DOM updates independent of segment count.
+  return Array.from({length:count},(_,i)=>{
+   const t=i/count,x=start+t*length,w=length/count*.78;
+   const h=height*Math.exp(-3*t)*Math.sqrt(1-t);
+   return `M${x} ${y-h}h${w}v${h*2}h${-w}Z`;
+  }).join('');
  }
  if(typeof module!=='undefined')module.exports={phase,bounds,cameraAt,noteEnergy,drumLane,drumDecay};
  if(typeof document==='undefined')return;
@@ -132,13 +137,13 @@
   const laneKey=drumLane;
   const keys=new Set(notes.filter(n=>n[4]).map(n=>laneKey(n[2])));
   const lanes=drumOrder.filter(k=>keys.has(k));
-  const drumY=p=>{const i=lanes.indexOf(laneKey(p));return onlyDrums?25+i*320/Math.max(1,lanes.length-1):196+i*150/Math.max(1,lanes.length-1)};
+  const drumY=p=>{const i=lanes.indexOf(laneKey(p));return drumLaneY(i,lanes.length,onlyDrums)};
   for(const n of notes){
    const drum=!!n[4];
    const r=drum?el('line',{x1:n[0],x2:n[0],y1:drumY(n[2])-(onlyDrums?5:2.5),y2:drumY(n[2])+(onlyDrums?5:2.5),class:'note-event note-drum','vector-effect':'non-scaling-stroke'}):el('rect',{x:n[0],y:-n[2]-.34,width:Math.max(.009,n[1]-n[0]),height:.68,class:'note-event note-melody','vector-effect':'non-scaling-stroke'});
    let envelope=null;
    if(drum){r.style.setProperty('--hit-color',drumColors[drumLane(n[2])]);r.style.setProperty('--hit-width',(onlyDrums?1.5:1)+n[3]/127*(onlyDrums?3:1.5));
-    if(mode==='phrase'){envelope=el('path',{d:drumEnvelope(n[0],drumY(n[2]),n[2],n[3],!onlyDrums),class:'note-hit-envelope',fill:drumColors[drumLane(n[2])],opacity:.28});envelopes.append(envelope)}
+    if(mode==='phrase'){r.setAttribute('display','none');envelope=el('path',{d:drumEnvelope(n[0],drumY(n[2]),n[2],n[3],!onlyDrums,(onlyDrums?344:174)/Math.max(1,lanes.length)),class:'note-hit-envelope',fill:drumColors[drumLane(n[2])],opacity:.28});envelopes.append(envelope)}
    }
    r.append(el('title',{},`${drum?'Drum '+n[2]:pitch(n[2])} · ${(n[0]-(mode==='phrase'?selection.start:0)).toFixed(2)}s · velocity ${n[3]}`));
    (drum?drums:melody).append(r);entries.push({n,r,envelope,energy:-1,base:.3+.42*n[3]/127});
@@ -158,7 +163,7 @@
   if(!scenes.at(-1)?.onlyDrums)for(const p of pitches){axis.append(el('line',{x1:X,x2:X+W,y1:y(p),y2:y(p),class:'note-grid'}),el('text',{x:7,y:y(p)+3,class:'note-axis-label'},pitch(p)))}
   const scene=scenes.at(-1);
   if(scene&&!scene.onlyDrums&&scene.lanes.length){axis.append(el('line',{x1:0,x2:600,y1:181,y2:181,class:'note-section-divider'}),el('text',{x:5,y:12,class:'note-section-label'},'MELODY'),el('text',{x:5,y:189,class:'note-section-label'},'DRUMS'))}
-  if(scene)scene.lanes.forEach((label,i)=>{const yy=scene.onlyDrums?25+i*320/Math.max(1,scene.lanes.length-1):196+i*150/Math.max(1,scene.lanes.length-1);axis.append(el('line',{x1:X,x2:X+W,y1:yy,y2:yy,class:'note-drum-grid'}),el('text',{x:5,y:yy+3,class:'note-axis-label'},label==='Closed hat'?'C. hat':label==='Open hat'?'O. hat':label==='Percussion'?'Perc.':label))});
+  if(scene)scene.lanes.forEach((label,i)=>{const yy=drumLaneY(i,scene.lanes.length,scene.onlyDrums);axis.append(el('line',{x1:X,x2:X+W,y1:yy,y2:yy,class:'note-drum-grid'}),el('text',{x:5,y:yy+3,class:'note-axis-label'},label==='Closed hat'?'C. hat':label==='Open hat'?'O. hat':label==='Percussion'?'Perc.':label))});
   if(mode==='phrase'&&selection.beat_grid){
    for(const [seconds,beat]of selection.beat_grid){const xx=x(selection.start+seconds);if(xx<X||xx>X+W)continue;axis.append(el('line',{x1:xx,x2:xx,y1:12,y2:351,class:Number.isInteger(beat)?'note-beat-grid':'note-time-grid'}));if(Number.isInteger(beat)&&seconds<row.cycle_seconds-.001)axis.append(el('text',{x:xx,y:363,class:'note-axis-label'},String(beat+1)))}
    return;

@@ -1,11 +1,13 @@
-"""Add three source derived Nirvana examples after Schism in the listening demo."""
+"""Curate source derived Nirvana examples after Schism in the listening demo."""
 import argparse
 from copy import deepcopy
 import json
 from pathlib import Path
 
 SELECTIONS = (
-    ('b6adad0b2fc03d4afce72216ad858bd6', 'Smells Like Teen Spirit'),
+    ('044359a0ce87afd9cfa2b171def3d12c', 'Rape Me'),
+    ('817bda73231323a5bac9e453707eeb52', 'In Bloom'),
+    ('7265fb138040beb357543311779b8f1a', 'About a Girl'),
     ('4026827db9dc945f4837c939825665ff', 'Come As You Are'),
     ('37d33f1bc65d2e2d9ad9faa0e3b7e16a', 'Lithium'),
 )
@@ -15,7 +17,7 @@ def curate(catalog):
     candidates = {r['phrase_id']: r for r in catalog.get('song_variants', [])}
     candidates.update({r['phrase_id']: r for r in catalog['groups']['popular']['rows']})
     ids = {pid for pid, _ in SELECTIONS}
-    original = [r for r in catalog['groups']['popular']['rows'] if r['phrase_id'] not in ids]
+    original = [r for r in catalog['groups']['popular']['rows'] if r['phrase_id'] not in ids and r['title'] not in {'Smells Like Teen Spirit', 'Heart-Shaped Box'}]
     if not original or original[0]['title'] != 'Schism':
         raise ValueError('Preserve Schism as the opening selection')
     selected = []
