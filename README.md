@@ -4,7 +4,10 @@ Recurring MIDI phrases with source coordinates and separate drum patterns.
 
 SaMuGeD began as a MIDI sampling project: find repeated musical ideas, collect them as reusable phrases and explore them in music production. Earworms carries that idea into a dataset and a loop player.
 
-[Dataset](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases) · [Listen and download loops](https://huggingface.co/spaces/AlmazErmilov/samuged-earworms) · [Research note PDF](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/paper/samuged_recurring_phrases.pdf)
+[![Dataset](https://img.shields.io/badge/Hugging_Face-dataset-FFD21E?logo=huggingface&logoColor=000)](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases)
+[![Listen](https://img.shields.io/badge/Hugging_Face-listen-ACA0E9?logo=huggingface&logoColor=000)](https://huggingface.co/spaces/AlmazErmilov/samuged-earworms)
+[![Research note](https://img.shields.io/badge/Research_note-PDF-626779)](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/paper/samuged_recurring_phrases.pdf)
+[![Tests](https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSampler-2024/actions/workflows/research-tests.yml/badge.svg)](https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSampler-2024/actions/workflows/research-tests.yml)
 
 ## Method
 
@@ -92,4 +95,21 @@ The [original planning notes](docs/legacy_project_notes.md) retain the earlier t
 | Shayan Dadman | [shayan.dadman@uit.no](mailto:shayan.dadman@uit.no) |
 | Almaz Ermilov | [almaz.ermilov@uit.no](mailto:almaz.ermilov@uit.no) |
 
-[Dataset citation](CITATION.cff). Code uses [MIT](LICENSE). The derived dataset follows Lakh's declared [CC BY 4.0 collection license](https://colinraffel.com/projects/lmd/). Underlying composition and arrangement attribution is incomplete. No independent rights clearance is claimed. External evaluation datasets and original commercial recordings are excluded.
+## Citation
+
+Use **Cite this repository** in the GitHub sidebar, or copy the BibTeX below. [Download BibTeX](CITATION.bib) · [Citation metadata](CITATION.cff).
+
+```bibtex
+@misc{wu2026samuged,
+  author = {Wu, Peiyi and Øren, Asle Fjæran and Dadman, Shayan and Ermilov, Almaz},
+  title = {{SaMuGeD} Earworms (Ostinato / Catchy musical hooks)},
+  year = {2026},
+  version = {0.1},
+  url = {https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases},
+  note = {Research dataset release}
+}
+```
+
+## License
+
+Code uses [MIT](LICENSE). The derived dataset follows Lakh's declared [CC BY 4.0 collection license](https://colinraffel.com/projects/lmd/). Underlying composition and arrangement attribution is incomplete. No independent rights clearance is claimed. External evaluation datasets and original commercial recordings are excluded.

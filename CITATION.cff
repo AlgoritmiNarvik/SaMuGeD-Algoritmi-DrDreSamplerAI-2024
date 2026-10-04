@@ -5,7 +5,7 @@ title: SaMuGeD Earworms (Ostinato / Catchy musical hooks)
 version: '0.1'
 date-released: '2026-10-03'
 url: https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases
-repository-code: https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSamplerAI-2024
+repository-code: https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSampler-2024
 license: CC-BY-4.0
 authors:
   - family-names: Wu
