@@ -42,6 +42,8 @@ flowchart LR
 
 The Space includes top 50 listening collections, ten familiar song selections and [Tool’s ostinatos](docs/research/tool_motifs.md) with 69 riffs and 36 drum patterns from 28 songs. Source drums play by default where available. Tool offers 59 aligned three mode comparisons. Download 48 kHz stereo WAV, FLAC or loop MIDI. The separate atlas provides recurrence counts and note plots. Its audio uses the same SoundFont renderer. Downloaded Tool arrangements are interface supplements, outside the dataset.
 
+[Compare two instrument banks](https://almazermilov-samuged-earworms.static.hf.space/comparison/index.html) on six phrases. [Rendering notes](docs/research/instrument_rendering.md) explain the alternatives and current limits.
+
 There are **no listener labels** for these fragments. Repetition does not prove catchiness or recognition. Familiar song evidence applies to songs, not these exact MIDI fragments. Filename identities, search limits and duplicate arrangements affect coverage.
 
 ## Run locally
