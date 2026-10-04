@@ -138,7 +138,8 @@ test('note light decays after release and wraps only near the loop boundary',()=
  assert.ok(noteView.noteEnergy(1,2,2.05,6)>noteView.noteEnergy(1,2,2.2,6));
  assert.equal(noteView.noteEnergy(1,2,3,6),0);
  assert.ok(noteView.noteEnergy(5.8,5.95,.01,6)>0);
- assert.equal(noteView.noteEnergy(5.8,5.95,.3,6),0);
+ assert.ok(noteView.noteEnergy(5.8,5.95,.3,6)>0);
+ assert.equal(noteView.noteEnergy(5.8,5.95,.5,6),0);
  assert.equal(noteView.noteEnergy(8,9,1,6),0);
  assert.equal(noteView.noteEnergy(0,1,0,0),0);
 });
@@ -172,4 +173,12 @@ test('phrase navigation stays in the selected song and collection for all prepar
  for(const id of ['tool','extra','drums','foreign','missing'])box.window.selectNotePhrase(id);
  assert.deepEqual(calls,[['tool',true],['extra',true]]);
  assert.equal(box.group,'popular');assert.equal(box.songAnchor.phrase_id,'default');
+});
+
+
+test('drum release follows kit decay rather than the short MIDI gate',()=>{
+ assert.ok(noteView.noteEnergy(1,1.02,1.5,6,true,49)>0);
+ assert.equal(noteView.noteEnergy(1,1.02,1.5,6,true,42),0);
+ assert.ok(noteView.drumDecay(49)>noteView.drumDecay(36));
+ assert.equal(noteView.noteEnergy(1,1.02,2.5,6,true,49),0);
 });

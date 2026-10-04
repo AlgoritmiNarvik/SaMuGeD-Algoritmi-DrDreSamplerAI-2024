@@ -15,13 +15,13 @@
   const center=(from[0]+from[1])/2*(1-e)+(to[0]+to[1])/2*e;
   return [center-width/2,center+width/2,from[2]*(1-e)+to[2]*e,from[3]*(1-e)+to[3]*e];
  }
- function noteEnergy(start,end,time,duration,drum=false){
+ function noteEnergy(start,end,time,duration,drum=false,pitch=38){
   if(duration<=0||start>=duration||end<=0)return 0;
-  const release=Math.min(drum?.23:.3,duration/5);
+  const release=Math.min(drum?drumDecay(pitch):.45,duration*.8);
   // Only carry the tail of a note near the boundary into the next audio cycle.
   const age=phase(time-start,duration),length=drum?Math.min(.055,Math.max(.02,end-start)):Math.max(.01,end-start);
   if(age<length)return drum?1: .78+.22*Math.exp(-age/ .065);
-  return age<length+release?.65*Math.pow(1-(age-length)/release,2):0;
+  return age<length+release?.8*Math.pow(1-(age-length)/release,1.6):0;
  }
  function drumLane(p){
   if([35,36].includes(p))return 'Kick';if([37,38,39,40].includes(p))return 'Snare';
@@ -31,14 +31,15 @@
  }
  const drumOrder=['Kick','Snare','Closed hat','Open hat','Toms','Ride','Crash','Percussion'];
  const drumColors={Kick:'#b8a5e4',Snare:'#d5af99','Closed hat':'#91b5ba','Open hat':'#91b5ba',Toms:'#b39abf',Ride:'#c7b98c',Crash:'#c7b98c',Percussion:'#a9a5b2'};
+ function drumDecay(p){return ({'Closed hat':.16,'Open hat':.65,Ride:.95,Crash:1.4,Kick:.42,Snare:.48,Toms:.55})[drumLane(p)]||.4}
  // Symbolic MIDI envelopes, not isolated audio waveforms or measured sample decay.
  function drumEnvelope(start,y,p,velocity,compact=false){
-  const length=({'Closed hat':.13,'Open hat':.34,Ride:.48,Crash:.62,Kick:.28,Snare:.24,Toms:.32})[drumLane(p)]||.2;
+  const length=drumDecay(p);
   const height=(compact?2.5:5)+(compact?2:6)*clamp(velocity,0,127)/127;
   const a=start+.008,b=start+length*.24,c=start+length;
   return `M${start} ${y}L${a} ${y-height}C${b} ${y-height*.2} ${b} ${y-height*.08} ${c} ${y}C${b} ${y+height*.08} ${b} ${y+height*.2} ${a} ${y+height}Z`;
  }
- if(typeof module!=='undefined')module.exports={phase,bounds,cameraAt,noteEnergy,drumLane};
+ if(typeof module!=='undefined')module.exports={phase,bounds,cameraAt,noteEnergy,drumLane,drumDecay};
  if(typeof document==='undefined')return;
  const cache=new Map();
  function createNoteExplorer({canvasId='player-notes',prefix='note-',captionId='note-caption',initialMode='phrase',viewAttribute='data-note-view',notesBase='notes',getLayer=()=>layer,relatedScope='main',onNavigate=id=>window.selectNotePhrase?.(id)}={}){
@@ -200,7 +201,7 @@
   get('note-caption').textContent=mode==='song'?(sourceReady?'The highlighted passage becomes your loop. Zoom in to follow its notes.':'Loading the full song map…'):(scenes.at(-1).onlyDrums?'Each lane is a kit voice. Hit size shows MIDI velocity. Tails illustrate decay, not isolated audio.':'Melody above, drum voices below. Both follow the sound. Drum tails illustrate decay, not isolated audio.');
  }
  async function choose(next){
-  const id=++token;selection=null;row=next;motion=null;related=[];navigation.hidden=true;
+  const id=++token;if(relatedScope!=='intro')mode='phrase';selection=null;row=next;motion=null;related=[];navigation.hidden=true;
   svg.style.opacity='.3';get('note-caption').textContent='Loading source notes…';
   try{
    const data=await load(`${notesBase}/${next.phrase_id}.json`);if(id!==token)return;
@@ -232,13 +233,13 @@
    // Other instruments remain context only. Their notes are not present in the selected audio.
    const audible=running&&(clock.layer!=='drums'||n[4])&&(clock.layer!=='solo'||row.kind==='percussion'||!n[4])&&(scene.mode!=='song'||n[4]||n[5]===selection.part);
    const start=n[0]-selection.start,end=n[1]-selection.start;
-   const energy=audible&&start>=-.001&&start<clock.duration?noteEnergy(start,end,p,clock.duration,!!n[4]):0;
+   const energy=audible&&start>=-.001&&start<clock.duration?noteEnergy(start,end,p,clock.duration,!!n[4],n[2]):0;
    const level=reduced.matches?(energy>.66?1:0):Math.round(energy*16)/16;
    if(level!==entry.energy){entry.energy=level;r.setAttribute('opacity',base+(1-base)*level);r.classList.toggle('is-sounding',level>.65);r.classList.toggle('is-releasing',level>0&&level<=.65);r.style.setProperty('--note-energy',level);entry.envelope?.setAttribute('opacity',.2+base*.14+level*.42)}
    if(energy>.65&&scene===scenes.at(-1))names.add(n[4]?(scene.onlyDrums?drumLane(n[2]):''):pitch(n[2]));names.delete('');
    if(energy>0&&!reduced.matches&&scene===scenes.at(-1)&&haloIndex<halos.length&&n[0]<camera[1]&&n[1]>camera[0]){
     const left=clamp(X+(n[0]-camera[0])/(camera[1]-camera[0])*W,X,X+W);
-    const right=clamp(X+((n[4]?Math.min(n[1],n[0]+.065):n[1])-camera[0])/(camera[1]-camera[0])*W,X,X+W);
+    const right=clamp(X+((n[4]?n[0]+drumDecay(n[2]):n[1])-camera[0])/(camera[1]-camera[0])*W,X,X+W);
     const y=n[4]?scene.drumY(n[2]):Y+(camera[3]-n[2])/(camera[3]-camera[2])*H;
     const halo=halos[haloIndex++];halo.setAttribute('x',left-2);halo.setAttribute('y',y-4);halo.setAttribute('width',Math.max(3,right-left+4));halo.setAttribute('fill',n[4]?'#dca789':'#c8b5ff');halo.setAttribute('opacity',energy*.22);
    }
