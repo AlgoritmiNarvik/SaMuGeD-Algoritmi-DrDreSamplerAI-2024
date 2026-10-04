@@ -3,7 +3,7 @@
 Ostinato / Catchy musical hooks. Separate drum patterns are included.
 
 The public dataset contains the audited closed corpus and a reference baseline.
-The static Space contains 630 rendered cycles across three top 50 listening collections, ten familiar songs and Tool’s ostinatos. Tool has 69 riffs and 36 drum patterns from 28 songs, with 59 aligned three mode comparisons. Popular songs opens first, with Schism as a personal featured selection. The separate atlas retains five analysis views and uses the same SoundFont audio.
+The static Space contains 630 rendered cycles across three top 50 listening collections, ten familiar songs and Tool’s ostinatos. Tool has 69 riffs and 36 drum patterns from 28 songs, with 59 aligned three mode comparisons. Popular songs opens first, with Schism as the first selection. The separate atlas retains five analysis views and uses the same SoundFont audio.
 The ten familiar song selections have separate song level research evidence.
 They are not listener validated fragment labels.
 
@@ -22,7 +22,7 @@ source .venv/bin/activate
 uv pip install -r requirements-research.lock -r requirements-publication.lock
 ```
 
-Audio rendering also needs FluidSynth and FFmpeg. The published renders used
+Audio rendering also needs FluidSynth and FFmpeg. The initial renders used
 FluidSynth 2.5.6 and FFmpeg 8.0.1. The authentic FluidR3 GM file came from the
 [Debian fluid soundfont package](https://deb.debian.org/debian/pool/main/f/fluid-soundfont/fluid-soundfont-gm_3.1-5.3_all.deb).
 Its SHA256 is `74594e8f4250680adf590507a306655a299935343583256f3b722c48a1bc1cb0`.
@@ -72,7 +72,7 @@ WAV is 48 kHz stereo PCM 24 bit with a peak target of minus 1 dBFS.
 The manifest binds source bytes, renderer code, library versions and tool versions.
 
 The static player decodes lossless FLAC into a Web Audio buffer and sets `loop = true`.
-Only one loop plays at a time. Stop, selection changes and page exit stop it.
+Only one loop plays at a time. Selecting another phrase while playing continues with that phrase. Stop and page exit end playback.
 MP3 is optional export only, it is not used for canonical looping. The atlas uses the same lossless renders and continuous playback. It contains no oscillator or noise preview. Its note plot shows the detector excerpt while audio covers the complete source cycle.
 
 ## Assemble and publish
@@ -110,3 +110,22 @@ Playback uses lossless FLAC. The WAV button decodes it at 48 kHz and exports ste
 Both player pages use the Adamas wordmark and a versioned 1200 by 630 sharing image. The Space card sets the same image through Hugging Face's [thumbnail field](https://huggingface.co/docs/hub/spaces-config-reference). Open Graph and Twitter card metadata cover direct player links. Messaging services can retain an older cached preview.
 
 The outlined artwork and generated PNG are under `docs/assets/adamas/`. Regenerate them with `python scripts/build_social_preview.py` in the project environment, with fonttools and `rsvg-convert` available. The original font file is not redistributed.
+
+## Revise audio and the opening example
+
+The current collection uses ColomboGMGS2 17.02 Vanilla by Tharii314 with the explicit Original effect profile. The bank license is CC BY SA 4.0. The bank itself is not redistributed. Historical rendering receipts retain the FluidR3 baseline.
+
+```sh
+python scripts/rerender_loop_space.py \
+  --space PREVIOUS_SPACE_DIR --output NEW_SPACE_DIR \
+  --soundfont ColomboGMGS2_Vanilla.sf2 \
+  --bank-name 'ColomboGMGS2 17.02 Vanilla' \
+  --license SOUNDFONT_LICENSE.txt --workers 2
+python scripts/prepare_space_revision.py \
+  --space NEW_SPACE_DIR --demo-source VERIFIED_SCHISM.mid \
+  --audio-base-url PINNED_AUDIO_BASE_URL
+```
+
+The revision renders the existing loop MIDIs without extracting phrases again. It verifies cycle lengths and headroom, updates waveforms and records old and new hashes in `rendering/audio_revision.json`. Audio files are hosted in a separate [audio repository](https://huggingface.co/datasets/AlmazErmilov/samuged-earworms-audio), pinned by commit in the catalog. MIDI downloads stay in the Space. Replace current FLAC paths only after the remote inventory matches the local hashes. Earlier Space commits remain recoverable.
+
+The opening Schism example reads actual source notes, verified occurrence spans and aligned drum hits. Song, Phrase and Loop animate the same note objects into the selected cycle. Highlights use the audio clock. The diagram is a piano roll, not staff notation or an inferred time signature. Reduced motion disables zoom transitions. The main player and example share playback and volume.

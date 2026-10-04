@@ -2,8 +2,18 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
+const {cyclePhase,noteActive}=require('../scripts/loop_explainer.js');
 
-function transport(atlas){
+test('note animation wraps with the audio cycle and stops at note ends',()=>{
+ assert.equal(cyclePhase(13.5,6),1.5);
+ assert.equal(cyclePhase(-.5,6),5.5);
+ assert.equal(cyclePhase(2,0),0);
+ assert.equal(cyclePhase(2,Infinity),0);
+ assert.equal(noteActive({start:1,end:2},1),true);
+ assert.equal(noteActive({start:1,end:2},2),false);
+});
+
+function transport(atlas,audioBase=null){
  const html=fs.readFileSync(atlas?'scripts/top_phrases.html':'scripts/loop_player.html','utf8');
  const stop=html.match(/function stop\(.*\n/)[0];
  const start=html.indexOf(atlas?'async function play(r,':'async function play({');
@@ -17,16 +27,16 @@ function transport(atlas){
   async decodeAudioData(id){return {id,duration:2}}
   createBufferSource(){const source={connect(){},disconnect(){},start(){this.started=true},stop(){this.stopped=true}};sources.push(source);return source}
  }
- const box=vm.createContext({AudioContext,document:{getElementById:node,querySelectorAll:()=>[]},fetch:url=>new Promise(resolve=>pending.set(url,resolve))});
- vm.runInContext(`let selected={phrase_id:'a'}, context=null,ctx=null,gain=null,playing=null,wantsPlayback=false,request=0,token=0,started=0,position=null,playingUrl=null;
+ const box=vm.createContext({catalog:{audio_base_url:audioBase},AudioContext,document:{getElementById:node,querySelectorAll:()=>[]},fetch:url=>new Promise(resolve=>pending.set(url,resolve))});
+ vm.runInContext(`let selected={phrase_id:'a'}, context=null,ctx=null,gain=null,playing=null,wantsPlayback=false,request=0,token=0,started=0,position=null,playingUrl=null,playingPhrase=null,playingLayer='solo',layer='solo';
  const cache=new Map(),audioCache=new Map(),data={audio:{}},clean=x=>x;
  function audioId(){return selected.phrase_id}
- ${stop}\n${html.slice(start,end)}`,box);
+ ${atlas?'':html.match(/function assetUrl\(.*\n/)[0]}\n${stop}\n${html.slice(start,end)}`,box);
  const choose=(id,replace=true)=>{
   if(atlas){vm.runInContext(`data.audio[${JSON.stringify(id)}]={wav:${JSON.stringify(id)}}`,box);return vm.runInContext(`play({phrase_id:${JSON.stringify(id)},title_from_path:${JSON.stringify(id)}},'source',{dataset:{label:'Play loop'}},{replace:${replace}})`,box)}
   vm.runInContext(`selected={phrase_id:${JSON.stringify(id)}}`,box);return vm.runInContext(`play({replace:${replace}})`,box);
  };
- const resolve=async(id,ok=true)=>{await new Promise(setImmediate);const url=atlas?id:`audio/${id}/loop.flac`;assert(pending.has(url));pending.get(url)({ok,arrayBuffer:async()=>id});await new Promise(setImmediate)};
+ const resolve=async(id,ok=true)=>{await new Promise(setImmediate);const url=atlas?id:`${audioBase||'audio'}/${id}/loop.flac`;assert(pending.has(url));pending.get(url)({ok,arrayBuffer:async()=>id});await new Promise(setImmediate)};
  return {choose,resolve,sources,stop:()=>vm.runInContext('stop()',box),node,box};
 }
 for(const atlas of [false,true]){
@@ -80,3 +90,9 @@ for(const atlas of [false,true]){
   const t=transport(atlas);const a=t.choose('a',false);await new Promise(setImmediate);t.stop();await t.resolve('a');await a;assert.equal(t.sources.length,0);
  });
 }
+
+test('main: audio can load from a pinned Hub audio revision',async()=>{
+ const t=transport(false,'https://huggingface.co/datasets/owner/audio/resolve/revision/audio');
+ const a=t.choose('a',false);await t.resolve('a');await a;
+ assert.equal(t.sources.length,1);assert.equal(t.sources[0].loop,true);
+});

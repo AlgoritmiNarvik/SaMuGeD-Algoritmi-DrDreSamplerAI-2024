@@ -25,13 +25,13 @@ Sources: [GeneralUser GS documentation](https://github.com/mrbumpy409/GeneralUse
 
 Six phrases cover bass, piano, synth, brass, guitar and drums. Every option receives the same exported MIDI, including source programs, velocities and tempo changes. Six repetitions are synthesized, then one middle cycle is extracted using the existing seam treatment. All versions are peak normalized to -1 dBFS. This is not perceptual loudness matching.
 
-The renderer now writes 24 bit intermediate WAV instead of 16 bit. This avoids quantization to 16 bit before the final 24 bit output. It does not by itself make an instrument more realistic. Existing collection assets retain their original rendering until explicitly rebuilt.
+The renderer now writes 24 bit intermediate WAV instead of 16 bit. This avoids quantization to 16 bit before the final 24 bit output. It does not by itself make an instrument more realistic. The current collection was rebuilt with the selected Colombo bank. Original receipts retain the previous rendering hashes.
 
 The comparison records bank and MIDI hashes, renderer provenance, elapsed time, file sizes and audio checks. In the initial local run all twelve outputs had matching cycle lengths and no output clipping. Input peaks were below full scale. Render plus FLAC conversion took 0.26 to 1.66 seconds per version. These are illustrative local timings, not a controlled performance benchmark.
 
 GeneralUser GS permits music production, including commercial recordings. Its author notes incomplete historical provenance for some samples. The exact license is distributed with the comparison. The bank itself is not bundled in the Space.
 
-No listener ratings or general preference claim are attached to these examples. The final bank choice is between Arachno and ColomboGMGS2 17.02 Vanilla. The public collection retains its previous audio until a bank and final effect profile are selected, rebuilt and deployed.
+No listener ratings or general preference claim are attached to these examples. The project owner selected ColomboGMGS2 17.02 Vanilla after local auditions. The collection uses one complete bank with the Original effect profile. This preserves the preferred audition settings and avoids instrument specific routing.
 
 ## Reproduce
 
@@ -63,7 +63,7 @@ Pass `--musyng`, `--sgm-pro` and `--colombo` with the matching SF2 paths to incl
 
 The comparison retries FluidSynth at half the synthesis gain if the complete intermediate render's peak reaches 0.95. This preserves headroom in the integer intermediate before the existing peak normalization. It records the final synthesis gain and peak and fails after eight attempts if headroom cannot be obtained. This check does not establish sample quality or detect distortion already present in a bank's samples.
 
-Sources: [Musyng Kite author thread](https://www.kvraudio.com/forum/viewtopic.php?t=351893), [Shan SGM Pro 17 release](https://www.reddit.com/r/soundfonts/comments/1wezdu3/shan_sgm_pro_17_es8c_soundfont_released/) and [ColomboGMGS2 author page](https://sourceforge.net/projects/colombogmgs2-sf2/). Musyng Kite's SF2 was obtained from the [archived bank collection](https://archive.org/details/500-soundfonts-full-gm-sets). These files are for local audition. No new bank or generated audio is included in the code repository or public Space.
+Sources: [Musyng Kite author thread](https://www.kvraudio.com/forum/viewtopic.php?t=351893), [Shan SGM Pro 17 release](https://www.reddit.com/r/soundfonts/comments/1wezdu3/shan_sgm_pro_17_es8c_soundfont_released/) and [ColomboGMGS2 author page](https://sourceforge.net/projects/colombogmgs2-sf2/). Musyng Kite's SF2 was obtained from the [archived bank collection](https://archive.org/details/500-soundfonts-full-gm-sets). Downloaded banks and audition files stay outside the code repository. The selected Colombo renders are published separately as listening assets.
 
 ## Arachno and Colombo effect auditions
 
@@ -73,7 +73,7 @@ Each bank receives the same exported MIDI and three explicit effect profiles bes
 
 | Profile | Reverb | Chorus | Purpose |
 | --- | --- | --- | --- |
-| Original | Engine defaults | Engine defaults | Earlier listening reference |
+| Original | Room size 0.5, damping 0.3, width 0.8, level 0.7 | Three voices, level 0.6, speed 0.2, depth 4.25 | Preferred audition settings, now explicit |
 | Dry | Off | Off | Hear the samples without global effects |
 | Close room | Room size 0.4, damping 0.65, level 0.32 | Off | Smaller space with softer reflections |
 | Warm room | Room size 0.6, damping 0.7, level 0.55 | Off | More space with darker reflections |
@@ -94,4 +94,4 @@ The script verifies MIDI, bank and original audio hashes before rendering. Room 
 
 Some drum patches barely respond to global effects because their effect sends are low. This is a reason to audition melody and drums together rather than assume every patch receives the same reverb amount. All versions share a peak target of -1 dBFS. This is not perceptual loudness matching.
 
-ColomboGMGS2 is by Tharii314. The downloaded bank includes a CC BY SA 4.0 license. Its sample credits are in the supplied preset list. Arachno is by Maxime Abbey. Downloaded banks and audition audio stay outside the code repository. Public Space audio remains unchanged pending the final bank and profile choice.
+ColomboGMGS2 is by Tharii314. The downloaded bank includes a CC BY SA 4.0 license. Its sample credits are in the supplied preset list. Arachno is by Maxime Abbey. Downloaded banks and audition audio stay outside the code repository. The collection revision contains 630 Colombo renders. All decoded files were checked for 48 kHz stereo, 24 bit samples, unchanged cycle frame counts and no clipping. Source and loop MIDI hashes remain unchanged. Audio is stored in the [audio repository](https://huggingface.co/datasets/AlmazErmilov/samuged-earworms-audio) and pinned by commit in the Space catalog. This keeps the same Space link without duplicating the new audio in its Git history. The main dataset is unchanged.
