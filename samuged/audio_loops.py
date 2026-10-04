@@ -677,6 +677,7 @@ def _render_audio(
         rendered, sample_rate = _read_wave(raw)
     loop, details = process_steady_cycle(rendered, sample_rate, cycle_seconds)
     details["synthesis_gain"] = synthesis_gain
+    details["synthesis_peak"] = float(np.max(np.abs(rendered), initial=0.0))
     write_pcm24_wave(destination, loop)
     return details
 
