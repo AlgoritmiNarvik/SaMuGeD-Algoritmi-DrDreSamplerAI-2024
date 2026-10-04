@@ -68,6 +68,7 @@ def main():
     (root / 'index.html').write_text(template.replace('__CATALOG__', script_safe_json(catalog))
                                    .replace('<strong>40</strong>', f'<strong>{count}</strong>'))
     (root / 'loop_explainer.js').write_bytes(Path(__file__).with_name('loop_explainer.js').read_bytes())
+    (root / 'player_notes.js').write_bytes(Path(__file__).with_name('player_notes.js').read_bytes())
     atlas = root / 'atlas'
     packet = json.loads((atlas / 'analysis.json').read_text())
     packet['audio_renderer'] = catalog['audio_renderer']
