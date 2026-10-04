@@ -143,3 +143,7 @@ The player labels its limited listening selection and links to the full phrase d
 The player can show a loop cycle or its position in the source song. Source navigation changes the visual view only. Audio stays on the selected loop. Note data is loaded when a selection opens, so the initial page does not download every song.
 
 After building the Space, run `scripts/build_player_notes.py` with `--space` and one or more `--source-root` arguments pointing to the original MIDI collections. The command verifies the source hash stored in render metadata and writes `notes/` and `player_notes.js`. Upload those files together with the revised `index.html`. Keep generated note data outside the code repository.
+
+The same note renderer now serves the introductory example and the atlas. Publish `player_notes.js`, `loop_explainer.js`, `atlas_notes.js` and `note_explorer.css` at the Space root, together with both page templates and `notes/`. The note builder also includes rendered atlas selections, an index of available variants per source MIDI and tempo aware beat positions. Source overview data is loaded after the smaller phrase payload.
+
+Drum views use kit lanes and attack pulses. Overview markers and the variant selector navigate only among prepared audio loops from the same source file. Original curated defaults are preserved. Each player filters the shared index to its own available selections.

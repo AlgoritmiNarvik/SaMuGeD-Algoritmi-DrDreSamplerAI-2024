@@ -233,6 +233,8 @@ def build(base: Path, output: Path, compact_audio: bool = False) -> dict:
     shutil.copyfile(Path(__file__).with_name("loop_downloads.js"), output / "loop_downloads.js")
     shutil.copyfile(Path(__file__).with_name("loop_explainer.js"), output / "loop_explainer.js")
     shutil.copyfile(Path(__file__).with_name("player_notes.js"), output / "player_notes.js")
+    shutil.copyfile(Path(__file__).with_name("note_explorer.css"), output / "note_explorer.css")
+    shutil.copyfile(Path(__file__).with_name("atlas_notes.js"), output / "atlas_notes.js")
     shutil.copyfile(base / "font/usr/share/doc/fluid-soundfont-gm/copyright", output / "soundfont-license.txt")
     shutil.copytree(Path(__file__).resolve().parents[1] / "docs/assets/inter", output / "fonts")
     shutil.copytree(Path(__file__).resolve().parents[1] / "docs/assets/adamas", output / "branding")

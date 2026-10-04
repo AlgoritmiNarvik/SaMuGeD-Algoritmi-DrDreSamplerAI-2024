@@ -28,8 +28,8 @@ function transport(atlas,audioBase=null,audioSession=null){
   async decodeAudioData(id){return {id,duration:2}}
   createBufferSource(){const source={connect(){},disconnect(){},start(){this.started=true},stop(){this.stopped=true}};sources.push(source);return source}
  }
- const box=vm.createContext({catalog:{audio_base_url:audioBase},navigator:{audioSession},AudioContext,document:{getElementById:node,querySelectorAll:()=>[]},fetch:url=>new Promise(resolve=>pending.set(url,resolve))});
- vm.runInContext(`let selected={phrase_id:'a'}, context=null,ctx=null,gain=null,playing=null,wantsPlayback=false,request=0,token=0,started=0,position=null,playingUrl=null,playingPhrase=null,playingLayer='solo',layer='solo';
+ const box=vm.createContext({catalog:{audio_base_url:audioBase},navigator:{audioSession},AbortController,AudioContext,document:{getElementById:node,querySelectorAll:()=>[]},fetch:url=>new Promise(resolve=>pending.set(url,resolve))});
+ vm.runInContext(`let audioRequest=null,selected={phrase_id:'a'}, context=null,ctx=null,gain=null,playing=null,wantsPlayback=false,request=0,token=0,started=0,position=null,playingUrl=null,playingPhrase=null,playingLayer='solo',layer='solo';
  const cache=new Map(),audioCache=new Map(),data={audio:{}},clean=x=>x;
  function audioId(){return selected.phrase_id}
  ${atlas?'':html.match(/function assetUrl\(.*\n/)[0]}\n${stop}\n${html.slice(start,end)}`,box);
@@ -118,4 +118,47 @@ test('note viewport clamps zoom and position inside the complete source',()=>{
  assert.deepEqual(noteView.bounds(300,0,300,10,290),[270,300]);
  assert.deepEqual(noteView.bounds(300,0,300,10,-4),[0,30]);
  assert.equal(noteView.phase(13,6),1);
+});
+
+test('note zoom stays continuous and finite when interrupted and retargeted',()=>{
+ const song=[0,400,30,90],phrase=[40,47,42,55];
+ assert.deepEqual(noteView.cameraAt(song,phrase,0),song);
+ const finish=noteView.cameraAt(song,phrase,1);
+ finish.forEach((v,i)=>assert.ok(Math.abs(v-phrase[i])<1e-10));
+ const halfway=noteView.cameraAt(song,phrase,.5);
+ assert.ok(halfway[1]-halfway[0]>7 && halfway[1]-halfway[0]<400);
+ const retargeted=noteView.cameraAt(halfway,song,0);
+ retargeted.forEach((v,i)=>assert.ok(Math.abs(v-halfway[i])<1e-10));
+ assert.ok(noteView.cameraAt(halfway,song,.2).every(Number.isFinite));
+});
+
+test('note light decays after release and wraps only near the loop boundary',()=>{
+ assert.equal(noteView.noteEnergy(1,2,.5,6),0);
+ assert.equal(noteView.noteEnergy(1,2,1,6),1);
+ assert.ok(noteView.noteEnergy(1,2,2.05,6)>noteView.noteEnergy(1,2,2.2,6));
+ assert.equal(noteView.noteEnergy(1,2,3,6),0);
+ assert.ok(noteView.noteEnergy(5.8,5.95,.01,6)>0);
+ assert.equal(noteView.noteEnergy(5.8,5.95,.3,6),0);
+ assert.equal(noteView.noteEnergy(8,9,1,6),0);
+ assert.equal(noteView.noteEnergy(0,1,0,0),0);
+});
+
+test('drum lights follow attacks even when the source has long drum note durations',()=>{
+ assert.equal(noteView.noteEnergy(1,4,1,6,true),1);
+ assert.ok(noteView.noteEnergy(1,4,1.1,6,true)>0);
+ assert.equal(noteView.noteEnergy(1,4,2,6,true),0);
+});
+
+test('drum lanes preserve open hats, ride, crash and tom distinctions',()=>{
+ assert.equal(noteView.drumLane(36),'Kick');assert.equal(noteView.drumLane(38),'Snare');
+ assert.equal(noteView.drumLane(42),'Closed hat');assert.equal(noteView.drumLane(46),'Open hat');
+ assert.equal(noteView.drumLane(45),'Toms');assert.equal(noteView.drumLane(51),'Ride');
+ assert.equal(noteView.drumLane(49),'Crash');assert.equal(noteView.drumLane(75),'Percussion');
+});
+for(const atlas of [false,true])test(`${atlas?'atlas':'main'}: switching selection cancels the obsolete audio request`,async()=>{
+ const t=transport(atlas);const a=t.choose('a',false);await new Promise(setImmediate);
+ const first=vm.runInContext('audioRequest.signal',t.box);
+ const b=t.choose('b',true);assert.equal(first.aborted,true);
+ await t.resolve('a');await a;await t.resolve('b');await b;
+ assert.equal(t.sources.length,1);assert.equal(t.sources[0].buffer.id,'b');
 });
