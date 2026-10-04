@@ -15,13 +15,13 @@
   const center=(from[0]+from[1])/2*(1-e)+(to[0]+to[1])/2*e;
   return [center-width/2,center+width/2,from[2]*(1-e)+to[2]*e,from[3]*(1-e)+to[3]*e];
  }
- function noteEnergy(start,end,time,duration,drum=false){
+ function noteEnergy(start,end,time,duration,drum=false,pitch=38){
   if(duration<=0||start>=duration||end<=0)return 0;
-  const release=Math.min(drum?.23:.3,duration/5);
+  const release=Math.min(drum?drumDecay(pitch):.45,duration*.8);
   // Only carry the tail of a note near the boundary into the next audio cycle.
   const age=phase(time-start,duration),length=drum?Math.min(.055,Math.max(.02,end-start)):Math.max(.01,end-start);
   if(age<length)return drum?1: .78+.22*Math.exp(-age/ .065);
-  return age<length+release?.65*Math.pow(1-(age-length)/release,2):0;
+  return age<length+release?.8*Math.pow(1-(age-length)/release,1.6):0;
  }
  function drumLane(p){
   if([35,36].includes(p))return 'Kick';if([37,38,39,40].includes(p))return 'Snare';
@@ -31,14 +31,15 @@
  }
  const drumOrder=['Kick','Snare','Closed hat','Open hat','Toms','Ride','Crash','Percussion'];
  const drumColors={Kick:'#b8a5e4',Snare:'#d5af99','Closed hat':'#91b5ba','Open hat':'#91b5ba',Toms:'#b39abf',Ride:'#c7b98c',Crash:'#c7b98c',Percussion:'#a9a5b2'};
+ function drumDecay(p){return ({'Closed hat':.16,'Open hat':.65,Ride:.95,Crash:1.4,Kick:.42,Snare:.48,Toms:.55})[drumLane(p)]||.4}
  // Symbolic MIDI envelopes, not isolated audio waveforms or measured sample decay.
  function drumEnvelope(start,y,p,velocity,compact=false){
-  const length=({'Closed hat':.13,'Open hat':.34,Ride:.48,Crash:.62,Kick:.28,Snare:.24,Toms:.32})[drumLane(p)]||.2;
+  const length=drumDecay(p);
   const height=(compact?2.5:5)+(compact?2:6)*clamp(velocity,0,127)/127;
   const a=start+.008,b=start+length*.24,c=start+length;
   return `M${start} ${y}L${a} ${y-height}C${b} ${y-height*.2} ${b} ${y-height*.08} ${c} ${y}C${b} ${y+height*.08} ${b} ${y+height*.2} ${a} ${y+height}Z`;
  }
- if(typeof module!=='undefined')module.exports={phase,bounds,cameraAt,noteEnergy,drumLane};
+ if(typeof module!=='undefined')module.exports={phase,bounds,cameraAt,noteEnergy,drumLane,drumDecay};
  if(typeof document==='undefined')return;
  const cache=new Map();
  function createNoteExplorer({canvasId='player-notes',prefix='note-',captionId='note-caption',initialMode='phrase',viewAttribute='data-note-view',notesBase='notes',getLayer=()=>layer,relatedScope='main',onNavigate=id=>window.selectNotePhrase?.(id)}={}){
@@ -61,30 +62,27 @@
  const previous=document.createElement('button'),next=document.createElement('button'),select=document.createElement('select');
  previous.type=next.type='button';previous.textContent='←';next.textContent='→';previous.setAttribute('aria-label','Previous phrase in this song');next.setAttribute('aria-label','Next phrase in this song');select.setAttribute('aria-label','Prepared phrases in this song');
  const navigationControls=document.createElement('div');navigationControls.className='note-navigation-controls';
- navigationControls.append(previous,select,next);navigation.append(navigationTitle,navigationControls,navigationHelp);svg.after(navigation);
+ navigationControls.append(previous,select,next);navigation.append(navigationTitle,navigationControls,navigationHelp);svg.before(navigation);
  const navigate=pid=>{if(pid!==row?.phrase_id&&related.some(r=>r.phrase_id===pid))onNavigate(pid)};
  previous.onclick=()=>navigate(related[related.findIndex(r=>r.phrase_id===row.phrase_id)-1]?.phrase_id);
  next.onclick=()=>navigate(related[related.findIndex(r=>r.phrase_id===row.phrase_id)+1]?.phrase_id);select.onchange=()=>navigate(select.value);
  function showRelated(){
   navigation.hidden=relatedScope==='intro'||!related.length;select.replaceChildren();markerGroup?.replaceChildren();
   navigationTitle.textContent=`Phrases in this song · ${related.length}`;
-  navigationHelp.textContent=related.length>1?'Choose a prepared loop or its marker on the song map. Times show where each phrase starts in the song.':'One prepared loop for this song in this player. Click the song map to explore the source notes.';
+  navigationHelp.textContent=related.length>1?'Choose another passage from this song. Times mark its start. Use the playback controls above to change the current mix.':'One prepared loop for this song in this player. Click the song map to explore the source notes.';
   navigationControls.hidden=related.length<2;
-  const listScroll=document.getElementById('rows')?.scrollTop;
-  if(relatedScope==='main'&&related.length)document.querySelectorAll('.song-phrase-options').forEach(n=>n.remove());
-  const listOptions=document.createElement('div');listOptions.className='song-phrase-options';
-  const listTitle=document.createElement('div');listTitle.className='note-navigation-title';listTitle.textContent=`${related.length} prepared ${related.length===1?'phrase':'phrases'}`;listOptions.append(listTitle);
+
   const current=related.findIndex(r=>r.phrase_id===row.phrase_id);
   previous.disabled=current<=0;next.disabled=current>=related.length-1;
   related.forEach((item,i)=>{
-   const label=`${i+1} / ${related.length} · ${item.label} · ${item.start.toFixed(1)} s`,option=document.createElement('option');option.value=item.phrase_id;option.textContent=label;select.append(option);
-   if(related.length>1){const b=document.createElement('button');b.type='button';b.textContent=`${i+1} · ${item.label} · ${item.start.toFixed(1)} s`;b.setAttribute('aria-pressed',String(item.phrase_id===row.phrase_id));b.onclick=()=>navigate(item.phrase_id);listOptions.append(b)}
+   const label=`${i+1} / ${related.length} · ${item.kind==='percussion'?'Drum phrase':'Melodic phrase'}${item.note_count?' · '+item.note_count+' notes':''} · start ${item.start.toFixed(1)} s`,option=document.createElement('option');option.value=item.phrase_id;option.textContent=label;select.append(option);
+
    if(!markerGroup)return;
    const marker=el('g',{role:'button',tabindex:0,'aria-label':`Play phrase ${label}`,class:'note-phrase-marker'}),xx=X+item.start/song.duration*W;
    marker.append(el('rect',{x:xx-5,y:384,width:Math.max(10,(item.end-item.start)/song.duration*W),height:24,fill:'transparent'}),el('line',{x1:xx,x2:xx,y1:386,y2:405,class:item.phrase_id===row.phrase_id?'current':''}));
    marker.addEventListener('click',event=>{event.stopPropagation();navigate(item.phrase_id)});marker.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate(item.phrase_id)}});markerGroup.append(marker);
   });select.value=row?.phrase_id||'';
-  if(relatedScope==='main'&&related.length){const selectedRow=document.querySelector('#rows .row[aria-pressed=true]');selectedRow?.after(listOptions);document.getElementById('rows').scrollTop=listScroll}
+
  }
  const currentCamera=now=>motion?cameraAt(motion.from,motion.to,(now-motion.start)/motion.duration):camera;
  function setup(){
@@ -203,14 +201,14 @@
   get('note-caption').textContent=mode==='song'?(sourceReady?'The highlighted passage becomes your loop. Zoom in to follow its notes.':'Loading the full song map…'):(scenes.at(-1).onlyDrums?'Each lane is a kit voice. Hit size shows MIDI velocity. Tails illustrate decay, not isolated audio.':'Melody above, drum voices below. Both follow the sound. Drum tails illustrate decay, not isolated audio.');
  }
  async function choose(next){
-  const id=++token;selection=null;row=next;motion=null;related=[];navigation.hidden=true;
+  const id=++token;if(relatedScope!=='intro')mode='phrase';selection=null;row=next;motion=null;related=[];navigation.hidden=true;
   svg.style.opacity='.3';get('note-caption').textContent='Loading source notes…';
   try{
    const data=await load(`${notesBase}/${next.phrase_id}.json`);if(id!==token)return;
    selection=data;sourceReady=false;
    song={duration:data.source_duration||data.end,notes:(data.variants.paired||data.variants.solo).map(n=>[n[0]+data.start,n[1]+data.start,...n.slice(2)])};
    setup();draw({reset:true,rebuild:true,animate:false});svg.style.opacity='1';
-   load(`${notesBase}/index.json`).then(index=>{if(id!==token)return;related=(index[data.song]||[]).filter(r=>r.scopes.includes(relatedScope));showRelated()}).catch(()=>{});
+   load(`${notesBase}/index.json`).then(index=>{if(id!==token)return;related=(index[data.song]||[]).filter(r=>r.scopes.includes(relatedScope)&&r.kind===row.kind);showRelated()}).catch(()=>{});
    // The playable phrase is ready before the larger source map. Stale responses cannot replace it.
    load(`${notesBase}/${data.song}.json`).then(source=>{if(id!==token)return;song=source;sourceReady=true;drawDensity();
     if(mode==='song'){setup();draw({rebuild:true,animate:false})}
@@ -235,13 +233,13 @@
    // Other instruments remain context only. Their notes are not present in the selected audio.
    const audible=running&&(clock.layer!=='drums'||n[4])&&(clock.layer!=='solo'||row.kind==='percussion'||!n[4])&&(scene.mode!=='song'||n[4]||n[5]===selection.part);
    const start=n[0]-selection.start,end=n[1]-selection.start;
-   const energy=audible&&start>=-.001&&start<clock.duration?noteEnergy(start,end,p,clock.duration,!!n[4]):0;
+   const energy=audible&&start>=-.001&&start<clock.duration?noteEnergy(start,end,p,clock.duration,!!n[4],n[2]):0;
    const level=reduced.matches?(energy>.66?1:0):Math.round(energy*16)/16;
    if(level!==entry.energy){entry.energy=level;r.setAttribute('opacity',base+(1-base)*level);r.classList.toggle('is-sounding',level>.65);r.classList.toggle('is-releasing',level>0&&level<=.65);r.style.setProperty('--note-energy',level);entry.envelope?.setAttribute('opacity',.2+base*.14+level*.42)}
    if(energy>.65&&scene===scenes.at(-1))names.add(n[4]?(scene.onlyDrums?drumLane(n[2]):''):pitch(n[2]));names.delete('');
    if(energy>0&&!reduced.matches&&scene===scenes.at(-1)&&haloIndex<halos.length&&n[0]<camera[1]&&n[1]>camera[0]){
     const left=clamp(X+(n[0]-camera[0])/(camera[1]-camera[0])*W,X,X+W);
-    const right=clamp(X+((n[4]?Math.min(n[1],n[0]+.065):n[1])-camera[0])/(camera[1]-camera[0])*W,X,X+W);
+    const right=clamp(X+((n[4]?n[0]+drumDecay(n[2]):n[1])-camera[0])/(camera[1]-camera[0])*W,X,X+W);
     const y=n[4]?scene.drumY(n[2]):Y+(camera[3]-n[2])/(camera[3]-camera[2])*H;
     const halo=halos[haloIndex++];halo.setAttribute('x',left-2);halo.setAttribute('y',y-4);halo.setAttribute('width',Math.max(3,right-left+4));halo.setAttribute('fill',n[4]?'#dca789':'#c8b5ff');halo.setAttribute('opacity',energy*.22);
    }
