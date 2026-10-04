@@ -31,7 +31,7 @@ The comparison records bank and MIDI hashes, renderer provenance, elapsed time, 
 
 GeneralUser GS permits music production, including commercial recordings. Its author notes incomplete historical provenance for some samples. The exact license is distributed with the comparison. The bank itself is not bundled in the Space.
 
-No listener ratings or general preference claim are attached to these examples. The project owner selected ColomboGMGS2 17.02 Vanilla through listening. The public collection retains its previous audio until the selected bank and final effect profile are rebuilt and deployed.
+No listener ratings or general preference claim are attached to these examples. The final bank choice is between Arachno and ColomboGMGS2 17.02 Vanilla. The public collection retains its previous audio until a bank and final effect profile are selected, rebuilt and deployed.
 
 ## Reproduce
 
@@ -65,28 +65,33 @@ The comparison retries FluidSynth at half the synthesis gain if the complete int
 
 Sources: [Musyng Kite author thread](https://www.kvraudio.com/forum/viewtopic.php?t=351893), [Shan SGM Pro 17 release](https://www.reddit.com/r/soundfonts/comments/1wezdu3/shan_sgm_pro_17_es8c_soundfont_released/) and [ColomboGMGS2 author page](https://sourceforge.net/projects/colombogmgs2-sf2/). Musyng Kite's SF2 was obtained from the [archived bank collection](https://archive.org/details/500-soundfonts-full-gm-sets). These files are for local audition. No new bank or generated audio is included in the code repository or public Space.
 
-## Colombo effect auditions
+## Arachno and Colombo effect auditions
 
-The selected bank remains one universal FluidSynth setup. The original audition already includes FluidSynth's default reverb and chorus. Three explicit profiles separate the effects from the samples:
+The final listening comparison contains only Arachno SoundFont 1.0 and ColomboGMGS2 17.02 Vanilla. The project owner reopened the bank choice after preferring Arachno's piano on Iris. This is a listening preference, not a general quality ranking. One whole bank remains the intended collection default.
+
+Each bank receives the same exported MIDI and three explicit effect profiles beside its original audition:
 
 | Profile | Reverb | Chorus | Purpose |
 | --- | --- | --- | --- |
-| Original Colombo | Engine defaults | Engine defaults | Selected listening reference |
+| Original | Engine defaults | Engine defaults | Earlier listening reference |
 | Dry | Off | Off | Hear the samples without global effects |
 | Close room | Room size 0.4, damping 0.65, level 0.32 | Off | Smaller space with softer reflections |
 | Warm room | Room size 0.6, damping 0.7, level 0.55 | Off | More space with darker reflections |
 
-These numbers are FluidSynth settings, not percentages of the final audio mix. SoundFont modulators and MIDI effect sends also affect the result. See the [FluidSynth settings](https://www.fluidsynth.org/api/settings_synth.html). Reverb can suggest a shared acoustic space. It cannot supply missing articulations or turn a sampled instrument into a live performance. The auditions preserve notes, timing, velocities and programs. No random humanization is applied.
+These numbers are FluidSynth settings, not percentages of the final audio mix. SoundFont modulators and MIDI effect sends also affect the result. See the [FluidSynth settings](https://www.fluidsynth.org/api/settings_synth.html). Reverb can suggest a shared acoustic space. It cannot supply missing articulations or replace the character of a piano sample. Notes, timing, velocities and programs are preserved. No random humanization is applied.
 
 ```sh
 python scripts/compare_effects.py \
   --space path/to/built-space \
   --comparison path/to/comparison \
-  --soundfont path/to/ColomboGMGS2_Vanilla.sf2
+  --soundfont path/to/ColomboGMGS2_Vanilla.sf2 \
+  --arachno path/to/Arachno.sf2
 ```
 
-Run this after the bank comparison with `--colombo`. It adds the same six phrases with three profiles at the top of the existing page. Reruns replace this block. The script verifies that the MIDI and reference bank hashes match the earlier audition. Effects are synthesized over repeated cycles before extraction, so the room continues across the loop boundary. The receipt records settings, synthesis headroom, output hashes and render time.
+Run this after the bank comparison with `--colombo` and `--arachno`. It replaces the local comparison page with a paired view. Phrase and effect selectors keep two players visible at a time. Iris opens first for piano comparison. Schism, Blue Monday, Mambo No. 5, Thunderstruck and Low Rider retain the other instrument examples. Playback loops at 50% volume. Starting either player stops the other. Changing phrase or effects stops playback so hidden players cannot continue.
 
-ColomboGMGS2 is by Tharii314. The downloaded bank includes a CC BY SA 4.0 license. Its sample credits are in the supplied preset list. The bank stays outside the code repository.
+The script verifies MIDI, bank and original audio hashes before rendering. Room effects are synthesized over repeated cycles before extraction, so reverb continues across the loop boundary. The receipt records settings, synthesis headroom, output hashes and render time. There are 48 versions across six phrases, two banks and four profiles. The twelve original versions are retained from the earlier audition.
 
-In these auditions the Low Rider drum patch barely responds to global effects. Its decoded versions differ by less than 0.000001 RMS. The melodic and mixed phrases show audible effect changes. This is a reason to audition both melody and drums instead of assuming every patch receives the same reverb amount.
+Some drum patches barely respond to global effects because their effect sends are low. This is a reason to audition melody and drums together rather than assume every patch receives the same reverb amount. All versions share a peak target of -1 dBFS. This is not perceptual loudness matching.
+
+ColomboGMGS2 is by Tharii314. The downloaded bank includes a CC BY SA 4.0 license. Its sample credits are in the supplied preset list. Arachno is by Maxime Abbey. Downloaded banks and audition audio stay outside the code repository. Public Space audio remains unchanged pending the final bank and profile choice.
