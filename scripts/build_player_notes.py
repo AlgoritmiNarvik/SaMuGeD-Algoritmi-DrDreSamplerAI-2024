@@ -21,6 +21,7 @@ def main():
     out.mkdir(exist_ok=True)
     songs = {}
     rows = {r['phrase_id']: r for g in catalog['groups'].values() for r in g['rows']}
+    rows.update({r['phrase_id']: r for r in catalog.get('song_variants', [])})
     main_ids = set(rows)
     atlas_ids = set()
     index = {}

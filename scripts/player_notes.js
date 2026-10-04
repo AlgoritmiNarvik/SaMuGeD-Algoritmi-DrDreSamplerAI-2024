@@ -49,30 +49,42 @@
  const el=(tag,attrs={},text)=>{const n=document.createElementNS(ns,tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,v);if(text!==undefined)n.textContent=text;return n};
  const pitch=p=>['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'][p%12]+(Math.floor(p/12)-1);
  const load=path=>{if(!cache.has(path))cache.set(path,fetch(path).then(r=>{if(!r.ok)throw Error('Notes unavailable');return r.json()}).catch(e=>{cache.delete(path);throw e}));return cache.get(path)};
- const X=65,W=521,Y=20,H=114;
+ const X=65,W=521,Y=22,H=78;
  let selection=null,song=null,row=null,token=0,sourceReady=false,mode=initialMode,camera=[0,1,48,60],motion=null;
  let scenes=[],axis=null,stage=null,cursor=null,sweep=null,windowBox=null,overviewWindow=null,overviewSelection=null,halos=[];
  let related=[],markerGroup=null,density=null,readout=null,timeReadout=null,rangeReadout=null,lastFrame=0,needsPaint=true,visible=true,wasRunning=false;
  // The offscreen player still follows the shared clock when it re-enters the viewport.
  const observer=typeof IntersectionObserver!=='undefined'?new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;if(visible)needsPaint=true},{rootMargin:'100px'}):null;observer?.observe(svg);
  const navigation=document.createElement('div');navigation.className='note-navigation';navigation.hidden=true;
+ const navigationTitle=document.createElement('div');navigationTitle.className='note-navigation-title';
+ const navigationHelp=document.createElement('p');navigationHelp.className='small';
  const previous=document.createElement('button'),next=document.createElement('button'),select=document.createElement('select');
  previous.type=next.type='button';previous.textContent='←';next.textContent='→';previous.setAttribute('aria-label','Previous phrase in this song');next.setAttribute('aria-label','Next phrase in this song');select.setAttribute('aria-label','Prepared phrases in this song');
- navigation.append(previous,select,next);svg.after(navigation);
+ const navigationControls=document.createElement('div');navigationControls.className='note-navigation-controls';
+ navigationControls.append(previous,select,next);navigation.append(navigationTitle,navigationControls,navigationHelp);svg.after(navigation);
  const navigate=pid=>{if(pid!==row?.phrase_id&&related.some(r=>r.phrase_id===pid))onNavigate(pid)};
  previous.onclick=()=>navigate(related[related.findIndex(r=>r.phrase_id===row.phrase_id)-1]?.phrase_id);
  next.onclick=()=>navigate(related[related.findIndex(r=>r.phrase_id===row.phrase_id)+1]?.phrase_id);select.onchange=()=>navigate(select.value);
  function showRelated(){
-  navigation.hidden=related.length<2;select.replaceChildren();markerGroup?.replaceChildren();
+  navigation.hidden=relatedScope==='intro'||!related.length;select.replaceChildren();markerGroup?.replaceChildren();
+  navigationTitle.textContent=`Phrases in this song · ${related.length}`;
+  navigationHelp.textContent=related.length>1?'Choose a prepared loop or its marker on the song map. Times show where each phrase starts in the song.':'One prepared loop for this song in this player. Click the song map to explore the source notes.';
+  navigationControls.hidden=related.length<2;
+  const listScroll=document.getElementById('rows')?.scrollTop;
+  if(relatedScope==='main'&&related.length)document.querySelectorAll('.song-phrase-options').forEach(n=>n.remove());
+  const listOptions=document.createElement('div');listOptions.className='song-phrase-options';
+  const listTitle=document.createElement('div');listTitle.className='note-navigation-title';listTitle.textContent=`${related.length} prepared ${related.length===1?'phrase':'phrases'}`;listOptions.append(listTitle);
   const current=related.findIndex(r=>r.phrase_id===row.phrase_id);
   previous.disabled=current<=0;next.disabled=current>=related.length-1;
   related.forEach((item,i)=>{
    const label=`${i+1} / ${related.length} · ${item.label} · ${item.start.toFixed(1)} s`,option=document.createElement('option');option.value=item.phrase_id;option.textContent=label;select.append(option);
-   if(!markerGroup||related.length<2)return;
+   if(related.length>1){const b=document.createElement('button');b.type='button';b.textContent=`${i+1} · ${item.label} · ${item.start.toFixed(1)} s`;b.setAttribute('aria-pressed',String(item.phrase_id===row.phrase_id));b.onclick=()=>navigate(item.phrase_id);listOptions.append(b)}
+   if(!markerGroup)return;
    const marker=el('g',{role:'button',tabindex:0,'aria-label':`Play phrase ${label}`,class:'note-phrase-marker'}),xx=X+item.start/song.duration*W;
    marker.append(el('rect',{x:xx-5,y:234,width:Math.max(10,(item.end-item.start)/song.duration*W),height:24,fill:'transparent'}),el('line',{x1:xx,x2:xx,y1:236,y2:255,class:item.phrase_id===row.phrase_id?'current':''}));
-   marker.addEventListener('click',()=>navigate(item.phrase_id));marker.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate(item.phrase_id)}});markerGroup.append(marker);
+   marker.addEventListener('click',event=>{event.stopPropagation();navigate(item.phrase_id)});marker.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate(item.phrase_id)}});markerGroup.append(marker);
   });select.value=row?.phrase_id||'';
+  if(relatedScope==='main'&&related.length){const selectedRow=document.querySelector('#rows .row[aria-pressed=true]');selectedRow?.after(listOptions);document.getElementById('rows').scrollTop=listScroll}
  }
  const currentCamera=now=>motion?cameraAt(motion.from,motion.to,(now-motion.start)/motion.duration):camera;
  function setup(){
@@ -95,7 +107,12 @@
   // A density ribbon gives scale without drawing thousands of tiny full-song notes again.
   density=el('g');overview.append(density);drawDensity();
   overviewSelection=el('rect',{x:X+selection.start/song.duration*W,y:236,width:Math.max(2,(selection.end-selection.start)/song.duration*W),height:20,class:'overview-selection'});overview.append(overviewSelection);
-  overviewWindow=el('rect',{y:235,height:22,class:'overview-window'});overview.append(overviewWindow);svg.append(overview);markerGroup=el('g');svg.append(markerGroup);showRelated();
+  overviewWindow=el('rect',{y:235,height:22,class:'overview-window'});overview.append(overviewWindow);
+  const seek=el('rect',{x:X,y:233,width:W,height:27,fill:'transparent',role:'button',tabindex:0,class:'note-map-seek','aria-label':'Explore song position. Click the map or use left and right arrow keys.'});
+  seek.append(el('title',{},'Click to explore source notes. Phrase markers select prepared loops.'));
+  seek.addEventListener('click',event=>{const point=svg.createSVGPoint();point.x=event.clientX;point.y=event.clientY;const local=point.matrixTransform(svg.getScreenCTM().inverse());exploreAt(clamp((local.x-X)/W,0,1)*song.duration)});
+  seek.addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','Home','End','Enter',' '].includes(event.key)){event.preventDefault();const center=(camera[0]+camera[1])/2;exploreAt(event.key==='Home'?0:event.key==='End'?song.duration:center+(event.key==='ArrowLeft'?-1:event.key==='ArrowRight'?1:0)*row.cycle_seconds)}});
+  overview.append(seek);svg.append(overview);markerGroup=el('g');svg.append(markerGroup);showRelated();
   svg.append(el('text',{x:7,y:249,class:'note-axis-label'},'Song'));
   readout=el('text',{x:X,y:226,class:'note-readout'},'');timeReadout=el('text',{x:586,y:226,'text-anchor':'end',class:'note-time'},'');svg.append(readout,timeReadout);
   rangeReadout=get('note-range');
@@ -114,10 +131,10 @@
  const g=el('g',{class:'note-scene'}),melody=el('g'),drums=el('g'),envelopes=el('g',{class:'note-envelopes'});drums.append(envelopes);g.append(melody,drums);stage.append(g);
   const onlyDrums=row.kind==='percussion'||getLayer()==='drums';
   const notes=sceneNotes().filter(n=>!onlyDrums||n[4]),entries=[];
-  const laneKey=p=>onlyDrums?drumLane(p):[35,36].includes(p)?'Kick':[37,38,39,40].includes(p)?'Snare':[42,44,46].includes(p)?'Hats':'Other';
+  const laneKey=drumLane;
   const keys=new Set(notes.filter(n=>n[4]).map(n=>laneKey(n[2])));
-  const lanes=(onlyDrums?drumOrder:['Kick','Snare','Hats','Other']).filter(k=>keys.has(k));
-  const drumY=p=>{const i=lanes.indexOf(laneKey(p));return onlyDrums?25+i*170/Math.max(1,lanes.length-1):151+i*48/Math.max(1,lanes.length-1)};
+  const lanes=drumOrder.filter(k=>keys.has(k));
+  const drumY=p=>{const i=lanes.indexOf(laneKey(p));return onlyDrums?25+i*170/Math.max(1,lanes.length-1):126+i*73/Math.max(1,lanes.length-1)};
   for(const n of notes){
    const drum=!!n[4];
    const r=drum?el('line',{x1:n[0],x2:n[0],y1:drumY(n[2])-(onlyDrums?5:2.5),y2:drumY(n[2])+(onlyDrums?5:2.5),class:'note-event note-drum','vector-effect':'non-scaling-stroke'}):el('rect',{x:n[0],y:-n[2]-.34,width:Math.max(.009,n[1]-n[0]),height:.68,class:'note-event note-melody','vector-effect':'non-scaling-stroke'});
@@ -142,7 +159,8 @@
   if(pitches.length<2)pitches=[Math.ceil(low+1),Math.floor(high-1)];
   if(!scenes.at(-1)?.onlyDrums)for(const p of pitches){axis.append(el('line',{x1:X,x2:X+W,y1:y(p),y2:y(p),class:'note-grid'}),el('text',{x:7,y:y(p)+3,class:'note-axis-label'},pitch(p)))}
   const scene=scenes.at(-1);
-  if(scene)scene.lanes.forEach((label,i)=>{const yy=scene.onlyDrums?25+i*170/Math.max(1,scene.lanes.length-1):151+i*48/Math.max(1,scene.lanes.length-1);axis.append(el('line',{x1:X,x2:X+W,y1:yy,y2:yy,class:'note-drum-grid'}),el('text',{x:5,y:yy+3,class:'note-axis-label'},label==='Closed hat'?'C. hat':label==='Open hat'?'O. hat':label==='Percussion'?'Perc.':label))});
+  if(scene&&!scene.onlyDrums&&scene.lanes.length){axis.append(el('line',{x1:0,x2:600,y1:111,y2:111,class:'note-section-divider'}),el('text',{x:5,y:12,class:'note-section-label'},'MELODY'),el('text',{x:5,y:119,class:'note-section-label'},'DRUMS'))}
+  if(scene)scene.lanes.forEach((label,i)=>{const yy=scene.onlyDrums?25+i*170/Math.max(1,scene.lanes.length-1):126+i*73/Math.max(1,scene.lanes.length-1);axis.append(el('line',{x1:X,x2:X+W,y1:yy,y2:yy,class:'note-drum-grid'}),el('text',{x:5,y:yy+3,class:'note-axis-label'},label==='Closed hat'?'C. hat':label==='Open hat'?'O. hat':label==='Percussion'?'Perc.':label))});
   if(mode==='phrase'&&selection.beat_grid){
    for(const [seconds,beat]of selection.beat_grid){const xx=x(selection.start+seconds);if(xx<X||xx>X+W)continue;axis.append(el('line',{x1:xx,x2:xx,y1:12,y2:201,class:Number.isInteger(beat)?'note-beat-grid':'note-time-grid'}));if(Number.isInteger(beat)&&seconds<row.cycle_seconds-.001)axis.append(el('text',{x:xx,y:213,class:'note-axis-label'},String(beat+1)))}
    return;
@@ -182,7 +200,7 @@
   if(rangeReadout)rangeReadout.textContent=`${range[0].toFixed(1)}–${range[1].toFixed(1)} s`;
   document.querySelectorAll(`[${viewAttribute}]`).forEach(b=>b.setAttribute('aria-pressed',String(b.getAttribute(viewAttribute)===mode)));
   get('note-all-label').hidden=mode!=='song'||scenes.at(-1).onlyDrums;
-  get('note-caption').textContent=mode==='song'?(sourceReady?'The highlighted passage becomes your loop. Zoom in to follow its notes.':'Loading the full song map…'):(scenes.at(-1).onlyDrums?'Each lane is a kit voice. Hit size shows MIDI velocity. Tails illustrate decay, not isolated audio.':'Notes light up as they sound. Lower lanes show MIDI drum attacks with symbolic decay tails.');
+  get('note-caption').textContent=mode==='song'?(sourceReady?'The highlighted passage becomes your loop. Zoom in to follow its notes.':'Loading the full song map…'):(scenes.at(-1).onlyDrums?'Each lane is a kit voice. Hit size shows MIDI velocity. Tails illustrate decay, not isolated audio.':'Melody above, drum voices below. Both follow the sound. Drum tails illustrate decay, not isolated audio.');
  }
  async function choose(next){
   const id=++token;selection=null;row=next;motion=null;related=[];navigation.hidden=true;
@@ -243,6 +261,10 @@
   if(!selection)return;const rebuild=mode!=='song';mode='song';
   get('note-zoom').value=Math.min(128,song.duration/Math.max(.05,selection.end-selection.start));
   get('note-pan').max=song.duration;get('note-pan').value=selection.start;draw({rebuild});
+ }
+ function exploreAt(seconds){
+  if(!selection||!song)return;const rebuild=mode!=='song',span=Math.min(song.duration,Math.max(row.cycle_seconds*2,song.duration/128));mode='song';
+  get('note-zoom').value=Math.max(1,song.duration/span);get('note-pan').max=song.duration;get('note-pan').value=clamp(seconds-span/2,0,song.duration-span);draw({rebuild});
  }
  if(get('note-focus'))get('note-focus').onclick=focus;
  const motionPreference=()=>{if(motion){camera=motion.to;motion=null;needsPaint=true}};reduced.addEventListener('change',motionPreference);
