@@ -129,3 +129,5 @@ python scripts/prepare_space_revision.py \
 The revision renders the existing loop MIDIs without extracting phrases again. It verifies cycle lengths and headroom, updates waveforms and records old and new hashes in `rendering/audio_revision.json`. Audio files are hosted in a separate [audio repository](https://huggingface.co/datasets/AlmazErmilov/samuged-earworms-audio), pinned by commit in the catalog. MIDI downloads stay in the Space. Replace current FLAC paths only after the remote inventory matches the local hashes. Earlier Space commits remain recoverable.
 
 The opening Schism example reads actual source notes, verified occurrence spans and aligned drum hits. Song, Phrase and Loop animate the same note objects into the selected cycle. Highlights use the audio clock. The diagram is a piano roll, not staff notation or an inferred time signature. Reduced motion disables zoom transitions. The main player and example share playback and volume.
+
+Desktop method cards stay open beside the example and select its diagram stages. On phones, the explanation starts collapsed to keep Play within easy reach.
