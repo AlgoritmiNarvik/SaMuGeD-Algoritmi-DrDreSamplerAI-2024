@@ -5,3 +5,5 @@ The song list no longer contains phrase buttons that can be mistaken for accompa
 The right hand player has a Drums on / Drums off toggle for the current source passage. A separate Drums only option remains where its audio is available. Selecting another phrase in the same song preserves melody only playback. Percussion phrases and passages without accompaniment show an explicit disabled state. Piano previews clear the drum toggle to match their audio.
 
 Validation covers 32 player tests, browser playback while changing layers and phrase selection without changing the song. The audio renderer and assets are unchanged.
+
+Phrase selectors and song map markers stay within the selected phrase kind. Melodic entries exclude drum patterns and percussion entries exclude melodies. Imagine's three melodic passages contain 29, 31 and 39 notes at different source positions, so they remain distinct. Labels include note count and explicit start position.

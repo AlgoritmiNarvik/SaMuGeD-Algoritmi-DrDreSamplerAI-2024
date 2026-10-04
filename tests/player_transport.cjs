@@ -167,9 +167,9 @@ test('phrase navigation stays in the selected song and collection for all prepar
  const html=fs.readFileSync('scripts/loop_player.html','utf8');
  const code=html.match(/window.selectNotePhrase=.*\n/)[0];
  const calls=[];
- const box=vm.createContext({window:{},catalog:{groups:{popular:{rows:[{phrase_id:'default',source_path:'same.mid'}]},tool:{rows:[{phrase_id:'tool',source_path:'same.mid'}]}},song_variants:[{phrase_id:'extra',source_path:'same.mid'},{phrase_id:'foreign',source_path:'other.mid'}]},songAnchor:{phrase_id:'default',source_path:'same.mid'},group:'popular',choose:(r,o)=>calls.push([r.phrase_id,o.withinSong])});
+ const box=vm.createContext({window:{},catalog:{groups:{popular:{rows:[{phrase_id:'default',source_path:'same.mid',kind:'melodic'}]},tool:{rows:[{phrase_id:'tool',source_path:'same.mid',kind:'melodic'}]}},song_variants:[{phrase_id:'extra',source_path:'same.mid',kind:'melodic'},{phrase_id:'drums',source_path:'same.mid',kind:'percussion'},{phrase_id:'foreign',source_path:'other.mid'}]},songAnchor:{phrase_id:'default',source_path:'same.mid',kind:'melodic'},group:'popular',choose:(r,o)=>calls.push([r.phrase_id,o.withinSong])});
  vm.runInContext(code,box);
- for(const id of ['tool','extra','foreign','missing'])box.window.selectNotePhrase(id);
+ for(const id of ['tool','extra','drums','foreign','missing'])box.window.selectNotePhrase(id);
  assert.deepEqual(calls,[['tool',true],['extra',true]]);
  assert.equal(box.group,'popular');assert.equal(box.songAnchor.phrase_id,'default');
 });

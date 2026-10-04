@@ -76,7 +76,7 @@ def main():
 
         index.setdefault(digest, []).append({'phrase_id': pid, 'start': payload['start'], 'end': payload['end'],
                                              'label': 'Drum pattern' if row['kind'] == 'percussion' else (meta['part']['name'] or 'Melody'),
-                                             'kind': row['kind'], 'scopes': [s for s, ids in [('main', main_ids), ('atlas', atlas_ids)] if pid in ids]})
+                                             'kind': row['kind'], 'note_count': len(variants['solo']), 'scopes': [s for s, ids in [('main', main_ids), ('atlas', atlas_ids)] if pid in ids]})
         (out / f'{pid}.json').write_text(json.dumps(payload, separators=(',', ':')))
     for items in index.values():
         items.sort(key=lambda item: (item['start'], item['kind'], item['phrase_id']))

@@ -74,7 +74,7 @@
   const current=related.findIndex(r=>r.phrase_id===row.phrase_id);
   previous.disabled=current<=0;next.disabled=current>=related.length-1;
   related.forEach((item,i)=>{
-   const label=`${i+1} / ${related.length} · ${item.kind==='percussion'?'Drums':'Melody'} · ${item.label} · ${item.start.toFixed(1)} s`,option=document.createElement('option');option.value=item.phrase_id;option.textContent=label;select.append(option);
+   const label=`${i+1} / ${related.length} · ${item.kind==='percussion'?'Drum phrase':'Melodic phrase'}${item.note_count?' · '+item.note_count+' notes':''} · start ${item.start.toFixed(1)} s`,option=document.createElement('option');option.value=item.phrase_id;option.textContent=label;select.append(option);
 
    if(!markerGroup)return;
    const marker=el('g',{role:'button',tabindex:0,'aria-label':`Play phrase ${label}`,class:'note-phrase-marker'}),xx=X+item.start/song.duration*W;
@@ -207,7 +207,7 @@
    selection=data;sourceReady=false;
    song={duration:data.source_duration||data.end,notes:(data.variants.paired||data.variants.solo).map(n=>[n[0]+data.start,n[1]+data.start,...n.slice(2)])};
    setup();draw({reset:true,rebuild:true,animate:false});svg.style.opacity='1';
-   load(`${notesBase}/index.json`).then(index=>{if(id!==token)return;related=(index[data.song]||[]).filter(r=>r.scopes.includes(relatedScope));showRelated()}).catch(()=>{});
+   load(`${notesBase}/index.json`).then(index=>{if(id!==token)return;related=(index[data.song]||[]).filter(r=>r.scopes.includes(relatedScope)&&r.kind===row.kind);showRelated()}).catch(()=>{});
    // The playable phrase is ready before the larger source map. Stale responses cannot replace it.
    load(`${notesBase}/${data.song}.json`).then(source=>{if(id!==token)return;song=source;sourceReady=true;drawDensity();
     if(mode==='song'){setup();draw({rebuild:true,animate:false})}
