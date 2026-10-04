@@ -13,6 +13,7 @@ The comparison is generated locally with the command below. It is separate from 
 | FluidSynth with Arachno SoundFont 1.0 | Complete bank, used as the current listening reference | Preference depends on the instrument |
 | FluidSynth with MuseScore General 0.2.0 | Complete GM bank with documented sample sources | Shares some source samples with FluidR3 |
 | BASSMIDI with Arachno | Same bank through another whole MIDI engine | Proprietary runtime, separate license and effects defaults |
+| Timbres of Heaven 4.00(G) with FluidSynth or BASSMIDI | Complete GS bank with two whole MIDI render setups | Louder samples need lower synthesis gain, redistribution needs permission |
 | Muse Sounds | Expressive score playback | A different score and instrument workflow, not a direct replacement for our batch renderer |
 
 Sources: [GeneralUser GS documentation](https://github.com/mrbumpy409/GeneralUser-GS/blob/main/documentation/README.md), [sfizz](https://sfz.tools/sfizz/), [Muse Sounds](https://sounds.musescore.org/).
@@ -45,6 +46,10 @@ Copy the GeneralUser license to `comparison/generaluser-license.txt` before publ
 
 Pass `--arachno` and `--musescore` with their bank paths to add both full banks. Add `--bass-runtime` with the extracted macOS runtime folder containing `core/libbass.dylib` and `midi/libbassmidi.dylib` for the BASSMIDI version of Arachno. Obtain these libraries from [Un4seen](https://www.un4seen.com/bass.html). They are not distributed here. BASS is free for noncommercial use under the vendor terms; commercial use requires a separate license review. The comparison uses no audio device and decodes float samples before normalization. Engine effects use each engine's defaults, so this is a comparison of complete rendering setups, not a controlled interpolation experiment.
 
-The expanded local comparison contains thirty renders, five options per phrase. All decoded FLAC files were verified as 48 kHz stereo with 24 bit samples and matching frame counts. MuseScore General took 0.19 to 0.34 seconds per version and BASSMIDI with Arachno took 0.06 to 0.93 seconds in that run, including FLAC conversion. These local timings do not establish a performance ranking. The BASSMIDI intermediate buffer is floating point, which retains values above full scale until normalization.
+Pass `--timbres` with the Timbres of Heaven bank path to add FluidSynth rendering. If `--bass-runtime` is also present, it adds BASSMIDI rendering of the same bank. Download it from [Don Allen's page at MidKar](https://midkar.com/SoundFonts/index.html). This local audition does not distribute the bank. The source requires permission to redistribute it. Rendered audio publication terms still need review before changing the public collection.
+
+With Timbres enabled, the comparison contains forty two renders, seven setups for each of six phrases. FluidSynth uses synthesis gain 0.08 for Timbres instead of 0.45 because its samples exceeded the integer WAV range at the previous gain. Final peak normalization is the same for every setup. The receipt records this gain separately from normalization.
+
+All forty two decoded FLAC files were verified as 48 kHz stereo with 24 bit samples, matching frame counts and no output clipping. Timbres input peaks in FluidSynth were 0.19 to 0.31 after reducing synthesis gain. In the earlier five setup run, MuseScore General took 0.19 to 0.34 seconds per version and BASSMIDI with Arachno took 0.06 to 0.93 seconds, including FLAC conversion. These local timings do not establish a performance ranking. The BASSMIDI intermediate buffer is floating point, which retains values above full scale until normalization.
 
 HALion was not auditioned because its engine and GM library were not installed on the comparison host. Individual bass, guitar and drum library experiments were removed from the listening page. The comparison now uses complete instrument banks.
