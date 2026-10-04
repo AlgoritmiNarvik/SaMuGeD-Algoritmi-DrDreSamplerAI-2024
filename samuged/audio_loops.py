@@ -648,7 +648,11 @@ def _render_audio(
     fluidsynth: Path,
     destination: Path,
     cycle_seconds: float,
+    *,
+    synthesis_gain: float = 0.45,
 ) -> dict[str, Any]:
+    if not math.isfinite(synthesis_gain) or not 0 < synthesis_gain <= 10:
+        raise ValueError("synthesis gain must be finite and between 0 and 10")
     with tempfile.TemporaryDirectory(prefix="samuged-audio-") as temporary:
         raw = Path(temporary) / "rendered.wav"
         _run(
@@ -664,7 +668,7 @@ def _render_audio(
                 "-r",
                 str(SAMPLE_RATE),
                 "-g",
-                "0.45",
+                str(synthesis_gain),
                 str(soundfont),
                 str(repeated_midi),
             ],
@@ -672,6 +676,7 @@ def _render_audio(
         )
         rendered, sample_rate = _read_wave(raw)
     loop, details = process_steady_cycle(rendered, sample_rate, cycle_seconds)
+    details["synthesis_gain"] = synthesis_gain
     write_pcm24_wave(destination, loop)
     return details
 

@@ -45,6 +45,7 @@ def main():
     parser.add_argument('--candidate', type=Path, required=True)
     parser.add_argument('--arachno', type=Path)
     parser.add_argument('--musescore', type=Path)
+    parser.add_argument('--timbres', type=Path)
     parser.add_argument('--bass-runtime', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--fluidsynth', type=Path, default=Path('/opt/homebrew/bin/fluidsynth'))
@@ -70,6 +71,12 @@ def main():
             parser.error('--bass-runtime requires --arachno')
         banks.append(('e', 'BASSMIDI + Arachno 1.0', args.arachno))
         receipt['banks']['BASSMIDI + Arachno 1.0'] = hashlib.sha256(args.arachno.read_bytes()).hexdigest()
+    if args.timbres:
+        banks.append(('f', 'Timbres of Heaven 4.00(G)', args.timbres))
+        receipt['banks']['Timbres of Heaven 4.00(G)'] = hashlib.sha256(args.timbres.read_bytes()).hexdigest()
+        if args.bass_runtime:
+            banks.append(('g', 'BASSMIDI + Timbres of Heaven 4.00(G)', args.timbres))
+            receipt['banks']['BASSMIDI + Timbres of Heaven 4.00(G)'] = receipt['banks']['Timbres of Heaven 4.00(G)']
     cards = []
     for group, index in selections:
         row = catalog['groups'][group]['rows'][index]
@@ -84,10 +91,11 @@ def main():
             for tag, name, bank in banks:
                 wav = args.output / f'{identifier}-{tag}.wav'
                 start = time.monotonic()
-                if tag == 'e':
+                if tag in {'e', 'g'}:
                     details = render_bass_audio(repeated, bank, args.bass_runtime, wav, metadata['cycle_seconds'])
                 else:
-                    details = _render_audio(repeated, bank, fluidsynth, wav, metadata['cycle_seconds'])
+                    # This bank is much louder at synthesis, before normalization.
+                    details = _render_audio(repeated, bank, fluidsynth, wav, metadata['cycle_seconds'], synthesis_gain=0.08 if tag == 'f' else 0.45)
                 _optional_audio(wav, make_mp3=False, make_flac=True, ffmpeg=ffmpeg)
                 flac = wav.with_suffix('.flac')
                 entry['renders'][name] = {'audio': details, 'render_seconds': round(time.monotonic() - start, 3), 'bytes': flac.stat().st_size, 'sha256': hashlib.sha256(flac.read_bytes()).hexdigest()}
@@ -97,7 +105,7 @@ def main():
         cards.append(f'<section><h2>{html.escape(row["title"])}</h2><p>{html.escape(row["artist"])} · {"With drums" if "with_drums" in row else "Source part"}</p>{"".join(players)}</section>')
         print(row['title'], flush=True)
     (args.output / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
-    (args.output / 'index.html').write_text('''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Instrument comparison | SaMuGeD Earworms</title><style>body{font:16px system-ui;background:#101012;color:#eee;max-width:900px;margin:32px auto;padding:0 20px}a{color:#b8a9ed}section{border:1px solid #35353c;padding:20px;margin:20px 0}h2{margin:0}p{color:#aaa}label{display:block;margin:16px 0}audio{display:block;width:100%;margin-top:8px}</style><a href="https://almazermilov-samuged-earworms.static.hf.space/index.html">Back to loop player</a><h1>Instrument comparison</h1><p>Same MIDI notes, tempo and instrument programs. All versions use 48 kHz stereo rendering and the same peak level. Different timbres can still feel louder. Playback loops at 50% volume. Playing a version stops the other players.</p><p>Full instrument banks and two MIDI engines. Arachno is the current listening reference. Engine effects differ. HALion is unavailable here because its engine and GM library are not installed.</p>''' + ''.join(cards) + '''<p><a href="https://github.com/mrbumpy409/GeneralUser-GS">GeneralUser GS by S. Christian Collins</a> · <a href="generaluser-license.txt">License</a> · <a href="https://www.arachnosoft.com/main/soundfont.php">Arachno by Maxime Abbey</a> · <a href="musescore-license.md">MuseScore General license</a> · <a href="https://www.un4seen.com/bass.html">BASSMIDI</a> · <a href="receipt.json">Render measurements</a></p><script>document.querySelectorAll('audio').forEach(a=>{a.volume=.5;a.addEventListener('play',()=>document.querySelectorAll('audio').forEach(b=>{if(a!==b)b.pause()}))})</script></html>''')
+    (args.output / 'index.html').write_text('''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Instrument comparison | SaMuGeD Earworms</title><style>body{font:16px system-ui;background:#101012;color:#eee;max-width:900px;margin:32px auto;padding:0 20px}a{color:#b8a9ed}section{border:1px solid #35353c;padding:20px;margin:20px 0}h2{margin:0}p{color:#aaa}label{display:block;margin:16px 0}audio{display:block;width:100%;margin-top:8px}</style><a href="https://almazermilov-samuged-earworms.static.hf.space/index.html">Back to loop player</a><h1>Instrument comparison</h1><p>Same MIDI notes, tempo and instrument programs. All versions use 48 kHz stereo rendering and the same peak level. Different timbres can still feel louder. Playback loops at 50% volume. Playing a version stops the other players.</p><p>Full instrument banks and two MIDI engines. Arachno is the current listening reference. Engine effects differ. HALion is unavailable here because its engine and GM library are not installed.</p>''' + ''.join(cards) + '''<p><a href="https://github.com/mrbumpy409/GeneralUser-GS">GeneralUser GS by S. Christian Collins</a> · <a href="generaluser-license.txt">License</a> · <a href="https://www.arachnosoft.com/main/soundfont.php">Arachno by Maxime Abbey</a> · <a href="musescore-license.md">MuseScore General license</a> · <a href="https://www.un4seen.com/bass.html">BASSMIDI</a> · <a href="https://midkar.com/SoundFonts/index.html">Timbres of Heaven by Don Allen</a> · <a href="receipt.json">Render measurements</a></p><script>document.querySelectorAll('audio').forEach(a=>{a.volume=.5;a.addEventListener('play',()=>document.querySelectorAll('audio').forEach(b=>{if(a!==b)b.pause()}))})</script></html>''')
 
 if __name__ == '__main__':
     main()
