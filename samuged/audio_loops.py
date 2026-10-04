@@ -36,6 +36,21 @@ STEADY_REPETITION = 3
 _DEFAULT_TEMPO = 500_000
 _DEFAULT_METER = (4, 4)
 
+# Explicit global effects, without changing source notes or instrument programs.
+EFFECT_PROFILES = {
+    "dry": {"synth.reverb.active": 0, "synth.chorus.active": 0},
+    "close_room": {
+        "synth.reverb.active": 1, "synth.chorus.active": 0,
+        "synth.reverb.room-size": 0.4, "synth.reverb.damp": 0.65,
+        "synth.reverb.width": 0.8, "synth.reverb.level": 0.32,
+    },
+    "warm_room": {
+        "synth.reverb.active": 1, "synth.chorus.active": 0,
+        "synth.reverb.room-size": 0.6, "synth.reverb.damp": 0.7,
+        "synth.reverb.width": 0.85, "synth.reverb.level": 0.55,
+    },
+}
+
 
 @dataclass(frozen=True, slots=True)
 class PeriodDecision:
@@ -650,9 +665,15 @@ def _render_audio(
     cycle_seconds: float,
     *,
     synthesis_gain: float = 0.45,
+    effects_profile: str | None = None,
 ) -> dict[str, Any]:
     if not math.isfinite(synthesis_gain) or not 0 < synthesis_gain <= 10:
         raise ValueError("synthesis gain must be finite and between 0 and 10")
+    if effects_profile is not None and effects_profile not in EFFECT_PROFILES:
+        raise ValueError(f"unknown effects profile: {effects_profile}")
+    effects = EFFECT_PROFILES.get(effects_profile, {})
+    effect_arguments = [argument for key, value in effects.items()
+                        for argument in ("-o", f"{key}={value}")]
     with tempfile.TemporaryDirectory(prefix="samuged-audio-") as temporary:
         raw = Path(temporary) / "rendered.wav"
         _run(
@@ -669,6 +690,7 @@ def _render_audio(
                 str(SAMPLE_RATE),
                 "-g",
                 str(synthesis_gain),
+                *effect_arguments,
                 str(soundfont),
                 str(repeated_midi),
             ],
@@ -678,6 +700,9 @@ def _render_audio(
     loop, details = process_steady_cycle(rendered, sample_rate, cycle_seconds)
     details["synthesis_gain"] = synthesis_gain
     details["synthesis_peak"] = float(np.max(np.abs(rendered), initial=0.0))
+    if effects_profile is not None:
+        details["effects_profile"] = effects_profile
+        details["effects_settings"] = dict(effects)
     write_pcm24_wave(destination, loop)
     return details
 

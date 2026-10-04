@@ -10,7 +10,7 @@ The comparison is generated locally with the command below. It is separate from 
 | --- | --- | --- |
 | FluidSynth with FluidR3 GM | Existing General MIDI baseline | Some instruments sound dated |
 | FluidSynth with GeneralUser GS 2.0.3 | Compatible alternative with 261 presets and 13 drum kits | Different timbres need listening comparison |
-| FluidSynth with Arachno SoundFont 1.0 | Complete bank, used as the current listening reference | Preference depends on the instrument |
+| FluidSynth with Arachno SoundFont 1.0 | Complete bank, preferred in earlier auditions | Preference depends on the instrument |
 | FluidSynth with MuseScore General 0.2.0 | Complete GM bank with documented sample sources | Shares some source samples with FluidR3 |
 | BASSMIDI with Arachno | Same bank through another whole MIDI engine | Proprietary runtime, separate license and effects defaults |
 | Timbres of Heaven 4.00(G) with FluidSynth or BASSMIDI | Complete GS bank with two whole MIDI render setups | Louder samples need lower synthesis gain, redistribution needs permission |
@@ -31,7 +31,7 @@ The comparison records bank and MIDI hashes, renderer provenance, elapsed time, 
 
 GeneralUser GS permits music production, including commercial recordings. Its author notes incomplete historical provenance for some samples. The exact license is distributed with the comparison. The bank itself is not bundled in the Space.
 
-No listener ratings or preference claim are attached to these examples. Keep FluidR3 as the collection baseline until the alternative is selected through listening. Detailed guitars may ultimately benefit more from a dedicated instrument than from replacing the entire GM bank.
+No listener ratings or general preference claim are attached to these examples. The project owner selected ColomboGMGS2 17.02 Vanilla through listening. The public collection retains its previous audio until the selected bank and final effect profile are rebuilt and deployed.
 
 ## Reproduce
 
@@ -64,3 +64,29 @@ Pass `--musyng`, `--sgm-pro` and `--colombo` with the matching SF2 paths to incl
 The comparison retries FluidSynth at half the synthesis gain if the complete intermediate render's peak reaches 0.95. This preserves headroom in the integer intermediate before the existing peak normalization. It records the final synthesis gain and peak and fails after eight attempts if headroom cannot be obtained. This check does not establish sample quality or detect distortion already present in a bank's samples.
 
 Sources: [Musyng Kite author thread](https://www.kvraudio.com/forum/viewtopic.php?t=351893), [Shan SGM Pro 17 release](https://www.reddit.com/r/soundfonts/comments/1wezdu3/shan_sgm_pro_17_es8c_soundfont_released/) and [ColomboGMGS2 author page](https://sourceforge.net/projects/colombogmgs2-sf2/). Musyng Kite's SF2 was obtained from the [archived bank collection](https://archive.org/details/500-soundfonts-full-gm-sets). These files are for local audition. No new bank or generated audio is included in the code repository or public Space.
+
+## Colombo effect auditions
+
+The selected bank remains one universal FluidSynth setup. The original audition already includes FluidSynth's default reverb and chorus. Three explicit profiles separate the effects from the samples:
+
+| Profile | Reverb | Chorus | Purpose |
+| --- | --- | --- | --- |
+| Original Colombo | Engine defaults | Engine defaults | Selected listening reference |
+| Dry | Off | Off | Hear the samples without global effects |
+| Close room | Room size 0.4, damping 0.65, level 0.32 | Off | Smaller space with softer reflections |
+| Warm room | Room size 0.6, damping 0.7, level 0.55 | Off | More space with darker reflections |
+
+These numbers are FluidSynth settings, not percentages of the final audio mix. SoundFont modulators and MIDI effect sends also affect the result. See the [FluidSynth settings](https://www.fluidsynth.org/api/settings_synth.html). Reverb can suggest a shared acoustic space. It cannot supply missing articulations or turn a sampled instrument into a live performance. The auditions preserve notes, timing, velocities and programs. No random humanization is applied.
+
+```sh
+python scripts/compare_effects.py \
+  --space path/to/built-space \
+  --comparison path/to/comparison \
+  --soundfont path/to/ColomboGMGS2_Vanilla.sf2
+```
+
+Run this after the bank comparison with `--colombo`. It adds the same six phrases with three profiles at the top of the existing page. Reruns replace this block. The script verifies that the MIDI and reference bank hashes match the earlier audition. Effects are synthesized over repeated cycles before extraction, so the room continues across the loop boundary. The receipt records settings, synthesis headroom, output hashes and render time.
+
+ColomboGMGS2 is by Tharii314. The downloaded bank includes a CC BY SA 4.0 license. Its sample credits are in the supplied preset list. The bank stays outside the code repository.
+
+In these auditions the Low Rider drum patch barely responds to global effects. Its decoded versions differ by less than 0.000001 RMS. The melodic and mixed phrases show audible effect changes. This is a reason to audition both melody and drums instead of assuming every patch receives the same reverb amount.
