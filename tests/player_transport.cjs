@@ -13,21 +13,22 @@ test('note animation wraps with the audio cycle and stops at note ends',()=>{
  assert.equal(noteActive({start:1,end:2},2),false);
 });
 
-function transport(atlas,audioBase=null){
+function transport(atlas,audioBase=null,audioSession=null){
  const html=fs.readFileSync(atlas?'scripts/top_phrases.html':'scripts/loop_player.html','utf8');
  const stop=html.match(/function stop\(.*\n/)[0];
  const start=html.indexOf(atlas?'async function play(r,':'async function play({');
  const end=html.indexOf('\n}',start)+2;
  const nodes=new Map(),pending=new Map(),sources=[];
+ const sessionTypes=[];
  const node=id=>{if(!nodes.has(id))nodes.set(id,{textContent:'',value:'0.5'});return nodes.get(id)};
  class AudioContext{
-  constructor(){this.currentTime=0;this.destination={};this.state="suspended"}
+  constructor(){sessionTypes.push(audioSession?.type);this.currentTime=0;this.destination={};this.state="suspended"}
   async resume(){this.state="running";this.onstatechange?.()}
   createGain(){return {gain:{value:0},connect(){}}}
   async decodeAudioData(id){return {id,duration:2}}
   createBufferSource(){const source={connect(){},disconnect(){},start(){this.started=true},stop(){this.stopped=true}};sources.push(source);return source}
  }
- const box=vm.createContext({catalog:{audio_base_url:audioBase},AudioContext,document:{getElementById:node,querySelectorAll:()=>[]},fetch:url=>new Promise(resolve=>pending.set(url,resolve))});
+ const box=vm.createContext({catalog:{audio_base_url:audioBase},navigator:{audioSession},AudioContext,document:{getElementById:node,querySelectorAll:()=>[]},fetch:url=>new Promise(resolve=>pending.set(url,resolve))});
  vm.runInContext(`let selected={phrase_id:'a'}, context=null,ctx=null,gain=null,playing=null,wantsPlayback=false,request=0,token=0,started=0,position=null,playingUrl=null,playingPhrase=null,playingLayer='solo',layer='solo';
  const cache=new Map(),audioCache=new Map(),data={audio:{}},clean=x=>x;
  function audioId(){return selected.phrase_id}
@@ -37,7 +38,7 @@ function transport(atlas,audioBase=null){
   vm.runInContext(`selected={phrase_id:${JSON.stringify(id)}}`,box);return vm.runInContext(`play({replace:${replace}})`,box);
  };
  const resolve=async(id,ok=true)=>{await new Promise(setImmediate);const url=atlas?id:`${audioBase||'audio'}/${id}/loop.flac`;assert(pending.has(url));pending.get(url)({ok,arrayBuffer:async()=>id});await new Promise(setImmediate)};
- return {choose,resolve,sources,stop:()=>vm.runInContext('stop()',box),node,box};
+ return {choose,resolve,sources,sessionTypes,stop:()=>vm.runInContext('stop()',box),node,box};
 }
 for(const atlas of [false,true]){
  const label=atlas?'atlas':'main';
@@ -96,3 +97,17 @@ test('main: audio can load from a pinned Hub audio revision',async()=>{
  const a=t.choose('a',false);await t.resolve('a');await a;
  assert.equal(t.sources.length,1);assert.equal(t.sources[0].loop,true);
 });
+
+for(const atlas of [false,true]){
+ test(`${atlas?'atlas':'main'}: select music session before creating iPhone audio context`,async()=>{
+  const session={type:'ambient'},t=transport(atlas,null,session);
+  const a=t.choose('a',false);await t.resolve('a');await a;
+  assert.equal(session.type,'playback');assert.deepEqual(t.sessionTypes,['playback']);
+  assert.equal(t.sources[0].started,true);
+ });
+ test(`${atlas?'atlas':'main'}: unavailable audio session settings do not block playback`,async()=>{
+  const session={get type(){return 'ambient'},set type(value){throw new Error('Unavailable')}};
+  const t=transport(atlas,null,session),a=t.choose('a',false);await t.resolve('a');await a;
+  assert.equal(t.sources[0].started,true);
+ });
+}

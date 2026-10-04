@@ -64,6 +64,8 @@ async function play(r,mode,button,{replace=false}={}){
  button.textContent='Stop loop';
  for(const link of document.querySelectorAll('[data-audio-download]'))link.href=variant[link.dataset.audioDownload];
  try{
+  // iPhone Web Audio otherwise uses an ambient session that obeys silent mode.
+  try{if(typeof navigator!=='undefined'&&navigator.audioSession)navigator.audioSession.type='playback'}catch{}
   if(!ctx||ctx.state==='closed'){ctx=new AudioContext();gain=null;playing=null}
   ctx.onstatechange=()=>{if(wantsPlayback&&playing&&ctx.state==='running'&&document.getElementById('status').textContent.startsWith('Audio paused')){document.getElementById('status').textContent='Looping until stopped';button.textContent='Stop loop'}if(wantsPlayback&&['suspended','interrupted'].includes(ctx.state)){document.getElementById('status').textContent='Audio paused by the browser. Press Play loop to resume.';for(const b of document.querySelectorAll('.loop-play'))b.textContent=b.dataset.label}};
   await ctx.resume();if(t!==token)return;
