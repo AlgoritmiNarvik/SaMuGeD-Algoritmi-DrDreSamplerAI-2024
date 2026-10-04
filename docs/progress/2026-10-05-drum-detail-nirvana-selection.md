@@ -1,6 +1,6 @@
 ## 2026-10-05: drum detail and Nirvana selections
 
-Drum decay envelopes use eight or twelve rectangular segments in one cached SVG path per hit. Lane centers and envelope heights now share the available space without increasing the view height. The shapes remain symbolic MIDI decay envelopes, not isolated audio waveforms.
+Drum decay envelopes use eight or twelve rectangular segments in one cached SVG path per hit. Lane centers and envelope heights now share the available space without increasing the view height. The first segment replaces the separate attack marker in phrase views. Versioned script URLs refresh cached players after deployment. The shapes remain symbolic MIDI decay envelopes, not isolated audio waveforms.
 
 The drum toggle includes a small drum icon with active and inactive states. Labels and accessible pressed state remain available.
 

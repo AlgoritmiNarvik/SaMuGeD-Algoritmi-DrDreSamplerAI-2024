@@ -143,7 +143,7 @@
    const r=drum?el('line',{x1:n[0],x2:n[0],y1:drumY(n[2])-(onlyDrums?5:2.5),y2:drumY(n[2])+(onlyDrums?5:2.5),class:'note-event note-drum','vector-effect':'non-scaling-stroke'}):el('rect',{x:n[0],y:-n[2]-.34,width:Math.max(.009,n[1]-n[0]),height:.68,class:'note-event note-melody','vector-effect':'non-scaling-stroke'});
    let envelope=null;
    if(drum){r.style.setProperty('--hit-color',drumColors[drumLane(n[2])]);r.style.setProperty('--hit-width',(onlyDrums?1.5:1)+n[3]/127*(onlyDrums?3:1.5));
-    if(mode==='phrase'){envelope=el('path',{d:drumEnvelope(n[0],drumY(n[2]),n[2],n[3],!onlyDrums,(onlyDrums?344:174)/Math.max(1,lanes.length)),class:'note-hit-envelope',fill:drumColors[drumLane(n[2])],opacity:.28});envelopes.append(envelope)}
+    if(mode==='phrase'){r.setAttribute('display','none');envelope=el('path',{d:drumEnvelope(n[0],drumY(n[2]),n[2],n[3],!onlyDrums,(onlyDrums?344:174)/Math.max(1,lanes.length)),class:'note-hit-envelope',fill:drumColors[drumLane(n[2])],opacity:.28});envelopes.append(envelope)}
    }
    r.append(el('title',{},`${drum?'Drum '+n[2]:pitch(n[2])} · ${(n[0]-(mode==='phrase'?selection.start:0)).toFixed(2)}s · velocity ${n[3]}`));
    (drum?drums:melody).append(r);entries.push({n,r,envelope,energy:-1,base:.3+.42*n[3]/127});
