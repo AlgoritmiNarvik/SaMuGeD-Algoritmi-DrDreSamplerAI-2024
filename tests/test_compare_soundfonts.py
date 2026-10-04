@@ -99,11 +99,16 @@ def test_renderer_applies_and_records_explicit_room_settings(monkeypatch, tmp_pa
     assert result['effects_profile'] == 'close_room'
 
 
-def test_room_page_rerun_replaces_block_and_preserves_bank_players():
-    from scripts.compare_effects import add_auditions
-    page = '<h1>Comparison</h1><section>Earlier bank players</section>'
-    once = add_auditions(page, '<section>First rooms</section>')
-    twice = add_auditions(once, '<section>New rooms</section>')
-    assert 'First rooms' not in twice
-    assert twice.count('New rooms') == 1
-    assert twice.count('Earlier bank players') == 1
+def test_effect_page_pairs_only_two_banks_and_escapes_source_titles():
+    from scripts.compare_effects import PROFILES, BANK_NAMES, build_page
+    entry = {'title': 'A <phrase> "test"', 'renders': {
+        bank: {profile: {'file': f'{bank}-{profile}.flac'} for profile, _, _ in PROFILES}
+        for bank in BANK_NAMES}}
+    page = build_page([entry])
+    assert page.count('<audio ') == 8
+    assert 'A &lt;phrase&gt; &quot;test&quot;' in page
+    assert 'Arachno SoundFont 1.0' in page
+    assert 'ColomboGMGS2 17.02 Vanilla' in page
+    assert 'FluidR3' not in page and 'GeneralUser' not in page
+    for profile, _, _ in PROFILES:
+        assert f'data-profile="{profile}"' in page
