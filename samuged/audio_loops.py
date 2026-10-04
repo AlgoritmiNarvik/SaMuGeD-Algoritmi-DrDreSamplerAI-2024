@@ -552,6 +552,7 @@ def _renderer_provenance(fluidsynth: Path, ffmpeg: Path) -> dict[str, Any]:
     audio_loops_path = Path(__file__).resolve()
     midi_path = audio_loops_path.with_name("midi.py")
     return {
+        "synthesis": {"sample_rate_hz": SAMPLE_RATE, "intermediate_format": "s24", "gain": 0.45},
         "code": {
             "samuged/audio_loops.py": _sha256_file(audio_loops_path),
             "samuged/midi.py": _sha256_file(midi_path),
@@ -659,7 +660,7 @@ def _render_audio(
                 "-T",
                 "wav",
                 "-O",
-                "s16",
+                "s24",
                 "-r",
                 str(SAMPLE_RATE),
                 "-g",
