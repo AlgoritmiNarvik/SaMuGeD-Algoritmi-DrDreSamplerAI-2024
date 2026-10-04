@@ -38,6 +38,13 @@ _DEFAULT_METER = (4, 4)
 
 # Explicit global effects, without changing source notes or instrument programs.
 EFFECT_PROFILES = {
+    "original": {
+        "synth.reverb.active": 1, "synth.reverb.room-size": 0.5,
+        "synth.reverb.damp": 0.3, "synth.reverb.width": 0.8,
+        "synth.reverb.level": 0.7, "synth.chorus.active": 1,
+        "synth.chorus.depth": 4.25, "synth.chorus.level": 0.6,
+        "synth.chorus.nr": 3, "synth.chorus.speed": 0.2,
+    },
     "dry": {"synth.reverb.active": 0, "synth.chorus.active": 0},
     "close_room": {
         "synth.reverb.active": 1, "synth.chorus.active": 0,
