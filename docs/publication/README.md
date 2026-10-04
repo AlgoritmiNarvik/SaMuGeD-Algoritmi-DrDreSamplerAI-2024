@@ -131,3 +131,9 @@ The revision renders the existing loop MIDIs without extracting phrases again. I
 The opening Schism example reads actual source notes, verified occurrence spans and aligned drum hits. Song, Phrase and Loop animate the same note objects into the selected cycle. Highlights use the audio clock. The diagram is a piano roll, not staff notation or an inferred time signature. Reduced motion disables zoom transitions. The main player and example share playback and volume.
 
 Desktop method cards stay open beside the example and select its diagram stages. On phones, the explanation starts collapsed to keep Play within easy reach.
+
+## Public cards and citation
+
+The root README and `CITATION.cff` provide GitHub citation metadata. `CITATION.bib` contains the same dataset citation. The Hugging Face card source is [dataset_card.md](dataset_card.md). Publish it as the dataset `README.md` with both citation files. Preserve the four data configurations when editing the card. Card updates do not require rebuilding archives or Parquet files.
+
+The player labels its limited listening selection and links to the full phrase dataset. Additional web MIDI examples by Tool remain separate from the dataset.
