@@ -6,7 +6,6 @@ from pathlib import Path
 
 SELECTIONS = (
     ('044359a0ce87afd9cfa2b171def3d12c', 'Rape Me'),
-    ('be7da8e7e2decd51301810d204e62045', 'Heart-Shaped Box'),
     ('817bda73231323a5bac9e453707eeb52', 'In Bloom'),
     ('7265fb138040beb357543311779b8f1a', 'About a Girl'),
     ('4026827db9dc945f4837c939825665ff', 'Come As You Are'),
@@ -18,7 +17,7 @@ def curate(catalog):
     candidates = {r['phrase_id']: r for r in catalog.get('song_variants', [])}
     candidates.update({r['phrase_id']: r for r in catalog['groups']['popular']['rows']})
     ids = {pid for pid, _ in SELECTIONS}
-    original = [r for r in catalog['groups']['popular']['rows'] if r['phrase_id'] not in ids and r['title'] != 'Smells Like Teen Spirit']
+    original = [r for r in catalog['groups']['popular']['rows'] if r['phrase_id'] not in ids and r['title'] not in {'Smells Like Teen Spirit', 'Heart-Shaped Box'}]
     if not original or original[0]['title'] != 'Schism':
         raise ValueError('Preserve Schism as the opening selection')
     selected = []
