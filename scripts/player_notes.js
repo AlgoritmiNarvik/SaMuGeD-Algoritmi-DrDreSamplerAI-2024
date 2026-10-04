@@ -49,7 +49,7 @@
  const el=(tag,attrs={},text)=>{const n=document.createElementNS(ns,tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,v);if(text!==undefined)n.textContent=text;return n};
  const pitch=p=>['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'][p%12]+(Math.floor(p/12)-1);
  const load=path=>{if(!cache.has(path))cache.set(path,fetch(path).then(r=>{if(!r.ok)throw Error('Notes unavailable');return r.json()}).catch(e=>{cache.delete(path);throw e}));return cache.get(path)};
- const X=65,W=521,Y=22,H=78;
+ const X=65,W=521,Y=22,H=148;
  let selection=null,song=null,row=null,token=0,sourceReady=false,mode=initialMode,camera=[0,1,48,60],motion=null;
  let scenes=[],axis=null,stage=null,cursor=null,sweep=null,windowBox=null,overviewWindow=null,overviewSelection=null,halos=[];
  let related=[],markerGroup=null,density=null,readout=null,timeReadout=null,rangeReadout=null,lastFrame=0,needsPaint=true,visible=true,wasRunning=false;
@@ -81,47 +81,47 @@
    if(related.length>1){const b=document.createElement('button');b.type='button';b.textContent=`${i+1} · ${item.label} · ${item.start.toFixed(1)} s`;b.setAttribute('aria-pressed',String(item.phrase_id===row.phrase_id));b.onclick=()=>navigate(item.phrase_id);listOptions.append(b)}
    if(!markerGroup)return;
    const marker=el('g',{role:'button',tabindex:0,'aria-label':`Play phrase ${label}`,class:'note-phrase-marker'}),xx=X+item.start/song.duration*W;
-   marker.append(el('rect',{x:xx-5,y:234,width:Math.max(10,(item.end-item.start)/song.duration*W),height:24,fill:'transparent'}),el('line',{x1:xx,x2:xx,y1:236,y2:255,class:item.phrase_id===row.phrase_id?'current':''}));
+   marker.append(el('rect',{x:xx-5,y:384,width:Math.max(10,(item.end-item.start)/song.duration*W),height:24,fill:'transparent'}),el('line',{x1:xx,x2:xx,y1:386,y2:405,class:item.phrase_id===row.phrase_id?'current':''}));
    marker.addEventListener('click',event=>{event.stopPropagation();navigate(item.phrase_id)});marker.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate(item.phrase_id)}});markerGroup.append(marker);
   });select.value=row?.phrase_id||'';
   if(relatedScope==='main'&&related.length){const selectedRow=document.querySelector('#rows .row[aria-pressed=true]');selectedRow?.after(listOptions);document.getElementById('rows').scrollTop=listScroll}
  }
  const currentCamera=now=>motion?cameraAt(motion.from,motion.to,(now-motion.start)/motion.duration):camera;
  function setup(){
-  svg.replaceChildren();scenes=[];
+  svg.setAttribute('viewBox','0 0 600 414');svg.replaceChildren();scenes=[];
   const defs=el('defs'),clip=el('clipPath',{id:clipId});
-  clip.append(el('rect',{x:X,y:8,width:W,height:202}));defs.append(clip);
+  clip.append(el('rect',{x:X,y:8,width:W,height:352}));defs.append(clip);
   const beam=el('linearGradient',{id:beamId,x1:'0%',x2:'100%'});
   beam.append(el('stop',{offset:'0%','stop-color':'#cfc3ff','stop-opacity':0}),el('stop',{offset:'100%','stop-color':'#cfc3ff','stop-opacity':.12}));defs.append(beam);
   const glow=el('filter',{id:glowId,x:'-30%',y:'-150%',width:'160%',height:'400%'});glow.append(el('feGaussianBlur',{stdDeviation:2.5}));defs.append(glow);
-  svg.append(defs,el('rect',{x:0,y:0,width:600,height:264,class:'note-field'}));
+  svg.append(defs,el('rect',{x:0,y:0,width:600,height:414,class:'note-field'}));
   axis=el('g');svg.append(axis);
   const clipped=el('g',{'clip-path':`url(#${clipId})`});svg.append(clipped);
-  windowBox=el('rect',{y:9,height:198,class:'note-selection'});clipped.append(windowBox);
+  windowBox=el('rect',{y:9,height:348,class:'note-selection'});clipped.append(windowBox);
   const resonance=el('g',{filter:`url(#${glowId})`,'aria-hidden':'true'});halos=Array.from({length:20},()=>{const r=el('rect',{height:9,opacity:0});resonance.append(r);return r});clipped.append(resonance);
   stage=el('g');clipped.append(stage);
-  sweep=el('rect',{y:10,width:30,height:194,fill:`url(#${beamId})`});clipped.append(sweep);
-  cursor=el('g',{class:'note-cursor'});cursor.append(el('line',{x1:0,x2:0,y1:13,y2:202}),el('path',{d:'M-3 7H3L0 11Z'}));clipped.append(cursor);
+  sweep=el('rect',{y:10,width:30,height:344,fill:`url(#${beamId})`});clipped.append(sweep);
+  cursor=el('g',{class:'note-cursor'});cursor.append(el('line',{x1:0,x2:0,y1:13,y2:352}),el('path',{d:'M-3 7H3L0 11Z'}));clipped.append(cursor);
   const overview=el('g',{class:'note-overview'});
-  overview.append(el('rect',{x:X,y:237,width:W,height:18,class:'overview-track'}));
+  overview.append(el('rect',{x:X,y:387,width:W,height:18,class:'overview-track'}));
   // A density ribbon gives scale without drawing thousands of tiny full-song notes again.
   density=el('g');overview.append(density);drawDensity();
-  overviewSelection=el('rect',{x:X+selection.start/song.duration*W,y:236,width:Math.max(2,(selection.end-selection.start)/song.duration*W),height:20,class:'overview-selection'});overview.append(overviewSelection);
-  overviewWindow=el('rect',{y:235,height:22,class:'overview-window'});overview.append(overviewWindow);
-  const seek=el('rect',{x:X,y:233,width:W,height:27,fill:'transparent',role:'button',tabindex:0,class:'note-map-seek','aria-label':'Explore song position. Click the map or use left and right arrow keys.'});
+  overviewSelection=el('rect',{x:X+selection.start/song.duration*W,y:386,width:Math.max(2,(selection.end-selection.start)/song.duration*W),height:20,class:'overview-selection'});overview.append(overviewSelection);
+  overviewWindow=el('rect',{y:385,height:22,class:'overview-window'});overview.append(overviewWindow);
+  const seek=el('rect',{x:X,y:383,width:W,height:27,fill:'transparent',role:'button',tabindex:0,class:'note-map-seek','aria-label':'Explore song position. Click the map or use left and right arrow keys.'});
   seek.append(el('title',{},'Click to explore source notes. Phrase markers select prepared loops.'));
   seek.addEventListener('click',event=>{const point=svg.createSVGPoint();point.x=event.clientX;point.y=event.clientY;const local=point.matrixTransform(svg.getScreenCTM().inverse());exploreAt(clamp((local.x-X)/W,0,1)*song.duration)});
   seek.addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','Home','End','Enter',' '].includes(event.key)){event.preventDefault();const center=(camera[0]+camera[1])/2;exploreAt(event.key==='Home'?0:event.key==='End'?song.duration:center+(event.key==='ArrowLeft'?-1:event.key==='ArrowRight'?1:0)*row.cycle_seconds)}});
   overview.append(seek);svg.append(overview);markerGroup=el('g');svg.append(markerGroup);showRelated();
-  svg.append(el('text',{x:7,y:249,class:'note-axis-label'},'Song'));
-  readout=el('text',{x:X,y:226,class:'note-readout'},'');timeReadout=el('text',{x:586,y:226,'text-anchor':'end',class:'note-time'},'');svg.append(readout,timeReadout);
+  svg.append(el('text',{x:7,y:399,class:'note-axis-label'},'Song'));
+  readout=el('text',{x:X,y:376,class:'note-readout'},'');timeReadout=el('text',{x:586,y:376,'text-anchor':'end',class:'note-time'},'');svg.append(readout,timeReadout);
   rangeReadout=get('note-range');
  }
  function drawDensity(){
   if(!density)return;density.replaceChildren();const bins=Array(128).fill(0);
   for(const n of song.notes)if(n[4]||n[5]===selection.part)bins[Math.min(127,Math.floor(n[0]/song.duration*128))]++;
   const max=Math.max(1,...bins);
-  bins.forEach((v,i)=>{if(v)density.append(el('rect',{x:X+i*W/128,y:252-v/max*12,width:2,height:Math.max(1,v/max*12),class:'overview-density'}))});
+  bins.forEach((v,i)=>{if(v)density.append(el('rect',{x:X+i*W/128,y:402-v/max*12,width:2,height:Math.max(1,v/max*12),class:'overview-density'}))});
  }
  function sceneNotes(){
   if(mode==='song')return song.notes.filter(n=>get('note-all').checked||n[4]||n[5]===selection.part);
@@ -134,7 +134,7 @@
   const laneKey=drumLane;
   const keys=new Set(notes.filter(n=>n[4]).map(n=>laneKey(n[2])));
   const lanes=drumOrder.filter(k=>keys.has(k));
-  const drumY=p=>{const i=lanes.indexOf(laneKey(p));return onlyDrums?25+i*170/Math.max(1,lanes.length-1):126+i*73/Math.max(1,lanes.length-1)};
+  const drumY=p=>{const i=lanes.indexOf(laneKey(p));return onlyDrums?25+i*320/Math.max(1,lanes.length-1):196+i*150/Math.max(1,lanes.length-1)};
   for(const n of notes){
    const drum=!!n[4];
    const r=drum?el('line',{x1:n[0],x2:n[0],y1:drumY(n[2])-(onlyDrums?5:2.5),y2:drumY(n[2])+(onlyDrums?5:2.5),class:'note-event note-drum','vector-effect':'non-scaling-stroke'}):el('rect',{x:n[0],y:-n[2]-.34,width:Math.max(.009,n[1]-n[0]),height:.68,class:'note-event note-melody','vector-effect':'non-scaling-stroke'});
@@ -159,15 +159,15 @@
   if(pitches.length<2)pitches=[Math.ceil(low+1),Math.floor(high-1)];
   if(!scenes.at(-1)?.onlyDrums)for(const p of pitches){axis.append(el('line',{x1:X,x2:X+W,y1:y(p),y2:y(p),class:'note-grid'}),el('text',{x:7,y:y(p)+3,class:'note-axis-label'},pitch(p)))}
   const scene=scenes.at(-1);
-  if(scene&&!scene.onlyDrums&&scene.lanes.length){axis.append(el('line',{x1:0,x2:600,y1:111,y2:111,class:'note-section-divider'}),el('text',{x:5,y:12,class:'note-section-label'},'MELODY'),el('text',{x:5,y:119,class:'note-section-label'},'DRUMS'))}
-  if(scene)scene.lanes.forEach((label,i)=>{const yy=scene.onlyDrums?25+i*170/Math.max(1,scene.lanes.length-1):126+i*73/Math.max(1,scene.lanes.length-1);axis.append(el('line',{x1:X,x2:X+W,y1:yy,y2:yy,class:'note-drum-grid'}),el('text',{x:5,y:yy+3,class:'note-axis-label'},label==='Closed hat'?'C. hat':label==='Open hat'?'O. hat':label==='Percussion'?'Perc.':label))});
+  if(scene&&!scene.onlyDrums&&scene.lanes.length){axis.append(el('line',{x1:0,x2:600,y1:181,y2:181,class:'note-section-divider'}),el('text',{x:5,y:12,class:'note-section-label'},'MELODY'),el('text',{x:5,y:189,class:'note-section-label'},'DRUMS'))}
+  if(scene)scene.lanes.forEach((label,i)=>{const yy=scene.onlyDrums?25+i*320/Math.max(1,scene.lanes.length-1):196+i*150/Math.max(1,scene.lanes.length-1);axis.append(el('line',{x1:X,x2:X+W,y1:yy,y2:yy,class:'note-drum-grid'}),el('text',{x:5,y:yy+3,class:'note-axis-label'},label==='Closed hat'?'C. hat':label==='Open hat'?'O. hat':label==='Percussion'?'Perc.':label))});
   if(mode==='phrase'&&selection.beat_grid){
-   for(const [seconds,beat]of selection.beat_grid){const xx=x(selection.start+seconds);if(xx<X||xx>X+W)continue;axis.append(el('line',{x1:xx,x2:xx,y1:12,y2:201,class:Number.isInteger(beat)?'note-beat-grid':'note-time-grid'}));if(Number.isInteger(beat)&&seconds<row.cycle_seconds-.001)axis.append(el('text',{x:xx,y:213,class:'note-axis-label'},String(beat+1)))}
+   for(const [seconds,beat]of selection.beat_grid){const xx=x(selection.start+seconds);if(xx<X||xx>X+W)continue;axis.append(el('line',{x1:xx,x2:xx,y1:12,y2:351,class:Number.isInteger(beat)?'note-beat-grid':'note-time-grid'}));if(Number.isInteger(beat)&&seconds<row.cycle_seconds-.001)axis.append(el('text',{x:xx,y:363,class:'note-axis-label'},String(beat+1)))}
    return;
   }
   const unit=10**Math.floor(Math.log10(width/5)),step=unit*([1,2,5,10].find(v=>v*unit>=width/5)||10);
   const origin=mode==='phrase'?selection.start:0;
-  for(let relative=Math.ceil((left-origin)/step)*step;relative+origin<right;relative+=step){const xx=x(relative+origin);axis.append(el('line',{x1:xx,x2:xx,y1:12,y2:201,class:'note-time-grid'}))}
+  for(let relative=Math.ceil((left-origin)/step)*step;relative+origin<right;relative+=step){const xx=x(relative+origin);axis.append(el('line',{x1:xx,x2:xx,y1:12,y2:351,class:'note-time-grid'}))}
  }
  function paintGeometry(){
   const [left,right,low,high]=camera,sx=W/(right-left),sy=H/(high-low),tx=X-left*sx,ty=Y+high*sy;
