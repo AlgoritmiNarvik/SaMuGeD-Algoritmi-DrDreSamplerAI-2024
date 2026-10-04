@@ -137,3 +137,9 @@ The explanation starts open on desktop and phones. Its cards select the example 
 The root README and `CITATION.cff` provide GitHub citation metadata. `CITATION.bib` contains the same dataset citation. The Hugging Face card source is [dataset_card.md](dataset_card.md). Publish it as the dataset `README.md` with both citation files. Preserve the four data configurations when editing the card. Card updates do not require rebuilding archives or Parquet files.
 
 The player labels its limited listening selection and links to the full phrase dataset. Additional web MIDI examples by Tool remain separate from the dataset.
+
+### Player note views
+
+The player can show a loop cycle or its position in the source song. Source navigation changes the visual view only. Audio stays on the selected loop. Note data is loaded when a selection opens, so the initial page does not download every song.
+
+After building the Space, run `scripts/build_player_notes.py` with `--space` and one or more `--source-root` arguments pointing to the original MIDI collections. The command verifies the source hash stored in render metadata and writes `notes/` and `player_notes.js`. Upload those files together with the revised `index.html`. Keep generated note data outside the code repository.

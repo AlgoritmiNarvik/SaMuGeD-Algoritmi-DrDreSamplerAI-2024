@@ -111,3 +111,11 @@ for(const atlas of [false,true]){
   assert.equal(t.sources[0].started,true);
  });
 }
+
+const noteView=require('../scripts/player_notes.js');
+test('note viewport clamps zoom and position inside the complete source',()=>{
+ assert.deepEqual(noteView.bounds(300,0,300,1,200),[0,300]);
+ assert.deepEqual(noteView.bounds(300,0,300,10,290),[270,300]);
+ assert.deepEqual(noteView.bounds(300,0,300,10,-4),[0,30]);
+ assert.equal(noteView.phase(13,6),1);
+});
