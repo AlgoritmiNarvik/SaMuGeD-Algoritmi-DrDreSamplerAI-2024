@@ -162,3 +162,14 @@ for(const atlas of [false,true])test(`${atlas?'atlas':'main'}: switching selecti
  await t.resolve('a');await a;await t.resolve('b');await b;
  assert.equal(t.sources.length,1);assert.equal(t.sources[0].buffer.id,'b');
 });
+
+test('phrase navigation stays in the selected song and collection for all prepared candidates',()=>{
+ const html=fs.readFileSync('scripts/loop_player.html','utf8');
+ const code=html.match(/window.selectNotePhrase=.*\n/)[0];
+ const calls=[];
+ const box=vm.createContext({window:{},catalog:{groups:{popular:{rows:[{phrase_id:'default',source_path:'same.mid'}]},tool:{rows:[{phrase_id:'tool',source_path:'same.mid'}]}},song_variants:[{phrase_id:'extra',source_path:'same.mid'},{phrase_id:'foreign',source_path:'other.mid'}]},songAnchor:{phrase_id:'default',source_path:'same.mid'},group:'popular',choose:(r,o)=>calls.push([r.phrase_id,o.withinSong])});
+ vm.runInContext(code,box);
+ for(const id of ['tool','extra','foreign','missing'])box.window.selectNotePhrase(id);
+ assert.deepEqual(calls,[['tool',true],['extra',true]]);
+ assert.equal(box.group,'popular');assert.equal(box.songAnchor.phrase_id,'default');
+});
