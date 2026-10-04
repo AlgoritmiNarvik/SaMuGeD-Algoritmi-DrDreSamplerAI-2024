@@ -86,7 +86,7 @@ The collection follows the upstream [Lakh CC BY 4.0 declaration](https://colinra
 
 ## Citation
 
-Copy the BibTeX below or [download the bibliography](CITATION.bib). [Citation metadata](CITATION.cff) is also available. This is a dataset release, not a peer reviewed article.
+Copy the BibTeX below or [download the bibliography](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/resolve/main/CITATION.bib?download=true). [Citation metadata](CITATION.cff) is also available. This is a dataset release, not a peer reviewed article.
 
 ```bibtex
 @misc{wu2026samuged,
