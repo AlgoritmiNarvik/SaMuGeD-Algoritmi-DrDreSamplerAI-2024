@@ -17,11 +17,11 @@
  }
  function noteEnergy(start,end,time,duration,drum=false,pitch=38){
   if(duration<=0||start>=duration||end<=0)return 0;
-  const release=Math.min(drum?drumDecay(pitch):.45,duration*.8);
+  const release=Math.min(drum?Math.min(1.4,Math.max(.3,drumDecay(pitch)*1.35)):.45,duration*.8);
   // Only carry the tail of a note near the boundary into the next audio cycle.
-  const age=phase(time-start,duration),length=drum?Math.min(.055,Math.max(.02,end-start)):Math.max(.01,end-start);
+  const age=phase(time-start,duration),length=drum?.07:Math.max(.01,end-start);
   if(age<length)return drum?1: .78+.22*Math.exp(-age/ .065);
-  return age<length+release?.8*Math.pow(1-(age-length)/release,1.6):0;
+  return age<length+release?(drum?.95:.8)*Math.pow(1-(age-length)/release,drum?.85:1.6):0;
  }
  function drumLane(p){
   if([35,36].includes(p))return 'Kick';if([37,38,39,40].includes(p))return 'Snare';
@@ -34,15 +34,15 @@
  const drumColors={Kick:'#b8a5e4',Snare:'#d5af99','Closed hat':'#91b5ba','Open hat':'#91b5ba',Toms:'#b39abf',Ride:'#c7b98c',Crash:'#c7b98c',Percussion:'#a9a5b2'};
  function drumDecay(p){return ({'Closed hat':.16,'Open hat':.65,Ride:.95,Crash:1.4,Kick:.42,Snare:.48,Toms:.55})[drumLane(p)]||.4}
  // Symbolic MIDI envelopes, not isolated audio waveforms or measured sample decay.
- function drumEnvelope(start,y,p,velocity,compact=false,laneHeight=40){
-  const length=drumDecay(p), count=compact?8:12;
+ function drumEnvelope(start,y,p,velocity,compact=false,laneHeight=40,firstOnly=false,available=Infinity){
+  const length=Math.min(drumDecay(p),available), count=compact?8:12;
   const height=Math.min(laneHeight*.39,compact?20:42)*(.35+.65*clamp(velocity,0,127)/127);
   // One cached path per hit keeps per-frame DOM updates independent of segment count.
   return Array.from({length:count},(_,i)=>{
    const t=i/count,x=start+t*length,w=length/count*.78;
    const h=height*Math.exp(-3*t)*Math.sqrt(1-t);
    return `M${x} ${y-h}h${w}v${h*2}h${-w}Z`;
-  }).join('');
+  }).filter((_,i)=>firstOnly?i===0:i>0).join('');
  }
  if(typeof module!=='undefined')module.exports={phase,bounds,cameraAt,noteEnergy,drumLane,drumDecay};
  if(typeof document==='undefined')return;
@@ -137,13 +137,24 @@
   const laneKey=drumLane;
   const keys=new Set(notes.filter(n=>n[4]).map(n=>laneKey(n[2])));
   const lanes=drumOrder.filter(k=>keys.has(k));
+  // Keep dense attacks legible. Visual tails stop before the next attack in the lane.
+  // This does not shorten sample playback or its highlight release.
+  const tailSpace=new Map();
+  for(const lane of lanes){
+   const hits=notes.filter(n=>n[4]&&laneKey(n[2])===lane).sort((a,b)=>a[0]-b[0]);
+   let next=mode==='phrase'?selection.end:Infinity;
+   for(let i=hits.length-1;i>=0;i--){
+    if(i<hits.length-1&&hits[i+1][0]>hits[i][0]+.001)next=hits[i+1][0];
+    tailSpace.set(hits[i],Math.max(.008,(next-hits[i][0])*.82));
+   }
+  }
   const drumY=p=>{const i=lanes.indexOf(laneKey(p));return drumLaneY(i,lanes.length,onlyDrums)};
   for(const n of notes){
    const drum=!!n[4];
-   const r=drum?el('line',{x1:n[0],x2:n[0],y1:drumY(n[2])-(onlyDrums?5:2.5),y2:drumY(n[2])+(onlyDrums?5:2.5),class:'note-event note-drum','vector-effect':'non-scaling-stroke'}):el('rect',{x:n[0],y:-n[2]-.34,width:Math.max(.009,n[1]-n[0]),height:.68,class:'note-event note-melody','vector-effect':'non-scaling-stroke'});
+   const r=drum?(mode==='phrase'?el('path',{d:drumEnvelope(n[0],drumY(n[2]),n[2],n[3],!onlyDrums,(onlyDrums?344:174)/Math.max(1,lanes.length),true,tailSpace.get(n)),class:'note-event note-drum-attack',fill:drumColors[drumLane(n[2])]}):el('line',{x1:n[0],x2:n[0],y1:drumY(n[2])-(onlyDrums?5:2.5),y2:drumY(n[2])+(onlyDrums?5:2.5),class:'note-event note-drum','vector-effect':'non-scaling-stroke'})):el('rect',{x:n[0],y:-n[2]-.34,width:Math.max(.009,n[1]-n[0]),height:.68,class:'note-event note-melody','vector-effect':'non-scaling-stroke'});
    let envelope=null;
    if(drum){r.style.setProperty('--hit-color',drumColors[drumLane(n[2])]);r.style.setProperty('--hit-width',(onlyDrums?1.5:1)+n[3]/127*(onlyDrums?3:1.5));
-    if(mode==='phrase'){r.setAttribute('display','none');envelope=el('path',{d:drumEnvelope(n[0],drumY(n[2]),n[2],n[3],!onlyDrums,(onlyDrums?344:174)/Math.max(1,lanes.length)),class:'note-hit-envelope',fill:drumColors[drumLane(n[2])],opacity:.28});envelopes.append(envelope)}
+    if(mode==='phrase'){envelope=el('path',{d:drumEnvelope(n[0],drumY(n[2]),n[2],n[3],!onlyDrums,(onlyDrums?344:174)/Math.max(1,lanes.length),false,tailSpace.get(n)),class:'note-hit-envelope',fill:drumColors[drumLane(n[2])],opacity:.28});envelopes.append(envelope)}
    }
    r.append(el('title',{},`${drum?'Drum '+n[2]:pitch(n[2])} · ${(n[0]-(mode==='phrase'?selection.start:0)).toFixed(2)}s · velocity ${n[3]}`));
    (drum?drums:melody).append(r);entries.push({n,r,envelope,energy:-1,base:.3+.42*n[3]/127});
@@ -240,7 +251,7 @@
    const start=n[0]-selection.start,end=n[1]-selection.start;
    const energy=audible&&start>=-.001&&start<clock.duration?noteEnergy(start,end,p,clock.duration,!!n[4],n[2]):0;
    const level=reduced.matches?(energy>.66?1:0):Math.round(energy*16)/16;
-   if(level!==entry.energy){entry.energy=level;r.setAttribute('opacity',base+(1-base)*level);r.classList.toggle('is-sounding',level>.65);r.classList.toggle('is-releasing',level>0&&level<=.65);r.style.setProperty('--note-energy',level);entry.envelope?.setAttribute('opacity',.2+base*.14+level*.42)}
+   if(level!==entry.energy){entry.energy=level;r.setAttribute('opacity',base+(1-base)*level);r.classList.toggle('is-sounding',level>.65);r.classList.toggle('is-releasing',level>0&&level<=.65);r.style.setProperty('--note-energy',level);entry.envelope?.setAttribute('opacity',.25+base*.14+level*.5)}
    if(energy>.65&&scene===scenes.at(-1))names.add(n[4]?(scene.onlyDrums?drumLane(n[2]):''):pitch(n[2]));names.delete('');
    if(energy>0&&!reduced.matches&&scene===scenes.at(-1)&&haloIndex<halos.length&&n[0]<camera[1]&&n[1]>camera[0]){
     const left=clamp(X+(n[0]-camera[0])/(camera[1]-camera[0])*W,X,X+W);

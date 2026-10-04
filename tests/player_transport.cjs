@@ -182,3 +182,10 @@ test('drum release follows kit decay rather than the short MIDI gate',()=>{
  assert.ok(noteView.drumDecay(49)>noteView.drumDecay(36));
  assert.equal(noteView.noteEnergy(1,1.02,2.5,6,true,49),0);
 });
+
+test('drum attack remains readable through release without lighting before its onset',()=>{
+ assert.ok(noteView.noteEnergy(1,1.02,1.2,6,true,38)>.7);
+ assert.ok(noteView.noteEnergy(1,1.02,1.35,6,true,36)>.4);
+ assert.equal(noteView.noteEnergy(1,1.02,.9,6,true,38),0);
+ assert.equal(noteView.noteEnergy(1,1.02,2,6,true,38),0);
+});
