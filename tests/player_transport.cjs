@@ -189,3 +189,13 @@ test('drum attack remains readable through release without lighting before its o
  assert.equal(noteView.noteEnergy(1,1.02,.9,6,true,38),0);
  assert.equal(noteView.noteEnergy(1,1.02,2,6,true,38),0);
 });
+
+test('song animation visits only the loop and sounding source parts',()=>{
+ const {loopAnimationEntries}=require('../scripts/player_notes.js');
+ const event=(start,drum,part)=>({n:[start,start+.1,60,80,drum,part]});
+ const before=event(9,0,2),melody=event(10,0,2),drum=event(11,1,3),other=event(11,0,4),after=event(12,0,2);
+ const entries=[before,melody,drum,other,after];
+ assert.deepEqual(loopAnimationEntries(entries,10,12,2,true),[melody,drum]);
+ assert.deepEqual(loopAnimationEntries(entries,10,12,2,false),[melody,drum,other]);
+ assert.equal(entries.length,5); // The full source context remains available to render.
+});
