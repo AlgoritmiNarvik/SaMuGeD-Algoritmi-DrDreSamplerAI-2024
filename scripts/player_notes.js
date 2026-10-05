@@ -46,10 +46,13 @@
    return `M${x} ${y-h}h${w}v${h*2}h${-w}Z`;
   }).filter((_,i)=>firstOnly?i===0:i>0).join('');
  }
+ function drumContextPath(n,y,onlyDrums){
+  const half=onlyDrums?5:2.5;return `M${n[0]} ${y-half}v${half*2}`;
+ }
  function loopAnimationEntries(entries,start,end,part,songView){
   return entries.filter(({n})=>n[0]>=start-.001&&n[0]<end&&(!songView||n[4]||n[5]===part));
  }
- if(typeof module!=='undefined')module.exports={phase,bounds,cameraAt,noteEnergy,drumLane,drumDecay,loopAnimationEntries};
+ if(typeof module!=='undefined')module.exports={phase,bounds,cameraAt,noteEnergy,drumLane,drumDecay,loopAnimationEntries,drumContextPath};
  if(typeof document==='undefined')return;
  const cache=new Map();
  function createNoteExplorer({canvasId='player-notes',prefix='note-',captionId='note-caption',initialMode='phrase',viewAttribute='data-note-view',notesBase='notes',getLayer=()=>layer,relatedScope='main',onNavigate=id=>window.selectNotePhrase?.(id)}={}){
@@ -157,8 +160,15 @@
    }
   }
   const drumY=p=>{const i=lanes.indexOf(laneKey(p));return drumLaneY(i,lanes.length,onlyDrums)};
+  const contextDrums=new Map();
   for(const n of notes){
    const drum=!!n[4];
+   if(drum&&mode==='song'&&(n[0]<selection.start-.001||n[0]>=selection.end)){
+    const key=`${n[2]}:${n[3]}`;
+    if(!contextDrums.has(key))contextDrums.set(key,{n,paths:[]});
+    contextDrums.get(key).paths.push(drumContextPath(n,drumY(n[2]),onlyDrums));
+    continue;
+   }
    const r=drum?(mode==='phrase'?el('path',{d:drumEnvelope(n[0],drumY(n[2]),n[2],n[3],!onlyDrums,(onlyDrums?344:174)/Math.max(1,lanes.length),true,tailSpace.get(n)),class:'note-event note-drum-attack',fill:drumColors[drumLane(n[2])]}):el('line',{x1:n[0],x2:n[0],y1:drumY(n[2])-(onlyDrums?5:2.5),y2:drumY(n[2])+(onlyDrums?5:2.5),class:'note-event note-drum','vector-effect':'non-scaling-stroke'})):el('rect',{x:n[0],y:-n[2]-.34,width:Math.max(.009,n[1]-n[0]),height:.68,class:'note-event note-melody','vector-effect':'non-scaling-stroke'});
    let envelope=null;
    if(drum){r.style.setProperty('--hit-color',drumColors[drumLane(n[2])]);r.style.setProperty('--hit-width',(onlyDrums?1.5:1)+n[3]/127*(onlyDrums?3:1.5));
@@ -167,6 +177,14 @@
    r.append(el('title',{},`${drum?'Drum '+n[2]:pitch(n[2])} · ${(n[0]-(mode==='phrase'?selection.start:0)).toFixed(2)}s · velocity ${n[3]}`));
    const base=.3+.42*n[3]/127;r.setAttribute('opacity',base);envelope?.setAttribute('opacity',.25+base*.14);
    (drum?drums:melody).append(r);entries.push({n,r,envelope,energy:0,base});
+  }
+  // Static source attacks share paths with identical kit voice and velocity.
+  for(const {n,paths} of contextDrums.values()){
+   const path=el('path',{d:paths.join(''),class:'note-drum note-context',fill:'none',opacity:.3+.42*n[3]/127,'vector-effect':'non-scaling-stroke'});
+   path.style.setProperty('--hit-color',drumColors[drumLane(n[2])]);
+   path.style.setProperty('--hit-width',(onlyDrums?1.5:1)+n[3]/127*(onlyDrums?3:1.5));
+   path.append(el('title',{},`${drumLane(n[2])} source attacks · velocity ${n[3]}`));
+   drums.prepend(path);
   }
   // Full song context stays static. Only the selected passage can sound in this loop.
   const animationEntries=loopAnimationEntries(entries,selection.start,selection.end,selection.part,mode==='song');

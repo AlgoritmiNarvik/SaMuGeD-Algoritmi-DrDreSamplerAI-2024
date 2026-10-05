@@ -199,3 +199,9 @@ test('song animation visits only the loop and sounding source parts',()=>{
  assert.deepEqual(loopAnimationEntries(entries,10,12,2,false),[melody,drum,other]);
  assert.equal(entries.length,5); // The full source context remains available to render.
 });
+
+test('grouped song drum geometry preserves attack position and lane height',()=>{
+ const {drumContextPath}=require('../scripts/player_notes.js');
+ assert.equal(drumContextPath([12.5,12.6,38,80,1,3],200,false),'M12.5 197.5v5');
+ assert.equal(drumContextPath([12.5,12.6,38,80,1,3],200,true),'M12.5 195v10');
+});
