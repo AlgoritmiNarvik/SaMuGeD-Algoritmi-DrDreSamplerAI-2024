@@ -3,7 +3,7 @@
 .note-toolbar button{font-size:12px;padding:6px 10px;min-height:36px;transition:background 180ms ease,border-color 180ms ease,color 180ms ease}
 .note-toolbar button[aria-pressed=true]{border-color:#726589;background:#272330;color:#e0d7ff}
 .note-toolbar #note-focus{margin-left:auto}.note-tools{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:12px 0}
-.note-tools label{font-size:11px}.note-tools input{max-width:95px}.note-range{font-size:10px;font-variant-numeric:tabular-nums;color:var(--muted);margin-left:auto}
+.note-tools label{display:inline-flex;align-items:center;gap:7px;font-size:11px;white-space:nowrap}.note-tools input[type=range]{width:95px;min-width:0;max-width:95px;padding:0;margin:0;accent-color:#b9acf3}.note-tools label[hidden]{display:none}.note-tools input[type=checkbox]{min-width:0;width:auto}.note-range{font-size:10px;font-variant-numeric:tabular-nums;color:var(--muted);margin-left:auto}
 .note-explorer svg{width:100%;height:auto;display:block;background:var(--bg);transition:opacity 180ms ease}
 .note-field{fill:#121215}.note-grid{stroke:#34313d;stroke-width:.6;opacity:.65}.note-drum-grid{stroke:#453934;stroke-width:.5;opacity:.65}.note-time-grid{stroke:#39353f;stroke-width:.5;stroke-dasharray:1 6;opacity:.55}
 .note-axis-label{fill:#85818f;font:10px Inter,system-ui,sans-serif}.note-event{stroke-width:.45;stroke:currentColor}
@@ -18,7 +18,7 @@
 #intro-notes .midi-note,#intro-drums .drum-hit{transition:fill 80ms ease-out,opacity 210ms ease-out}
 #intro-notes .midi-note.active{fill:#f2eaff}#intro-drums .drum-hit.active{fill:#ffe6d3}
 @media(prefers-reduced-motion:reduce){.note-explorer svg,.note-toolbar button,.note-cursor,#intro-notes .midi-note,#intro-drums .drum-hit{transition:none}}
-@media(max-width:850px){.workspace>.panel{height:min(490px,60svh);max-height:64svh}.note-explorer{margin-top:10px;padding-top:10px}.note-toolbar button{min-height:40px}.note-tools{gap:8px;margin:9px 0}.note-tools input{max-width:78px}.note-explorer svg{min-height:160px}.note-range{font-size:9px}}
+@media(max-width:850px){.workspace>.panel{height:min(490px,60svh);max-height:64svh}.note-explorer{margin-top:10px;padding-top:10px}.note-toolbar button{min-height:40px}.note-tools{gap:8px;margin:9px 0}.note-tools input[type=range]{width:78px;max-width:78px}.note-explorer svg{min-height:160px}.note-range{font-size:9px}}
 
 .note-beat-grid{stroke:#5b5268;stroke-width:.6;opacity:.4}
 @media(max-width:950px){.layout>.panel{height:min(490px,60svh);max-height:64svh}}
