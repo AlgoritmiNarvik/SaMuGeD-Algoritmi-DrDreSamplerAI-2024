@@ -46,7 +46,10 @@
    return `M${x} ${y-h}h${w}v${h*2}h${-w}Z`;
   }).filter((_,i)=>firstOnly?i===0:i>0).join('');
  }
- if(typeof module!=='undefined')module.exports={phase,bounds,cameraAt,noteEnergy,drumLane,drumDecay};
+ function loopAnimationEntries(entries,start,end,part,songView){
+  return entries.filter(({n})=>n[0]>=start-.001&&n[0]<end&&(!songView||n[4]||n[5]===part));
+ }
+ if(typeof module!=='undefined')module.exports={phase,bounds,cameraAt,noteEnergy,drumLane,drumDecay,loopAnimationEntries};
  if(typeof document==='undefined')return;
  const cache=new Map();
  function createNoteExplorer({canvasId='player-notes',prefix='note-',captionId='note-caption',initialMode='phrase',viewAttribute='data-note-view',notesBase='notes',getLayer=()=>layer,relatedScope='main',onNavigate=id=>window.selectNotePhrase?.(id)}={}){
@@ -162,9 +165,12 @@
     if(mode==='phrase'){envelope=el('path',{d:drumEnvelope(n[0],drumY(n[2]),n[2],n[3],!onlyDrums,(onlyDrums?344:174)/Math.max(1,lanes.length),false,tailSpace.get(n)),class:'note-hit-envelope',fill:drumColors[drumLane(n[2])],opacity:.28});envelopes.append(envelope)}
    }
    r.append(el('title',{},`${drum?'Drum '+n[2]:pitch(n[2])} · ${(n[0]-(mode==='phrase'?selection.start:0)).toFixed(2)}s · velocity ${n[3]}`));
-   (drum?drums:melody).append(r);entries.push({n,r,envelope,energy:-1,base:.3+.42*n[3]/127});
+   const base=.3+.42*n[3]/127;r.setAttribute('opacity',base);envelope?.setAttribute('opacity',.25+base*.14);
+   (drum?drums:melody).append(r);entries.push({n,r,envelope,energy:0,base});
   }
-  return {g,melody,drums,entries,mode,layer:getLayer(),onlyDrums,lanes,drumY,opacity:1};
+  // Full song context stays static. Only the selected passage can sound in this loop.
+  const animationEntries=loopAnimationEntries(entries,selection.start,selection.end,selection.part,mode==='song');
+  return {g,melody,drums,entries,animationEntries,mode,layer:getLayer(),onlyDrums,lanes,drumY,opacity:1};
  }
  function pitchRange(notes){
   const melodic=notes.filter(n=>!n[4]);if(!melodic.length)return [48,60];
@@ -251,7 +257,7 @@
   if(!motion&&scenes.length>1)scenes.shift().g.remove();
   const p=running?phase(clock.seconds,clock.duration):0,t=selection.start+p;
   const names=new Set();let haloIndex=0;
-  for(const scene of scenes)for(const entry of scene.entries){
+  for(const scene of scenes)for(const entry of scene.animationEntries){
    const {n,r,base}=entry;
    // Other instruments remain context only. Their notes are not present in the selected audio.
    const audible=running&&(clock.layer!=='drums'||n[4])&&(clock.layer!=='solo'||row.kind==='percussion'||!n[4])&&(scene.mode!=='song'||n[4]||n[5]===selection.part);
