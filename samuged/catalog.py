@@ -43,6 +43,7 @@ CREATE INDEX source_sha ON sources(source_sha256);
 CREATE INDEX source_musical ON sources(musical_sha256);
 CREATE INDEX phrase_filters ON phrases(kind,instrument_family,occurrence_count,duration_beats);
 CREATE INDEX annotations_filter ON annotations(category,value);
+CREATE INDEX phrase_recurrence ON phrases(kind,occurrence_count DESC,duration_beats);
 CREATE VIEW phrase_catalog AS SELECT p.*,s.artist,s.title,s.status,s.algorithm,s.source_sha256,
  s.metadata_json,s.warning_count,s.repair_count,s.search_limited,s.curation_truncated,s.split,
  d.dataset_id,d.dataset_license,d.composition_rights,d.redistribution_status
@@ -149,7 +150,7 @@ def build_catalog(manifest_path: Path, output: Path, *, max_output_mb=256, min_f
                             canonical_json(p['meter']) if 'meter' in p else None,
                             canonical_json([{k:o[k] for k in ('start_tick','end_tick','transpose_semitones','edit_count','similarity','source_verified') if k in o} for o in p.get('occurrences', [])]), canonical_json(p.get('matcher_flags', {}))))
                         total_phrases += 1
-                    for annotation in build.get('annotations', {}).get(r['source_id'], []):
+                    for annotation in [*r.get('annotations', []), *build.get('annotations', {}).get(r['source_id'], [])]:
                         if not all(annotation.get(k) for k in ('category','value','evidence_url','method')):
                             raise ValueError('annotations require a category, value, evidence URL and method')
                         _insert(db,'annotations',(key,annotation['category'],annotation['value'],annotation['evidence_url'],annotation['method']))
