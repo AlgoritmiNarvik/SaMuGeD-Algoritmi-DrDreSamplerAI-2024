@@ -104,7 +104,7 @@ The first pilot covers 16 PDMX scores and the eight shortest MAESTRO performance
 
 Full PDMX extraction, a full MAESTRO run, Guitar Pro ingestion, new matching ablations and an expanded public release remain separate next stages. Do not describe the metadata screening as a completed phrase dataset.
 
-The expanded PDMX pilot uses 1,000 scores selected by the same fixed policy. It extracted 2,372 melodic phrases from 921 sources. All 1,000 sources parsed. Three sources reached search limits and 68 carried parser warnings. Extraction took about 103 seconds with two workers and occupied about 37 MiB. The pilot excludes longer and denser scores, so this timing is not a full corpus forecast. Listener ratings are not available.
+The expanded PDMX pilot uses 1,000 scores selected by the same fixed policy. It extracted 2,372 melodic phrases from 921 sources. All 1,000 sources parsed. Three sources reached search limits and 68 carried parser warnings. Extraction took about 103 seconds with two workers and occupied about 37 MiB. The pilot excludes longer and denser scores, so this timing is not a full corpus forecast. Independent replay and artifact checking passed for all 1,000 sources and all 2,372 exports. Listener ratings are not available.
 
 A full screened PDMX extraction can run in resumable batches:
 
