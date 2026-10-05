@@ -52,7 +52,21 @@ def main():
     info = sub.add_parser("catalog-info",help="list catalog sources, annotation categories and values")
     info.add_argument("--catalog",type=Path,required=True)
     info.add_argument("--category")
+    review = sub.add_parser("catalog-review",help="report metadata coverage and duplicate candidates without changing data")
+    review.add_argument("--catalog",type=Path,required=True)
+    review.add_argument("--sample-limit",type=int,default=20)
+    review.add_argument("--output",type=Path)
     args = parser.parse_args()
+    if args.command == "catalog-review":
+        from .catalog_review import review
+        from .catalog_search import export
+        import sqlite3
+        try:
+            result=review(args.catalog,sample_limit=args.sample_limit)
+            if args.output:export(result,args.output)
+            else:print(json.dumps(result,ensure_ascii=False,indent=2))
+        except (ValueError,OSError,sqlite3.Error) as exc:parser.error(str(exc))
+        return
     if args.command == "catalog-info":
         from .catalog_search import info
         print(json.dumps(info(args.catalog,category=args.category),ensure_ascii=False,indent=2))

@@ -137,3 +137,16 @@ Use `--text` for literal title or artist text. Add `--dataset`, `--instrument`, 
 Category values are exact source labels. `classical-folk` is distinct from `classical`. Run `catalog-info --category composer` to inspect composer labels. Missing labels stay missing. Rights filters match evidence status, not reuse permission. Dataset conditions and evidence are shown by `catalog-info`. Tempo and meter timelines include MIDI defaults when explicit events are absent.
 
 Search is read-only, uses bound parameters and returns at most 500 rows. Queries have a 10 second time budget. `--offset` supports bounded pagination. The default output is JSON. Use `--format csv --output results.csv` for a spreadsheet export. Existing files are not replaced. CSV escapes formula-like labels, including leading whitespace, while JSON retains the original text.
+
+## Review coverage and duplicate candidates
+
+```sh
+python -m samuged.cli catalog-review --catalog snapshot/combined_catalog.sqlite \
+  --sample-limit 20 --output review.json
+```
+
+This read only report counts source statuses, missing identity and fingerprint fields, warnings, repairs, search limits and annotation coverage per corpus. It also records phrase duration and recurrence ranges, corpus conditions and the catalog hash. Missing artist fields do not mean missing composers, composer annotations are counted separately. Source counts describe build specific records, so importing several versions of one corpus does not create several new songs.
+
+Two separate checks group equal file hashes and equal normalized arrangement hashes. They count cross corpus groups and candidates that occur in more than one recorded evaluation split. Counts from the two checks overlap and must not be added. Examples are limited to 100 groups per method and eight members per group. Unknown hashes are excluded from grouping and counted as missing.
+
+Arrangement equality is a candidate signal. It does not establish verified song identity and this report does not perform approximate similarity matching. Zero recorded split conflicts is insufficient to validate an evaluation split, particularly while sources remain `unassigned`. Use these findings to review global grouping before assigning evaluation splits. The command changes no splits, removes no sources and publishes nothing.
