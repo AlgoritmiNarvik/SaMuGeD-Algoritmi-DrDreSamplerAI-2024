@@ -35,7 +35,9 @@
  function drumDecay(p){return ({'Closed hat':.16,'Open hat':.65,Ride:.95,Crash:1.4,Kick:.42,Snare:.48,Toms:.55})[drumLane(p)]||.4}
  // Symbolic MIDI envelopes, not isolated audio waveforms or measured sample decay.
  function drumEnvelope(start,y,p,velocity,compact=false,laneHeight=40,firstOnly=false,available=Infinity){
-  const length=Math.min(drumDecay(p),available), count=compact?8:12;
+  const length=Math.min(drumDecay(p),available);
+  // Long cymbal tails need narrower bars. Short hits retain their existing spacing.
+  const count=length>.55?Math.min(40,Math.max(compact?8:12,Math.ceil(length/.045))):compact?8:12;
   const height=Math.min(laneHeight*.39,compact?20:42)*(.35+.65*clamp(velocity,0,127)/127);
   // One cached path per hit keeps per-frame DOM updates independent of segment count.
   return Array.from({length:count},(_,i)=>{
