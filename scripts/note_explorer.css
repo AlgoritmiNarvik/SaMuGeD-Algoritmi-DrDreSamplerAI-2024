@@ -31,3 +31,5 @@
 .note-section-divider{stroke:#62536b;stroke-width:.6;opacity:.5}.note-section-label{fill:#b6a6cc;font:7px Inter,system-ui,sans-serif;letter-spacing:.1em}
 
 .note-drum-attack{stroke:none}.note-drum-attack.is-sounding{fill:#fff2e5}.note-drum-attack.is-releasing{fill:var(--hit-color,#c69783)}
+
+.note-repeat-bands{pointer-events:none}.note-repeat{fill:#b9acf3;fill-opacity:.065;stroke:#8a78b5;stroke-width:.45;stroke-opacity:.24}.overview-repeat{fill:#a899ca;fill-opacity:.2;pointer-events:none}.note-selection{fill-opacity:.07;stroke-opacity:.85;stroke-width:1.1}
