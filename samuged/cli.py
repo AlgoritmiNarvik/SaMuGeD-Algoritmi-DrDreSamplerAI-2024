@@ -30,7 +30,43 @@ def main():
     catalog.add_argument("--output", type=Path, required=True)
     catalog.add_argument("--max-output-mb", type=int, default=256)
     catalog.add_argument("--min-free-mb", type=int, default=1024)
+    search = sub.add_parser("catalog-search", help="filter catalog phrases without writing to the index")
+    search.add_argument("--catalog",type=Path,required=True)
+    for name in ("text","dataset","category","value"):
+        search.add_argument("--"+name)
+    search.add_argument("--kind",choices=("melodic","percussion"))
+    from .catalog import FAMILIES, RIGHTS
+    search.add_argument("--instrument",choices=(*FAMILIES,"drums"))
+    search.add_argument("--rights",choices=sorted(RIGHTS))
+    search.add_argument("--redistribution",choices=sorted(RIGHTS))
+    search.add_argument("--min-repeats",type=int,default=2)
+    search.add_argument("--min-beats",type=float)
+    search.add_argument("--max-beats",type=float)
+    search.add_argument("--no-warnings",action="store_true")
+    search.add_argument("--no-search-limit",action="store_true")
+    search.add_argument("--sort",choices=("repeats","duration","density","score","title"),default="repeats")
+    search.add_argument("--limit",type=int,default=50)
+    search.add_argument("--offset",type=int,default=0)
+    search.add_argument("--output",type=Path)
+    search.add_argument("--format",choices=("json","csv"),default="json")
+    info = sub.add_parser("catalog-info",help="list catalog sources, annotation categories and values")
+    info.add_argument("--catalog",type=Path,required=True)
+    info.add_argument("--category")
     args = parser.parse_args()
+    if args.command == "catalog-info":
+        from .catalog_search import info
+        print(json.dumps(info(args.catalog,category=args.category),ensure_ascii=False,indent=2))
+        return
+    if args.command == "catalog-search":
+        from .catalog_search import search, export
+        filters={k:getattr(args,k) for k in ("text","dataset","kind","instrument","category","value","rights", "redistribution","min_repeats","min_beats","max_beats","no_warnings","no_search_limit","sort","limit","offset")}
+        try:
+            result=search(args.catalog,**filters)
+            if args.output:export(result,args.output,format=args.format)
+            elif args.format!="json":parser.error("CSV export requires --output")
+            else:print(json.dumps(result,ensure_ascii=False,indent=2))
+        except ValueError as exc:parser.error(str(exc))
+        return
     if args.command == "catalog":
         from .catalog import build_catalog
         result = build_catalog(args.manifest, args.output,
