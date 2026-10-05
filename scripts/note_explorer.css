@@ -18,10 +18,10 @@
 #intro-notes .midi-note,#intro-drums .drum-hit{transition:fill 80ms ease-out,opacity 210ms ease-out}
 #intro-notes .midi-note.active{fill:#f2eaff}#intro-drums .drum-hit.active{fill:#ffe6d3}
 @media(prefers-reduced-motion:reduce){.note-explorer svg,.note-toolbar button,.note-cursor,#intro-notes .midi-note,#intro-drums .drum-hit{transition:none}}
-@media(max-width:850px){.workspace>.panel{height:min(490px,60svh);max-height:64svh}.note-explorer{margin-top:10px;padding-top:10px}.note-toolbar button{min-height:40px}.note-tools{gap:8px;margin:9px 0}.note-tools input[type=range]{width:78px;max-width:78px}.note-explorer svg{min-height:160px}.note-range{font-size:9px}}
+@media(max-width:850px){.workspace>.panel{height:auto;max-height:none}.note-explorer{margin-top:10px;padding-top:10px}.note-toolbar button{min-height:40px}.note-tools{gap:8px;margin:9px 0}.note-tools input[type=range]{width:78px;max-width:78px}.note-explorer svg{min-height:160px}.note-range{font-size:9px}}
 
 .note-beat-grid{stroke:#5b5268;stroke-width:.6;opacity:.4}
-@media(max-width:950px){.layout>.panel{height:min(490px,60svh);max-height:64svh}}
+@media(max-width:950px){.layout>.panel{width:100%;min-width:0;height:auto;max-height:none;overflow:visible}}
 .note-navigation{display:flex;gap:6px;align-items:center;margin:9px 0}.note-navigation[hidden]{display:none}.note-navigation button{min-height:36px;padding:5px 11px;font-size:15px}.note-navigation button:disabled{opacity:.3;cursor:default}.note-navigation select{min-width:0;flex:1;background:#19191c;color:#b9afc9;border:1px solid #38323e;border-radius:0;font:11px Inter,system-ui,sans-serif;padding:9px 6px}.note-phrase-marker{cursor:pointer}.note-phrase-marker line{stroke:#7e718f;stroke-width:1}.note-phrase-marker:hover line,.note-phrase-marker:focus line,.note-phrase-marker line.current{stroke:#e3d6ff;stroke-width:2}.note-phrase-marker:focus{outline:none}
 
 @media(max-width:850px){.note-axis-label{font-size:15px}.note-readout,.note-time{font-size:14px}.note-navigation button{min-height:42px}.note-navigation select{font-size:12px;min-height:42px}}
@@ -36,3 +36,16 @@
 
 /* Reserve the note viewport independently of the number of drum lanes. */
 .note-explorer svg,#intro-notes{aspect-ratio:600 / 414;contain:layout paint}
+
+/* Keep the player readable without a second scrolling viewport on phones. */
+header>*,.workspace>*,.layout>*,.note-explorer{min-width:0}
+@media(max-width:850px){
+ .workspace,.layout{width:100%;min-width:0;height:auto;max-height:none;align-items:stretch}
+ .workspace>.panel,.layout>.panel{width:100%;min-width:0;height:auto;max-height:none;overflow:visible}
+ .workspace>.list,.layout>.list{width:100%;min-width:0;flex:0 0 auto;height:min(520px,65svh);min-height:240px;max-height:none;overflow-y:auto}
+ .panel h2,.panel .song,.panel .artist{overflow-wrap:anywhere}
+ .facts,.metrics{flex-wrap:wrap}
+ .note-toolbar #note-focus{margin-left:0}
+ .note-navigation-controls{min-width:0}
+ nav{flex-wrap:wrap;overflow:visible}
+}
