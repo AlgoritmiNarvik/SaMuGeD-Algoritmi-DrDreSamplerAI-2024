@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-10-05",
+  "sources": [
+    {
+      "dataset_id": "lakh",
+      "name": "Lakh MIDI",
+      "version": "0.1",
+      "source_url": "https://colinraffel.com/projects/lmd/",
+      "dataset_license": "CC-BY-4.0",
+      "composition_rights": "unknown",
+      "redistribution_status": "declared",
+      "conditions": [
+        "Attribute Colin Raffel and the dataset",
+        "Underlying composition and transcription rights are not independently cleared"
+      ],
+      "evidence": [
+        "https://colinraffel.com/projects/lmd/"
+      ],
+      "acquisition": "existing_clean_corpus_only"
+    },
+    {
+      "dataset_id": "pdmx",
+      "name": "PDMX",
+      "version": "zenodo:15571083",
+      "source_url": "https://zenodo.org/records/15571083",
+      "dataset_license": "CC-BY-4.0",
+      "composition_rights": "declared",
+      "redistribution_status": "unknown",
+      "conditions": [
+        "Select no_license_conflict and check per-score rights",
+        "Keep original score and conversion provenance",
+        "Pilot selection requires Public Domain or CC0 declarations and all_valid"
+      ],
+      "evidence": [
+        "https://github.com/pnlong/PDMX",
+        "https://zenodo.org/records/15571083"
+      ],
+      "acquisition": "checksum_checked_midi_archive_and_metadata"
+    },
+    {
+      "dataset_id": "maestro",
+      "name": "MAESTRO",
+      "version": "3.0.0",
+      "source_url": "https://magenta.tensorflow.org/datasets/maestro",
+      "dataset_license": "CC-BY-NC-SA-4.0",
+      "composition_rights": "unknown",
+      "redistribution_status": "declared",
+      "conditions": [
+        "Attribution",
+        "Noncommercial use",
+        "Share adapted material under the required license"
+      ],
+      "evidence": [
+        "https://magenta.tensorflow.org/datasets/maestro"
+      ],
+      "acquisition": "checksum_checked_midi_archive"
+    },
+    {
+      "dataset_id": "dadagp",
+      "name": "DadaGP",
+      "version": "select_and_pin_before_import",
+      "source_url": "https://github.com/dada-bots/dadaGP",
+      "dataset_license": "research_access_request",
+      "composition_rights": "unknown",
+      "redistribution_status": "unknown",
+      "conditions": [
+        "Request research access from authors",
+        "MIT applies to code and does not establish rights to the song corpus"
+      ],
+      "evidence": [
+        "https://github.com/dada-bots/dadaGP"
+      ],
+      "acquisition": "access_and_terms_required"
+    }
+  ]
+}
