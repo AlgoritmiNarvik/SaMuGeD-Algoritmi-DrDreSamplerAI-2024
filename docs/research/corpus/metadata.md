@@ -114,3 +114,26 @@ python -m samuged.cli catalog \
 Preparation requires a completed extraction unless `--allow-partial` is supplied. Partial snapshots are explicitly marked incomplete. It verifies audit hashes, source hashes and MIDI hashes, joins the screened metadata and copies MIDI by hard link. Use a new output directory on the same filesystem. The snapshot retains source tempo and meter events and encoded instrument parts. Detailed note alignment pairs remain in the original audited batches, referenced by their hashes.
 
 Source annotations include `composer`, `genre_raw`, `group_raw`, `tag_raw`, `license_declaration` and `duplicate_group`. Every label has an evidence URL and method. A duplicate group combines matching bytes or matching normalized arrangement fingerprints. It is a candidate group, not a verified song identity. Sources are retained rather than removed. Artist and song keys inferred from folders are stored only as extraction provenance. Snapshot split labels are `unassigned` until a global split policy is reviewed. This command does not publish data.
+
+## Filter without writing SQL
+
+Inspect the available categories and original genre values:
+
+```sh
+python -m samuged.cli catalog-info --catalog snapshot/catalog.sqlite
+python -m samuged.cli catalog-info --catalog snapshot/catalog.sqlite --category genre_raw
+```
+
+Find 50 recurring classical phrases and export their metadata:
+
+```sh
+python -m samuged.cli catalog-search --catalog snapshot/catalog.sqlite \
+  --category genre_raw --value classical --kind melodic \
+  --min-repeats 3 --sort repeats --limit 50 --output classical.json
+```
+
+Use `--text` for literal title or artist text. Add `--dataset`, `--instrument`, `--min-beats`, `--max-beats`, `--rights` or `--redistribution` to narrow the result. `--no-warnings` excludes sources with recorded warnings or repairs. `--no-search-limit` filters the catalog's recorded source search limit flag. Neither flag establishes perceptual quality or an exhaustive search. Sort by `repeats`, `duration`, `density`, `score` or `title`.
+
+Category values are exact source labels. `classical-folk` is distinct from `classical`. Run `catalog-info --category composer` to inspect composer labels. Missing labels stay missing. Rights filters match evidence status, not reuse permission. Dataset conditions and evidence are shown by `catalog-info`. Tempo and meter timelines include MIDI defaults when explicit events are absent.
+
+Search is read-only, uses bound parameters and returns at most 500 rows. Queries have a 10 second time budget. `--offset` supports bounded pagination. The default output is JSON. Use `--format csv --output results.csv` for a spreadsheet export. Existing files are not replaced. CSV escapes formula-like labels, including leading whitespace, while JSON retains the original text.
