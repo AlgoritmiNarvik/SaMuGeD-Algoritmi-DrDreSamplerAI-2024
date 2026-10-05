@@ -1,0 +1,13 @@
+## 2026-10-05: prepare corpus expansion and searchable metadata
+
+Added a versioned source registry, bounded acquisition and archive extraction, a SQLite catalog command and deterministic pilot preparation. Dataset declarations and underlying composition rights remain separate evidence fields. Categories can carry source URLs and methods. Unknown labels are preserved. Imports retain failures and search limits, source and musical hashes, instrument families, pitch range, note velocity, onset density, repeated passage coordinates and source event metadata.
+
+Acquired checksum-checked MIDI-only MAESTRO v3 and PDMX assets. PDMX metadata screening found 189,704 valid records with Public Domain or CC0 declarations and no reported license conflict. The first pilot extracted 40 melodic phrases from 16 PDMX scores and 13 from eight MAESTRO performances. Full independent artifact checking and detector replay passed for both pilots. Two MAESTRO sources reached search limits. This measures coverage and reproducibility, not perceptual accuracy.
+
+The joined catalog has 206,960 build-specific source records and 95,130 phrases, including the existing Lakh extraction. Metadata-only rows and extracted pilot rows are distinct versions, so these counts are not unique songs. The initial joined database occupied about 309 MiB. Detailed alignment pairs stay in the original results rather than duplicate into the search index.
+
+The public dataset, paper and Space were not replaced. Corpus adapters, combined duplicate-aware training splits, matching improvements and full new-corpus extraction are not complete. The local artifacts are excluded from Git. Downloads and outputs remain on the selected volume with storage reserves.
+
+Prepared the requested expanded pilot on 1,000 PDMX scores. It parsed all sources and extracted 2,372 melodic phrases from 921 files in about 103 seconds. Three files reached search limits and 68 carried parser warnings. Added a resumable full corpus runner with batches of 250 sources, independent replay per batch and a 10 GiB disk reserve. Batch labels remain separate from global release splits.
+
+Expanded pilot replay passed for all 1,000 PDMX sources and 2,372 MIDI exports with zero audit failures. The 32 performance MAESTRO pilot also passed, with 72 melodic phrases and seven search limited sources. The expanded joined catalog contains 97,521 phrases and 207,968 build-specific source records. Full screened PDMX extraction was admitted after the pilot audit. It remains a local run pending completion, global identity joins, duplicate grouping and release review.

@@ -51,6 +51,8 @@ Start with the interactive Schism example to see repeated notes become a loop. A
 
 There are **no listener labels** for these fragments. Repetition does not prove catchiness or recognition. Familiar song evidence applies to songs, not these exact MIDI fragments. Filename identities, search limits and duplicate arrangements affect coverage.
 
+[Corpus expansion and searchable metadata](docs/research/corpus/README.md) describes source conditions, bounded imports and the new catalog.
+
 ## Run locally
 
 ```sh

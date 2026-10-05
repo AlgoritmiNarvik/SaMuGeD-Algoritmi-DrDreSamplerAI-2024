@@ -25,7 +25,18 @@ def main():
     command.add_argument("--percussion", action="store_true")
     command.add_argument("--recover-invalid-keys", action="store_true",
                          help="ignore structurally validated invalid key metadata, recording every repair")
+    catalog = sub.add_parser("catalog", help="index existing corpus results without downloading data")
+    catalog.add_argument("--manifest", type=Path, required=True)
+    catalog.add_argument("--output", type=Path, required=True)
+    catalog.add_argument("--max-output-mb", type=int, default=256)
+    catalog.add_argument("--min-free-mb", type=int, default=1024)
     args = parser.parse_args()
+    if args.command == "catalog":
+        from .catalog import build_catalog
+        result = build_catalog(args.manifest, args.output,
+                               max_output_mb=args.max_output_mb, min_free_mb=args.min_free_mb)
+        print(json.dumps(result, indent=2))
+        return
     if args.command == "build":
         if args.algorithm in {"aligned", "aligned_indexed", "aligned_closed", "aligned_melody"}:
             if args.mode is not None:
