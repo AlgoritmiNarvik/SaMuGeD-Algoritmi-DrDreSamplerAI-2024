@@ -115,3 +115,5 @@ python -m scripts.run_corpus_batches --root research_local/expansion \
 ```
 
 Each batch preserves source paths, exported MIDI, extraction receipts and independent full replay checks. Storage checks retain a 10 GiB reserve between batches. The default run extracts melodic phrases. `--percussion` adds the separate drum detector. Batch split labels are bookkeeping only. They must not be used for model evaluation or published as a combined training split. Global duplicate grouping, official identity joins and release review follow extraction. This command does not publish data.
+
+See [metadata and snapshot preparation](metadata.md) for source labels, filter examples and independently checked local snapshots.
