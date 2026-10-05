@@ -59,7 +59,7 @@
  const load=path=>{if(!cache.has(path))cache.set(path,fetch(path).then(r=>{if(!r.ok)throw Error('Notes unavailable');return r.json()}).catch(e=>{cache.delete(path);throw e}));return cache.get(path)};
  const X=65,W=521,Y=22,H=148;
  let selection=null,song=null,row=null,token=0,sourceReady=false,mode=initialMode,camera=[0,1,48,60],motion=null;
- let scenes=[],axis=null,stage=null,cursor=null,sweep=null,windowBox=null,overviewWindow=null,overviewSelection=null,halos=[];
+ let scenes=[],axis=null,stage=null,cursor=null,sweep=null,windowBox=null,repeatGroup=null,repeatEntries=[],overviewWindow=null,overviewSelection=null,halos=[];
  let related=[],markerGroup=null,density=null,readout=null,timeReadout=null,rangeReadout=null,lastFrame=0,needsPaint=true,visible=true,wasRunning=false;
  // The offscreen player still follows the shared clock when it re-enters the viewport.
  const observer=typeof IntersectionObserver!=='undefined'?new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;if(visible)needsPaint=true},{rootMargin:'100px'}):null;observer?.observe(svg);
@@ -102,6 +102,8 @@
   svg.append(defs,el('rect',{x:0,y:0,width:600,height:414,class:'note-field'}));
   axis=el('g');svg.append(axis);
   const clipped=el('g',{'clip-path':`url(#${clipId})`});svg.append(clipped);
+  repeatGroup=el('g',{'aria-hidden':'true',class:'note-repeat-bands'});clipped.append(repeatGroup);
+  repeatEntries=(selection.repeats||[]).filter(([a,b])=>Math.abs(a-selection.start)>.03).map(([a,b])=>{const rect=el('rect',{y:9,height:348,class:'note-repeat'});repeatGroup.append(rect);return {a,b,rect}});
   windowBox=el('rect',{y:9,height:348,class:'note-selection'});clipped.append(windowBox);
   const resonance=el('g',{filter:`url(#${glowId})`,'aria-hidden':'true'});halos=Array.from({length:20},()=>{const r=el('rect',{height:9,opacity:0});resonance.append(r);return r});clipped.append(resonance);
   stage=el('g');clipped.append(stage);
@@ -109,6 +111,7 @@
   cursor=el('g',{class:'note-cursor'});cursor.append(el('line',{x1:0,x2:0,y1:13,y2:352}),el('path',{d:'M-3 7H3L0 11Z'}));clipped.append(cursor);
   const overview=el('g',{class:'note-overview'});
   overview.append(el('rect',{x:X,y:387,width:W,height:18,class:'overview-track'}));
+  for(const {a,b} of repeatEntries)overview.append(el('rect',{x:X+a/song.duration*W,y:387,width:Math.max(1,(b-a)/song.duration*W),height:18,class:'overview-repeat'}));
   // A density ribbon gives scale without drawing thousands of tiny full-song notes again.
   density=el('g');overview.append(density);drawDensity();
   overviewSelection=el('rect',{x:X+selection.start/song.duration*W,y:386,width:Math.max(2,(selection.end-selection.start)/song.duration*W),height:20,class:'overview-selection'});overview.append(overviewSelection);
@@ -188,6 +191,8 @@
  function paintGeometry(){
   const [left,right,low,high]=camera,sx=W/(right-left),sy=H/(high-low),tx=X-left*sx,ty=Y+high*sy;
   for(const scene of scenes){scene.melody.setAttribute('transform',`matrix(${sx} 0 0 ${sy} ${tx} ${ty})`);scene.drums.setAttribute('transform',`matrix(${sx} 0 0 1 ${tx} 0)`)}
+  repeatGroup.style.opacity=mode==='song'?1:0;
+  for(const {a,b,rect}of repeatEntries){rect.setAttribute('x',X+(a-left)*sx);rect.setAttribute('width',Math.max(1,(b-a)*sx))}
   windowBox.setAttribute('x',X+(selection.start-left)*sx);windowBox.setAttribute('width',(selection.end-selection.start)*sx);windowBox.style.opacity=mode==='song'?1:0;
   const a=clamp(left,0,song.duration),b=clamp(right,0,song.duration);
   overviewWindow.setAttribute('x',X+a/song.duration*W);overviewWindow.setAttribute('width',Math.max(2,(b-a)/song.duration*W));
@@ -216,7 +221,7 @@
   if(rangeReadout)rangeReadout.textContent=`${range[0].toFixed(1)}–${range[1].toFixed(1)} s`;
   document.querySelectorAll(`[${viewAttribute}]`).forEach(b=>b.setAttribute('aria-pressed',String(b.getAttribute(viewAttribute)===mode)));
   get('note-all-label').hidden=mode!=='song'||scenes.at(-1).onlyDrums;
-  get('note-caption').textContent=mode==='song'?(sourceReady?'The highlighted passage becomes your loop. Zoom in to follow its notes.':'Loading the full song map…'):(scenes.at(-1).onlyDrums?'Each lane is a kit voice. Hit size shows MIDI velocity. Tails illustrate decay, not isolated audio.':'Melody above, drum voices below. Both follow the sound. Drum tails illustrate decay, not isolated audio.');
+  get('note-caption').textContent=mode==='song'?(sourceReady?((selection.repeats||[]).length?'Bright outline: selected loop. Muted bands: detected repeats.':'The highlighted passage becomes your loop. Zoom in to follow its notes.'):'Loading the full song map…'):(scenes.at(-1).onlyDrums?'Each lane is a kit voice. Hit size shows MIDI velocity. Tails illustrate decay, not isolated audio.':'Melody above, drum voices below. Both follow the sound. Drum tails illustrate decay, not isolated audio.');
  }
  async function choose(next){
   const id=++token;if(relatedScope!=='intro')mode='phrase';selection=null;row=next;motion=null;related=[];navigation.hidden=true;

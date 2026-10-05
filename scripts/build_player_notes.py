@@ -10,15 +10,63 @@ from samuged.midi import load_midi
 from samuged.audio_loops import _sha256_file, seconds_between
 
 
+def occurrence_windows(record, song, metadata):
+    """Convert saved detector matches only after verifying their source binding."""
+    if not record or record.get('source_sha256') != metadata['source_sha256']:
+        return []
+    if 'part_index' in record and record['part_index'] != metadata['part']['index']:
+        merged_drums = (record['part_index'] == -1 and record.get('kind') == 'percussion'
+                        and metadata['part'].get('percussion_merge')
+                        and metadata['part']['is_drum']
+                        and set(record.get('source_part_indices', [])) ==
+                        {part.index for part in song.parts if part.is_drum})
+        if not merged_drums:
+            return []
+    windows = set()
+    for match in record.get('occurrences', record.get('occurrence_ticks', [])):
+        if match.get('source_verified') is False:
+            continue
+        start = match.get('start_tick', match.get('start'))
+        end = match.get('end_tick', match.get('end'))
+        if not isinstance(start, int) or not isinstance(end, int) or start < 0 or end <= start:
+            raise ValueError('Invalid saved occurrence window')
+        windows.add((round(seconds_between(song, 0, start), 5) if start else 0,
+                     round(seconds_between(song, 0, end), 5)))
+    return [list(window) for window in sorted(windows)]
+
+
+def recurrence_records(paths):
+    records = {}
+    def visit(value):
+        if isinstance(value, dict):
+            if value.get('phrase_id') and value.get('source_sha256') and ('occurrences' in value or 'occurrence_ticks' in value):
+                records[value['phrase_id']] = value
+            else:
+                for child in value.values():
+                    visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+    for path in paths:
+        if path.suffix == '.jsonl':
+            for line in path.open():
+                visit(json.loads(line))
+        else:
+            visit(json.loads(path.read_text()))
+    return records
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--space', type=Path, required=True)
     parser.add_argument('--source-root', type=Path, action='append', required=True)
+    parser.add_argument('--phrase-manifest', type=Path, action='append', default=[], help='Saved detector records with source hashes and occurrence ticks')
     args = parser.parse_args()
     root = args.space
     catalog = json.loads((root / 'catalog.json').read_text())
     out = root / 'notes'
     out.mkdir(exist_ok=True)
+    records = recurrence_records([*sorted((root / 'rendering').glob('*selection.json')), *args.phrase_manifest])
     songs = {}
     rows = {r['phrase_id']: r for g in catalog['groups'].values() for r in g['rows']}
     rows.update({r['phrase_id']: r for r in catalog.get('song_variants', [])})
@@ -70,6 +118,8 @@ def main():
                    'start': seconds_between(song, 0, start) if start else 0,
                    'end': seconds_between(song, 0, end), 'variants': variants,
                    'source_duration': durations[digest],
+                   'repeats': occurrence_windows(records.get(pid), song, meta),
+                   'repeat_method': 'saved_detector_occurrences',
                    'beat_grid': [[round(seconds_between(song, start, t), 5) if t > start else 0,
                                   round((t - start) / song.ticks_per_beat, 3)]
                                  for t in range(start, end + 1, max(1, song.ticks_per_beat // 2))]}
