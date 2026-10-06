@@ -156,3 +156,82 @@ def test_search_boundaries_and_query_literal(tmp_path, monkeypatch):
     assert search_candidates(path, text='%') == []
     with pytest.raises(ValueError):search_candidates(path, limit=True)
     with pytest.raises(ValueError):search_candidates(path, work_id='../bad')
+
+
+@pytest.mark.parametrize('a,b,expected',[
+    ('Collins_Phil','Phil Collins','normalized_tokens'),
+    ('J. S. Bach','Johann Sebastian Bach','initials_candidate'),
+    ('Bach','Johann Sebastian Bach',None),
+    ('J. Bach','C. Bach',None),
+    ('Frédéric Chopin','Frederic Chopin','normalized_tokens')])
+def test_name_variants_remain_candidate_evidence(a,b,expected):
+    from samuged.work_identity import creator_agreement
+    assert creator_agreement(a,b)==expected
+
+
+def test_apostrophe_and_accent_normalization():
+    from samuged.work_identity import label
+    assert label("Can't Stop")==label('Cant_Stop')
+    assert label('Sérieuses')==label('serieuses')
+
+
+def test_service_backoff_respects_request_budget(tmp_path,monkeypatch):
+    import urllib.error
+    from email.message import Message
+    _,_,path=setup(tmp_path,monkeypatch)
+    waits=[];monkeypatch.setattr('time.sleep',waits.append)
+    headers=Message();headers['Retry-After']='8'
+    with sqlite3.connect(path) as db:
+        db.row_factory=sqlite3.Row;client=Client(db,2)
+        def busy(*args,**kwargs):raise urllib.error.HTTPError('https://musicbrainz.org',503,'busy',headers,None)
+        monkeypatch.setattr(client.opener,'open',busy)
+        with pytest.raises(BudgetReached):client.get('work',identifier=WORK)
+        assert client.requests==2 and 8 in waits and 15 in waits
+        assert db.execute('SELECT count(*) FROM cache').fetchone()[0]==0
+
+
+def test_work_alias_requires_creator_agreement(tmp_path,monkeypatch):
+    _,_,path=setup(tmp_path,monkeypatch)
+    def get(self,entity,identifier=None,query=None):
+        if query:return {'works':[{'id':WORK,'title':'Different canonical title'}]},{}
+        return {'id':WORK,'title':'Different canonical title','aliases':['Song'],
+            'relations':[{'type':'composer','artist':{'name':'Bach'}}]},{}
+    monkeypatch.setattr(Client,'get',get)
+    assert run(path)['coverage']=={'candidate':1}
+
+
+@pytest.mark.parametrize('writer,expected', [('Different Author', 0), ('Bach', 1)])
+def test_same_title_does_not_override_creator(tmp_path, monkeypatch, writer, expected):
+    _, _, path = setup(tmp_path, monkeypatch)
+    def get(self, entity, identifier=None, query=None):
+        payload = dict(id=WORK, title='Song', relations=[
+            dict(type='composer', artist=dict(name=writer))])
+        return ({'works': [payload]} if query else payload), {}
+    monkeypatch.setattr(Client, 'get', get)
+    assert run(path)['work_candidates'] == expected
+    with sqlite3.connect(path) as db:
+        if expected:
+            evidence = json.loads(db.execute('SELECT evidence_json FROM work_candidates').fetchone()[0])
+            basis = evidence['match_basis']
+            assert basis['title_agreement'] == 'canonical_title_normalized'
+            assert basis['creator_agreement'][0]['agreement'] == 'normalized_tokens'
+            assert basis['source_identity_verified'] is False
+            assert basis['musical_comparison'] == 'not_performed'
+
+
+def test_multiple_works_remain_ambiguous(tmp_path, monkeypatch):
+    meta, catalog, path = setup(tmp_path, monkeypatch)
+    second = '00000000-0000-0000-0000-000000000003'
+    def get(self, entity, identifier=None, query=None):
+        if query:
+            return {'works': [dict(id=x, title='Song') for x in (WORK, second)]}, {}
+        return dict(id=identifier, title='Song', relations=[
+            dict(type='composer', artist=dict(name='Bach'))]), {}
+    monkeypatch.setattr(Client, 'get', get)
+    assert run(path)['work_candidates'] == 2
+    with sqlite3.connect(path) as db:
+        for (encoded,) in db.execute('SELECT evidence_json FROM work_candidates'):
+            basis = json.loads(encoded)['match_basis']
+            assert basis['multiple_work_candidates'] and basis['distinct_work_candidates'] == 2
+    inherited = phrase_evidence(catalog, meta, path)[0]
+    assert inherited['work_id'] is None and inherited['overall_clearance_status'] == 'not_established'

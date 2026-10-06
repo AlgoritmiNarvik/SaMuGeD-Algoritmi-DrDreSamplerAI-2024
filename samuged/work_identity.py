@@ -13,12 +13,14 @@ import sqlite3
 import time
 import urllib.parse
 import urllib.request
+import urllib.error
 import uuid
+import unicodedata
 
 from .dataset import file_digest
 from .metadata_links import USER_AGENT
 
-POLICY = 'work-candidates-v1'
+POLICY = 'work-candidates-v3'
 BASE = 'https://musicbrainz.org/ws/2/'
 
 
@@ -27,7 +29,24 @@ def now():
 
 
 def label(value):
-    return ' '.join(re.findall(r'\w+', (value or '').replace('_', ' ').casefold()))[:250]
+    text = unicodedata.normalize('NFKD', (value or '').replace('_', ' ').casefold())
+    text = ''.join(c for c in text if not unicodedata.combining(c)).replace("'", '').replace('’', '')
+    return ' '.join(re.findall(r'\w+', text))[:250]
+
+
+def creator_agreement(left, right):
+    a, b = label(left).split(), label(right).split()
+    if sorted(a) == sorted(b):
+        return 'normalized_tokens' if a else None
+    if len(a) != len(b) or len(a) < 2 or not any(len(x) >= 3 and x in b for x in a):
+        return None
+    remaining = b[:]
+    for token in sorted(a, key=len, reverse=True):
+        matches = [x for x in remaining if x == token or (min(len(x), len(token)) == 1 and x[0] == token[0])]
+        if len(matches) != 1:
+            return None
+        remaining.remove(matches[0])
+    return 'initials_candidate'
 
 
 def mbid(value):
@@ -112,6 +131,8 @@ def project(entity, data):
     for key in ('id', 'title', 'iswcs'):
         if key in data:
             result[key] = data[key]
+    if entity == 'work':
+        result['aliases'] = [x['name'] for x in data.get('aliases', []) if isinstance(x, dict) and isinstance(x.get('name'), str)]
     if entity == 'recording':
         result['artist-credit'] = [dict(name=x.get('name', x.get('artist', {}).get('name', '')),
             joinphrase=x.get('joinphrase', '')) for x in data.get('artist-credit', []) if isinstance(x, dict)]
@@ -145,7 +166,7 @@ class Client:
         elif entity == 'recording':
             params['inc'] = 'work-rels'
         else:
-            params['inc'] = 'artist-rels'
+            params['inc'] = 'artist-rels+aliases'
         # ASVS 1.2.2, 13.2.4: fixed HTTPS host, validated IDs, encoded parameters.
         url = BASE+path+'?'+urllib.parse.urlencode(params)
         key = hashlib.sha256(url.encode()).hexdigest()
@@ -154,15 +175,25 @@ class Client:
             if hashlib.sha256(cached[0].encode()).hexdigest() != cached[2]:
                 raise ValueError('cache hash mismatch')
             return json.loads(cached[0]), dict(url=url, retrieved_on=cached[1], payload_sha256=cached[2])
-        if self.requests >= self.budget:
-            raise BudgetReached()
         if shutil.disk_usage(Path(self.db.execute('PRAGMA database_list').fetchone()[2]).parent).free < 10.1*1024**3:
             raise ValueError('storage reserve reached')
-        time.sleep(max(0, 1.1-(time.monotonic()-self.last)))
-        self.last = time.monotonic(); self.requests += 1
-        # ASVS 13.2.6: one request at a time, timeout and bounded response, stop on failure.
-        with self.opener.open(urllib.request.Request(url, headers={'User-Agent': USER_AGENT}), timeout=15) as response:
-            payload = response.read(1024*1024+1)
+        # ASVS 13.2.6: bounded attempts, response size, timeout and service backoff.
+        for attempt in range(3):
+            if self.requests >= self.budget:
+                raise BudgetReached()
+            time.sleep(max(0, 1.1-(time.monotonic()-self.last)))
+            self.last = time.monotonic(); self.requests += 1
+            try:
+                with self.opener.open(urllib.request.Request(url, headers={'User-Agent': USER_AGENT}), timeout=15) as response:
+                    payload = response.read(1024*1024+1)
+                break
+            except urllib.error.HTTPError as exc:
+                if exc.code not in {429, 503} or attempt == 2:
+                    raise
+                retry = (exc.headers.get('Retry-After') or '') if exc.headers else ''
+                if retry and (not retry.isdigit() or int(retry) > 60):
+                    raise  # Do not retry before an unhandled server cooldown.
+                time.sleep(max(int(retry or 0), 5*(3**attempt)))
         if len(payload) > 1024*1024:
             raise ValueError('response exceeds 1 MiB')
         raw = json.loads(payload)
@@ -189,33 +220,56 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def resolve(db, client, row):
     kind = row['query_kind']; title = label(row['title']); creator = label(row['creator'])
     # Work search is title based. Writer agreement is checked on the work lookup.
-    query = f'{kind}:"{title}"'
-    if kind == 'recording':
-        query += f' AND artist:"{creator}"'
+    query = f'{kind}:"{title}"' if kind == 'recording' else f'(work:"{title}" OR alias:"{title}")'
+    query += ''.join(' AND artist:'+token for token in creator.split() if len(token)>1)
     found, search_evidence = client.get(kind, query=query)
     results = []
+    source_basis = 'original_catalog_labels_unverified'
+    if db.execute("SELECT 1 FROM sqlite_master WHERE name='track_metadata'").fetchone():
+        audit = db.execute('SELECT creator_basis FROM track_metadata WHERE source_key=?', (row['source_key'],)).fetchone()
+        if audit:
+            source_basis = audit[0]
     for candidate in found.get(kind+'s', []):
-        if label(candidate.get('title')) != title:
+        if kind == 'recording' and label(candidate.get('title')) != title:
             continue
         entity_id = mbid(candidate['id'])
         if kind == 'recording':
             credit = ''.join(x['name']+x['joinphrase'] for x in candidate['artist-credit'])
-            if label(credit) != creator:
+            if not creator_agreement(credit, creator):
                 continue
         details, lookup_evidence = client.get(kind, identifier=entity_id)
         works = [details] if kind == 'work' else [r['work'] for r in details['relations'] if r.get('type') == 'performance' and 'work' in r]
         for work in works[:5]:
             work_id = mbid(work['id'])
             work_details, work_evidence = client.get('work', identifier=work_id)
-            if kind == 'work' and not any(label(r.get('artist', {}).get('name')) == creator for r in work_details['relations']):
+            if kind == 'work' and title not in {label(work_details.get('title')), *[label(x) for x in work_details.get('aliases', [])]}:
                 continue
-            evidence = dict(provider='musicbrainz', metadata_license='CC0-1.0',
+            writers = [dict(name=r['artist']['name'], role=r['type'],
+                agreement=creator_agreement(r['artist']['name'], creator))
+                for r in work_details['relations']
+                if r.get('type') in {'composer', 'writer', 'lyricist'}
+                and creator_agreement(r.get('artist', {}).get('name'), creator)]
+            if kind == 'work' and not writers:
+                continue
+            evidence = dict(provider='musicbrainz', policy=POLICY, metadata_license='CC0-1.0',
                 metadata_license_url='https://musicbrainz.org/doc/About/Data_License',
-                method='label_agreement_and_database_relationship_not_MIDI_identity',
+                method='normalized_labels_names_or_initials_and_database_relationship_not_MIDI_identity',
                 search=search_evidence, lookup=lookup_evidence, work_lookup=work_evidence,
+                match_basis=dict(source_creator_basis=source_basis, query_title=row['title'],
+                    query_creator=row['creator'], title_agreement=('recording_title_normalized' if kind == 'recording'
+                        else 'canonical_title_normalized' if label(work_details.get('title')) == title else 'alias_normalized'),
+                    creator_agreement=creator_agreement(credit, creator) if kind == 'recording' else writers,
+                    linked_work_count=len(works), linked_works_truncated=len(works)>5,
+                    musical_comparison='not_performed', source_identity_verified=False),
                 work=work_details, musical_work_license_status='unknown', rights_holder_status='not_established')
             results.append((row['source_key'], work_id, entity_id if kind == 'recording' else '',
                 work_details.get('title'), json.dumps(evidence, ensure_ascii=False), 'candidate'))
+    distinct = len({item[1] for item in results})
+    for i, item in enumerate(results):
+        evidence = json.loads(item[4])
+        evidence['match_basis']['distinct_work_candidates'] = distinct
+        evidence['match_basis']['multiple_work_candidates'] = distinct > 1
+        results[i] = (*item[:4], json.dumps(evidence, ensure_ascii=False), item[5])
     return results
 
 
@@ -311,9 +365,13 @@ def phrase_evidence(catalog: Path, metadata: Path, identities: Path, *, source_k
             LEFT JOIN reviews v ON v.revision=(SELECT max(revision) FROM reviews WHERE source_key=p.source_key)'''
         rows = db.execute(sql+(' WHERE p.source_key=?' if source_key else '')+' ORDER BY p.phrase_key LIMIT ?',
             ([source_key] if source_key else [])+[limit]).fetchall()
+        has_audit = bool(db.execute("SELECT 1 FROM sqlite_master WHERE name='track_metadata'").fetchone())
         result = []
         for row in rows:
             item = dict(row)
+            if has_audit:
+                audit = db.execute('SELECT evidence_json FROM track_metadata WHERE source_key=?', (item['source_key'],)).fetchone()
+                item['source_metadata_audit'] = json.loads(audit[0]) if audit else None
             if item.pop('current_sha') != item['source_sha256']:
                 raise ValueError('source hash mismatch')
             item['work_id'] = item['work_id'] if item['decision'] == 'accepted' else None
@@ -326,11 +384,11 @@ def phrase_evidence(catalog: Path, metadata: Path, identities: Path, *, source_k
         return result
 
 
-def search_candidates(path, *, text=None, dataset=None, work_id=None, limit=50):
+def search_candidates(path, *, text=None, dataset=None, work_id=None, gap=None, limit=50):
     from .catalog_search import literal_like
     if type(limit) is not int or not 1 <= limit <= 500:
         raise ValueError('invalid result limit')
-    for value in (text, dataset):
+    for value in (text, dataset, gap):
         if value is not None and (not isinstance(value, str) or not 1 <= len(value) <= 250):
             raise ValueError('invalid search text')
     if work_id is not None:
@@ -340,6 +398,11 @@ def search_candidates(path, *, text=None, dataset=None, work_id=None, limit=50):
         deadline = time.monotonic()+10
         db.set_progress_handler(lambda: int(time.monotonic() > deadline), 10000)
         clauses = []; params = []
+        if gap:
+            if not db.execute("SELECT 1 FROM sqlite_master WHERE name='track_metadata'").fetchone():
+                raise ValueError('source label audit required')
+            clauses.append('EXISTS(SELECT 1 FROM track_metadata t, json_each(t.gaps_json) g WHERE t.source_key=q.source_key AND g.value=?)')
+            params.append(gap)
         if text:
             clauses.append("(q.title LIKE ? ESCAPE '\\' OR q.creator LIKE ? ESCAPE '\\' OR c.title LIKE ? ESCAPE '\\')")
             params.extend([literal_like(text)]*3)
@@ -351,10 +414,14 @@ def search_candidates(path, *, text=None, dataset=None, work_id=None, limit=50):
             q.status,q.error,c.work_id,c.recording_id,c.title AS work_title,c.evidence_json
             FROM queue q LEFT JOIN work_candidates c USING(source_key)"""
         rows = db.execute(sql+(' WHERE '+' AND '.join(clauses) if clauses else '')+
-            ' ORDER BY q.source_key,c.work_id,c.recording_id LIMIT ?', params+[limit])
+            ' ORDER BY q.source_key,c.work_id,c.recording_id LIMIT ?', params+[limit]).fetchall()
+        has_audit = bool(db.execute("SELECT 1 FROM sqlite_master WHERE name='track_metadata'").fetchone())
         result = []
         for row in rows:
             item = dict(row); item['work_evidence'] = json.loads(item.pop('evidence_json') or 'null')
+            if has_audit:
+                audit = db.execute('SELECT evidence_json FROM track_metadata WHERE source_key=?', (item['source_key'],)).fetchone()
+                item['source_metadata_audit'] = json.loads(audit[0]) if audit else None
             item['match_status'] = 'candidate' if item['work_id'] else 'unresolved'
             result.append(item)
         return result
@@ -415,12 +482,12 @@ def main():
     decide.add_argument('--reviewer', required=True); decide.add_argument('--evidence-url', required=True)
     decide.add_argument('--reasoning', required=True)
     search = sub.add_parser('search'); search.add_argument('--index', type=Path, required=True)
-    search.add_argument('--text'); search.add_argument('--dataset'); search.add_argument('--work-id'); search.add_argument('--limit', type=int, default=50)
+    search.add_argument('--text'); search.add_argument('--gap'); search.add_argument('--dataset'); search.add_argument('--work-id'); search.add_argument('--limit', type=int, default=50)
     args = parser.parse_args()
     if args.command == 'init': result = initialize(args.metadata, args.output)
     elif args.command == 'pilot': result = run(args.index, requests=args.requests, sources=args.sources, dataset=args.dataset)
     elif args.command == 'phrases': result = phrase_evidence(args.catalog, args.metadata, args.index, source_key=args.source_key, limit=args.limit)
-    elif args.command == 'search': result = search_candidates(args.index, text=args.text, dataset=args.dataset, work_id=args.work_id, limit=args.limit)
+    elif args.command == 'search': result = search_candidates(args.index, text=args.text, dataset=args.dataset, work_id=args.work_id, gap=args.gap, limit=args.limit)
     elif args.command == 'review': result = dict(revision=review(args.index, args.source_key, args.work_id, args.decision, args.reviewer, args.evidence_url, args.reasoning))
     else: result = status(args.index)
     print(json.dumps(result, indent=2))
