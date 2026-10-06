@@ -74,3 +74,5 @@ Equal bytes establish a copy relationship only. They do not verify the song titl
 Use `python -m samuged.work_identity search --index /path/to/audited.sqlite --gap creator_unresolved` to find missing creator evidence. Other gap values include `title_suspect_encoding`, `title_identifier_only`, `creator_role_unverified`, `duplicate_creator_hint_unverified`, `conflicting_duplicate_metadata` and the three rights scopes. Phrase results carry the same source audit.
 
 Work lookup also searches MusicBrainz aliases and checks the canonical title or alias against the source label. Creator agreement is required. Transient HTTP 429 and 503 responses have at most three attempts with increasing pauses. Numeric `Retry-After` values up to 60 seconds are respected. Larger or date based cooldowns stop the run for later resumption. Every attempt counts against the request budget.
+
+[Track identity quality](identity_quality.md) adds per source risk checks, source paths and normalized search after this label audit. It identifies shared titles, normalization collisions, initials and unavailable copyright scans while preserving uncertainty.

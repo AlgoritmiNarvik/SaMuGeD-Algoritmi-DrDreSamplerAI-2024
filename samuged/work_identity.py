@@ -380,15 +380,17 @@ def phrase_evidence(catalog: Path, metadata: Path, identities: Path, *, source_k
             item['midi_publication_clearance'] = item['audio_publication_clearance'] = item['new_music_reuse_clearance'] = 'not_established'
             item['rights_observations'] = [dict(r) for r in db.execute('SELECT * FROM rights_observations WHERE source_key=? ORDER BY revision', (item['source_key'],))]
             item['candidates'] = [dict(r) for r in db.execute('SELECT DISTINCT work_id,title FROM work_candidates WHERE source_key=?', (item['source_key'],))]
+            from .identity_quality import evidence as quality_evidence
+            item['identity_quality'] = quality_evidence(db, item['source_key'])
             result.append(item)
         return result
 
 
-def search_candidates(path, *, text=None, dataset=None, work_id=None, gap=None, limit=50):
+def search_candidates(path, *, text=None, dataset=None, work_id=None, gap=None, risk=None, limit=50):
     from .catalog_search import literal_like
     if type(limit) is not int or not 1 <= limit <= 500:
         raise ValueError('invalid result limit')
-    for value in (text, dataset, gap):
+    for value in (text, dataset, gap, risk):
         if value is not None and (not isinstance(value, str) or not 1 <= len(value) <= 250):
             raise ValueError('invalid search text')
     if work_id is not None:
@@ -403,9 +405,19 @@ def search_candidates(path, *, text=None, dataset=None, work_id=None, gap=None, 
                 raise ValueError('source label audit required')
             clauses.append('EXISTS(SELECT 1 FROM track_metadata t, json_each(t.gaps_json) g WHERE t.source_key=q.source_key AND g.value=?)')
             params.append(gap)
+        has_quality = bool(db.execute("SELECT 1 FROM sqlite_master WHERE name='source_identity_quality'").fetchone())
+        if risk:
+            if not has_quality:
+                raise ValueError('identity quality audit required')
+            clauses.append('EXISTS(SELECT 1 FROM source_identity_quality s, json_each(s.risks_json) r WHERE s.source_key=q.source_key AND r.value=?)')
+            params.append(risk)
         if text:
-            clauses.append("(q.title LIKE ? ESCAPE '\\' OR q.creator LIKE ? ESCAPE '\\' OR c.title LIKE ? ESCAPE '\\')")
+            condition = "(q.title LIKE ? ESCAPE '\\' OR q.creator LIKE ? ESCAPE '\\' OR c.title LIKE ? ESCAPE '\\'"
             params.extend([literal_like(text)]*3)
+            if has_quality and label(text):
+                condition += " OR q.source_key IN (SELECT source_key FROM source_identity_quality WHERE normalized_title LIKE ? ESCAPE '\\' OR normalized_creator LIKE ? ESCAPE '\\' OR source_path LIKE ? ESCAPE '\\')"
+                params.extend([literal_like(label(text)), literal_like(' '.join(sorted(label(text).split()))), literal_like(text)])
+            clauses.append(condition+')')
         if dataset:
             clauses.append('q.dataset_id=?'); params.append(dataset)
         if work_id:
@@ -423,6 +435,8 @@ def search_candidates(path, *, text=None, dataset=None, work_id=None, gap=None, 
                 audit = db.execute('SELECT evidence_json FROM track_metadata WHERE source_key=?', (item['source_key'],)).fetchone()
                 item['source_metadata_audit'] = json.loads(audit[0]) if audit else None
             item['match_status'] = 'candidate' if item['work_id'] else 'unresolved'
+            from .identity_quality import evidence as quality_evidence
+            item['identity_quality'] = quality_evidence(db, item['source_key'])
             result.append(item)
         return result
 
@@ -482,12 +496,12 @@ def main():
     decide.add_argument('--reviewer', required=True); decide.add_argument('--evidence-url', required=True)
     decide.add_argument('--reasoning', required=True)
     search = sub.add_parser('search'); search.add_argument('--index', type=Path, required=True)
-    search.add_argument('--text'); search.add_argument('--gap'); search.add_argument('--dataset'); search.add_argument('--work-id'); search.add_argument('--limit', type=int, default=50)
+    search.add_argument('--text'); search.add_argument('--gap'); search.add_argument('--risk'); search.add_argument('--dataset'); search.add_argument('--work-id'); search.add_argument('--limit', type=int, default=50)
     args = parser.parse_args()
     if args.command == 'init': result = initialize(args.metadata, args.output)
     elif args.command == 'pilot': result = run(args.index, requests=args.requests, sources=args.sources, dataset=args.dataset)
     elif args.command == 'phrases': result = phrase_evidence(args.catalog, args.metadata, args.index, source_key=args.source_key, limit=args.limit)
-    elif args.command == 'search': result = search_candidates(args.index, text=args.text, dataset=args.dataset, work_id=args.work_id, gap=args.gap, limit=args.limit)
+    elif args.command == 'search': result = search_candidates(args.index, text=args.text, dataset=args.dataset, work_id=args.work_id, gap=args.gap, risk=args.risk, limit=args.limit)
     elif args.command == 'review': result = dict(revision=review(args.index, args.source_key, args.work_id, args.decision, args.reviewer, args.evidence_url, args.reasoning))
     else: result = status(args.index)
     print(json.dumps(result, indent=2))
