@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "reviewed_on": "2026-10-05",
+  "reviewed_on": "2026-10-06",
   "sources": [
     {
       "dataset_id": "lakh",
@@ -30,7 +30,7 @@
       "conditions": [
         "Select no_license_conflict and check per-score rights",
         "Keep original score and conversion provenance",
-        "Pilot selection requires Public Domain or CC0 declarations and all_valid"
+        "Current selection requires Public Domain or CC0 declarations, no_license_conflict and all_valid"
       ],
       "evidence": [
         "https://github.com/pnlong/PDMX",

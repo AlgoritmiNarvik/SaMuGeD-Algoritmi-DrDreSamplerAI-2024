@@ -95,7 +95,7 @@ The rights fields in `phrase_catalog` describe the corpus declaration. Per-score
 
 ## Current run status
 
-The current full PDMX run covers 189,704 screened metadata rows and is unfinished. That number is a count of screened metadata rows, not a count of extracted phrases. This run has not produced a publication or a perceptual accuracy claim. These metadata and catalog records do not promise rights clearance or future delivery.
+The completed local expansion covers 189,704 PDMX source records and 1,276 MAESTRO performances. Combined with the existing Lakh build, the catalog contains 208,212 source records and 558,159 phrases. These are not counts of unique compositions. PDMX contains three recorded source errors and 242 sources with search limits. MAESTRO has no source errors and 655 sources with search limits. Technical replay checks do not establish listener accuracy or exhaustive phrase coverage. The expansion is local and has not been published.
 
 Batch-local split labels are bookkeeping and are not valid model evaluation splits. A valid evaluation needs split groups that account for source identity and cross-corpus duplicates, rather than batch assignment.
 
@@ -150,3 +150,37 @@ This read only report counts source statuses, missing identity and fingerprint f
 Two separate checks group equal file hashes and equal normalized arrangement hashes. They count cross corpus groups and candidates that occur in more than one recorded evaluation split. Counts from the two checks overlap and must not be added. Examples are limited to 100 groups per method and eight members per group. Unknown hashes are excluded from grouping and counted as missing.
 
 Arrangement equality is a candidate signal. It does not establish verified song identity and this report does not perform approximate similarity matching. Zero recorded split conflicts is insufficient to validate an evaluation split, particularly while sources remain `unassigned`. Use these findings to review global grouping before assigning evaluation splits. The command changes no splits, removes no sources and publishes nothing.
+
+
+## Indexed source metadata
+
+Build a separate index without changing extraction receipts or the original catalog:
+
+```sh
+python -m samuged.catalog_metadata prepare --catalog snapshot/combined_catalog.sqlite \
+  --output snapshot/metadata_search.sqlite
+python -m samuged.catalog_metadata search --metadata snapshot/metadata_search.sqlite \
+  --text "Nirvana" --dataset lakh --limit 50
+python -m samuged.catalog_metadata search --metadata snapshot/metadata_search.sqlite \
+  --composer "Johann Sebastian Bach" --output bach.json
+python -m samuged.catalog_metadata search --metadata snapshot/metadata_search.sqlite \
+  --dataset pdmx --score-license publicdomain
+```
+
+FTS5 indexes title, artist, composer and the original genre text. Underscores are treated as spaces in search text while the original labels remain unchanged. Text tokens are combined with AND. Filters use bound parameters. Queries are read only, time bounded and return at most 500 records. Source results include records without extracted phrases, use the phrase catalog to find playable exports.
+
+The index separates corpus license, score license declaration, score license URL, composition rights evidence and redistribution evidence. It preserves attribution conditions and source URLs. `publicdomain` is an upstream declaration, not an independent legal assessment. The Public Domain Mark is not the same as a CC0 dedication. MAESTRO remains under its separate noncommercial and share alike conditions. The combined index has no single license that overrides the source conditions.
+
+Global candidate groups use the transitive union of equal complete file hashes and equal normalized arrangement hashes across all corpora. Empty fingerprints and empty arrangements do not create links. Groups do not establish composition identity, approximate similarity or ownership. Evaluation splits remain unassigned because differently arranged versions of the same work can evade exact grouping. No rows are removed.
+
+## External text metadata
+
+MusicBrainz core metadata is CC0. Supplementary tags, ratings and other metadata have separate terms. The bounded adapter in `samuged.metadata_links` requests only recording IDs, titles and artist credits. It uses an identifying user agent, waits between requests, bounds response sizes and stops on service failures. It does not download a database archive, lyrics or cover art.
+
+Normalized title and artist agreement produces candidate links only. Several recordings may match one MIDI label. Links retain their provider, entity ID, URL, method, retrieval date and metadata license. Import is transactional and cannot replace source artist, title or rights fields. Candidate links are not used to merge groups or assign evaluation splits. Prefer verified upstream IDs where available before widening this process.
+
+The local pilot queried 20 Lakh records and retained 68 recording candidates with no service failures. This is a small interoperability check, not complete external metadata coverage. Source metadata and external metadata remain distinct tables.
+
+## Storage retention
+
+Retain original acquisitions, extraction manifests, audit receipts, exported MIDI and referenced alignment records. Derived SQLite indexes and superseded search previews can be regenerated from hashed manifests. Before removing an index, verify its successor and record its path, size and hash in a local cleanup receipt. Do not remove the original MIDI corpus or raw extraction records merely because a search index exists.
