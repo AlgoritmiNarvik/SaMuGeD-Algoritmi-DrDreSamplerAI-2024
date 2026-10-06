@@ -184,3 +184,44 @@ The local pilot queried 20 Lakh records and retained 68 recording candidates wit
 ## Storage retention
 
 Retain original acquisitions, extraction manifests, audit receipts, exported MIDI and referenced alignment records. Derived SQLite indexes and superseded search previews can be regenerated from hashed manifests. Before removing an index, verify its successor and record its path, size and hash in a local cleanup receipt. Do not remove the original MIDI corpus or raw extraction records merely because a search index exists.
+
+## Song rights and MIDI copyright evidence
+
+The source rights scan adds a separate table to a new copy of the metadata index. It reads original MIDI files, verifies their source hashes and extracts copyright meta events only. It does not collect lyrics. The original extraction and metadata index remain unchanged.
+
+| Field | Meaning |
+| --- | --- |
+| `dataset_license` | Corpus declaration, not clearance for every composition |
+| `score_license_declaration` and `score_license_url` | Original per score declaration and its URL |
+| `musical_work_license` | Independently supported composition license, null when unknown |
+| `musical_work_license_status` | Evidence status, currently unknown |
+| `musical_work_rights_holder` and `musical_work_evidence_url` | Supported holder and evidence, null when unknown |
+| `copyright_notices` | Original MIDI copyright text, track and tick |
+| `copyright_notice_status` | present_unverified, absent or unavailable |
+| `copyright_notice_scope` | Notice scope has not been established |
+| `scan_status` | scanned, scanned_metadata_repaired, size_limit, hash_mismatch or read_or_parse_error |
+| `notice_truncated` | Text or event limit was reached |
+
+A missing notice does not mean no copyright. A file copyright notice does not establish the composer, rights holder or music license. An upstream Public Domain Mark is a declaration, not a CC0 dedication. Composition rights stay unknown until supported by evidence that applies to the identified work and relevant jurisdiction. Do not infer rights from the artist name, a MusicBrainz candidate or the corpus license.
+
+See the [Lakh attribution notes](https://colinraffel.com/projects/lmd/), [Public Domain Mark](https://creativecommons.org/publicdomain/mark/1.0/) and [CC0](https://creativecommons.org/publicdomain/zero/1.0/) for the source statements.
+
+Create a JSON file mapping dataset IDs to the local original corpus roots, then run:
+
+```sh
+python -m samuged.source_rights --metadata snapshot/metadata_search.sqlite \
+  --catalog snapshot/combined_catalog.sqlite --output snapshot/metadata_rights.sqlite \
+  --roots roots.json --progress rights_scan_status.json --workers 4
+python -m samuged.catalog_metadata search --metadata snapshot/metadata_rights.sqlite \
+  --copyright-status present_unverified --copyright-text "Copyright" --limit 50
+python -m samuged.catalog_metadata search --metadata snapshot/metadata_rights.sqlite \
+  --work-license-status unknown --dataset lakh --output rights_review.json
+python -m samuged.source_rights --export-index snapshot/metadata_rights.sqlite \
+  --output rights_metadata.jsonl.gz
+```
+
+Each source gets a rights row even if its original file cannot be parsed. The scan bounds file size, collected text and workers. Failed, oversized or changed files stay visible in the report. Notices are bound to the exact original file hash. The source table and rights table must have identical coverage before the new index is promoted. Search results also expose external metadata candidate links with their evidence and license.
+
+The scanner supports valid RIFF RMID containers. Invalid key signature metadata can be recovered with the same bounded helper as the MIDI parser. This is recorded as `scanned_metadata_repaired`. Original file hashes and copyright event text remain unchanged. Text is decoded using Mido's default Latin1 charset, its apparent author or owner is not inferred.
+
+The completed local scan accounts for all 208,212 sources. Copyright events are present in 1,861 Lakh files. Twenty eight files required key signature metadata recovery and 237 remain unavailable for parsing. A portable gzip JSONL export of every source keeps corpus terms, per score declarations, notices, unknown work rights and external candidate evidence together.
