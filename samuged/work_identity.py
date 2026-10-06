@@ -20,7 +20,7 @@ import unicodedata
 from .dataset import file_digest
 from .metadata_links import USER_AGENT
 
-POLICY = 'work-candidates-v2'
+POLICY = 'work-candidates-v3'
 BASE = 'https://musicbrainz.org/ws/2/'
 
 
@@ -224,6 +224,11 @@ def resolve(db, client, row):
     query += ''.join(' AND artist:'+token for token in creator.split() if len(token)>1)
     found, search_evidence = client.get(kind, query=query)
     results = []
+    source_basis = 'original_catalog_labels_unverified'
+    if db.execute("SELECT 1 FROM sqlite_master WHERE name='track_metadata'").fetchone():
+        audit = db.execute('SELECT creator_basis FROM track_metadata WHERE source_key=?', (row['source_key'],)).fetchone()
+        if audit:
+            source_basis = audit[0]
     for candidate in found.get(kind+'s', []):
         if kind == 'recording' and label(candidate.get('title')) != title:
             continue
@@ -239,15 +244,32 @@ def resolve(db, client, row):
             work_details, work_evidence = client.get('work', identifier=work_id)
             if kind == 'work' and title not in {label(work_details.get('title')), *[label(x) for x in work_details.get('aliases', [])]}:
                 continue
-            if kind == 'work' and not any(creator_agreement(r.get('artist', {}).get('name'), creator) for r in work_details['relations']):
+            writers = [dict(name=r['artist']['name'], role=r['type'],
+                agreement=creator_agreement(r['artist']['name'], creator))
+                for r in work_details['relations']
+                if r.get('type') in {'composer', 'writer', 'lyricist'}
+                and creator_agreement(r.get('artist', {}).get('name'), creator)]
+            if kind == 'work' and not writers:
                 continue
             evidence = dict(provider='musicbrainz', policy=POLICY, metadata_license='CC0-1.0',
                 metadata_license_url='https://musicbrainz.org/doc/About/Data_License',
                 method='normalized_labels_names_or_initials_and_database_relationship_not_MIDI_identity',
                 search=search_evidence, lookup=lookup_evidence, work_lookup=work_evidence,
+                match_basis=dict(source_creator_basis=source_basis, query_title=row['title'],
+                    query_creator=row['creator'], title_agreement=('recording_title_normalized' if kind == 'recording'
+                        else 'canonical_title_normalized' if label(work_details.get('title')) == title else 'alias_normalized'),
+                    creator_agreement=creator_agreement(credit, creator) if kind == 'recording' else writers,
+                    linked_work_count=len(works), linked_works_truncated=len(works)>5,
+                    musical_comparison='not_performed', source_identity_verified=False),
                 work=work_details, musical_work_license_status='unknown', rights_holder_status='not_established')
             results.append((row['source_key'], work_id, entity_id if kind == 'recording' else '',
                 work_details.get('title'), json.dumps(evidence, ensure_ascii=False), 'candidate'))
+    distinct = len({item[1] for item in results})
+    for i, item in enumerate(results):
+        evidence = json.loads(item[4])
+        evidence['match_basis']['distinct_work_candidates'] = distinct
+        evidence['match_basis']['multiple_work_candidates'] = distinct > 1
+        results[i] = (*item[:4], json.dumps(evidence, ensure_ascii=False), item[5])
     return results
 
 

@@ -98,3 +98,5 @@ Review the pilot before running the complete queue. Matching accuracy has not be
 ## Source label audit
 
 [Audit source labels](track_metadata.md) before expanding lookup coverage. The audit preserves original values and records additional PDMX artist hints with an unverified role. Phrase evidence and search results include this audit when present. Lookup version 2 also handles creator word order, initials, accents and apostrophes while keeping matches as candidates.
+
+Lookup version 3 records the match basis for each new candidate: source creator provenance, query labels, canonical or alias title agreement, creator agreement and the number of distinct work candidates returned. Initials remain an explicitly weaker candidate match. Multiple works remain ambiguous. Musical comparison is marked `not_performed` and source identity remains unverified. Earlier candidate evidence retains its original format, without invented match details. A single candidate is not proof of identity, because search results are bounded and names can collide.

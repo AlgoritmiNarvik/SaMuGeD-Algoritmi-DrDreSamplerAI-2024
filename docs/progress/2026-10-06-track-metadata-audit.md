@@ -5,3 +5,5 @@ Added a per source audit that preserves original labels, joins selected PDMX row
 Work lookup now compares creator word order, initials, accents and apostrophes as candidate evidence. Search and phrase results include the source audit. Changed labels cannot silently replace reviewed identities or rights observations. Audit inputs and outputs remain content bound, and expansion data stays local.
 
 Exact MIDI byte copies can supply explicitly unverified creator hints. Conflicting labels remain unresolved. Added gap filters, MusicBrainz alias lookup and bounded service backoff. No identity or reuse permission is inferred from duplicate hashes.
+
+Candidate evidence now records title and creator agreement separately, including aliases, initials and source label provenance. Multiple work candidates remain explicit. Tests reject an identical title with a different creator and keep ambiguous works unresolved in phrase results.
