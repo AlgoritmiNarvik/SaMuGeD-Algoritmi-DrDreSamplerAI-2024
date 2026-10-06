@@ -67,7 +67,7 @@ python -m samuged.work_identity pilot \
 python -m samuged.work_identity status --index /path/to/work_identity.sqlite
 ```
 
-The pilot uses one process with an ownership lock, at least 1.1 seconds between network calls, a 15 second request timeout and a 1 MiB response limit. It stops on the first service failure. It does not retry in a burst. Cached successes survive a restart. The client uses a fixed HTTPS host and refuses redirects. Initialization requires a 10 GiB storage reserve plus a 1 GiB output budget. No corpus download is required.
+The pilot uses one process with an ownership lock, at least 1.1 seconds between network calls, a 15 second request timeout and a 1 MiB response limit. Transient HTTP 429 and 503 responses have up to three attempts with increasing pauses and a bounded server cooldown. Other failures stop the current run. Every network attempt counts against the request budget. Cached successes survive a restart. The client uses a fixed HTTPS host and refuses redirects. Initialization requires a 10 GiB storage reserve plus a 1 GiB output budget. No corpus download is required.
 
 Use `review` to append an identity decision and `phrases` to inspect inherited evidence:
 
@@ -94,3 +94,7 @@ python -m samuged.work_identity phrases \
 ## Remaining work
 
 Review the pilot before running the complete queue. Matching accuracy has not been measured. Obtain The MLC access and verify its response contract and metadata redistribution terms before implementing an ownership importer. Store any future ownership evidence with its territory, scope, retrieval date and conditions. Do not publish expansion data from candidate matches or source declarations alone.
+
+## Source label audit
+
+[Audit source labels](track_metadata.md) before expanding lookup coverage. The audit preserves original values and records additional PDMX artist hints with an unverified role. Phrase evidence and search results include this audit when present. Lookup version 2 also handles creator word order, initials, accents and apostrophes while keeping matches as candidates.

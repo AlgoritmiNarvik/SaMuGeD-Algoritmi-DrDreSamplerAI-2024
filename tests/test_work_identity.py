@@ -156,3 +156,45 @@ def test_search_boundaries_and_query_literal(tmp_path, monkeypatch):
     assert search_candidates(path, text='%') == []
     with pytest.raises(ValueError):search_candidates(path, limit=True)
     with pytest.raises(ValueError):search_candidates(path, work_id='../bad')
+
+
+@pytest.mark.parametrize('a,b,expected',[
+    ('Collins_Phil','Phil Collins','normalized_tokens'),
+    ('J. S. Bach','Johann Sebastian Bach','initials_candidate'),
+    ('Bach','Johann Sebastian Bach',None),
+    ('J. Bach','C. Bach',None),
+    ('Frédéric Chopin','Frederic Chopin','normalized_tokens')])
+def test_name_variants_remain_candidate_evidence(a,b,expected):
+    from samuged.work_identity import creator_agreement
+    assert creator_agreement(a,b)==expected
+
+
+def test_apostrophe_and_accent_normalization():
+    from samuged.work_identity import label
+    assert label("Can't Stop")==label('Cant_Stop')
+    assert label('Sérieuses')==label('serieuses')
+
+
+def test_service_backoff_respects_request_budget(tmp_path,monkeypatch):
+    import urllib.error
+    from email.message import Message
+    _,_,path=setup(tmp_path,monkeypatch)
+    waits=[];monkeypatch.setattr('time.sleep',waits.append)
+    headers=Message();headers['Retry-After']='8'
+    with sqlite3.connect(path) as db:
+        db.row_factory=sqlite3.Row;client=Client(db,2)
+        def busy(*args,**kwargs):raise urllib.error.HTTPError('https://musicbrainz.org',503,'busy',headers,None)
+        monkeypatch.setattr(client.opener,'open',busy)
+        with pytest.raises(BudgetReached):client.get('work',identifier=WORK)
+        assert client.requests==2 and 8 in waits and 15 in waits
+        assert db.execute('SELECT count(*) FROM cache').fetchone()[0]==0
+
+
+def test_work_alias_requires_creator_agreement(tmp_path,monkeypatch):
+    _,_,path=setup(tmp_path,monkeypatch)
+    def get(self,entity,identifier=None,query=None):
+        if query:return {'works':[{'id':WORK,'title':'Different canonical title'}]},{}
+        return {'id':WORK,'title':'Different canonical title','aliases':['Song'],
+            'relations':[{'type':'composer','artist':{'name':'Bach'}}]},{}
+    monkeypatch.setattr(Client,'get',get)
+    assert run(path)['coverage']=={'candidate':1}
