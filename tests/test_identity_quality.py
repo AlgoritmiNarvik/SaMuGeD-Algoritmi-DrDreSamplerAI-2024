@@ -103,3 +103,43 @@ def test_full_creator_search_ignores_accents_and_word_order(tmp_path, monkeypatc
     assert len(search_candidates(output, text='Frederic Chopin')) == 1
     assert len(search_candidates(output, text='Chopin Frederic')) == 1
     assert search_candidates(output, text="' OR 1=1 --") == []
+
+
+def test_notice_recovery_is_scoped_hash_bound_and_atomic(tmp_path, monkeypatch):
+    from samuged.identity_quality import import_notice_recovery
+    meta, catalog, audited = fixture(tmp_path, monkeypatch)
+    output = tmp_path/'notice_quality.sqlite';prepare(audited,meta,catalog,output)
+    before = search_candidates(output)[0]
+    key = before['source_key'];source_hash = before['identity_quality']['source_sha256']
+    recovered = dict(source_key=key,expected_sha256=source_hash,observed_sha256=source_hash,
+        scan_status='scanned_clipped',recovery_scope='non_meta_data_bytes_clipped_for_metadata_read_only',
+        copyright_notices=[dict(text='Copyright notice',track=0,tick=0)])
+    receipt = tmp_path/'receipt.json'
+    data = dict(inputs={str(meta):file_digest(meta),str(catalog):file_digest(catalog)},sources=1,records=[recovered])
+    receipt.write_text(json.dumps(data))
+    result = import_notice_recovery(output,receipt)
+    assert result['recovered_sources'] == 1
+    current = search_candidates(output)[0]['identity_quality']
+    assert current['copyright_notice_status'] == 'present_unverified'
+    assert current['overall_clearance_status'] == 'not_established'
+    assert 'copyright_notice_scan_unavailable' not in current['risks']
+    inherited = phrase_evidence(catalog,meta,output)[0]
+    assert inherited['identity_quality'] == current and inherited['work_id'] is None
+    with sqlite3.connect(output) as db:
+        assert json.loads(db.execute('SELECT previous_quality_json FROM source_notice_recovery').fetchone()[0]) == before['identity_quality']
+        assert db.execute('SELECT count(*) FROM rights_observations').fetchone()[0] == 0
+    with pytest.raises(sqlite3.IntegrityError):import_notice_recovery(output,receipt)
+    recovered['observed_sha256'] = 'wrong';receipt.write_text(json.dumps(data))
+    with pytest.raises(ValueError,match='evidence mismatch'):import_notice_recovery(output,receipt)
+    assert search_candidates(output)[0]['identity_quality'] == current
+
+
+def test_notice_recovery_respects_active_lookup_lock(tmp_path, monkeypatch):
+    import fcntl
+    from samuged.identity_quality import import_notice_recovery
+    meta,catalog,audited = fixture(tmp_path,monkeypatch)
+    output = tmp_path/'locked.sqlite';prepare(audited,meta,catalog,output)
+    receipt = tmp_path/'empty.json';receipt.write_text(json.dumps(dict(sources=0,records=[])))
+    with output.with_suffix('.lock').open('a') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        with pytest.raises(BlockingIOError):import_notice_recovery(output,receipt)

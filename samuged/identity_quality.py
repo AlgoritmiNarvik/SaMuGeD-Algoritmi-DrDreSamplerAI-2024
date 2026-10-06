@@ -165,6 +165,68 @@ def export(index: Path, output: Path, *, max_output_mb=256):
     return dict(sources=count, input_sha256=before, output_sha256=file_digest(output), bytes=output.stat().st_size, published=False)
 
 
+def import_notice_recovery(index: Path, receipt: Path):
+    """Append hash bound notice recovery, never change composition clearance."""
+    import fcntl
+    with receipt.open('rb') as stream:
+        raw = stream.read(8*1024**2+1)
+    if len(raw) > 8*1024**2:
+        raise ValueError('receipt exceeds 8 MiB')
+    data = json.loads(raw)
+    records = data['records']
+    if not isinstance(records, list) or len(records) > 1000 or data['sources'] != len(records):
+        raise ValueError('invalid recovery coverage')
+    from hashlib import sha256
+    digest = sha256(raw).hexdigest()
+    if len({r['source_key'] for r in records}) != len(records):
+        raise ValueError('duplicate recovery source')
+    if shutil.disk_usage(index.parent).free < 10.1*1024**3:
+        raise ValueError('storage reserve reached')
+    with index.with_suffix('.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with closing(open_db(index)) as db:
+            meta_hash = db.execute('SELECT metadata_sha256 FROM provenance').fetchone()[0]
+            bound = json.loads(db.execute('SELECT input_hashes_json FROM identity_quality_provenance').fetchone()[0])
+            if len(data['inputs']) != 2 or meta_hash not in data['inputs'].values() or not set(data['inputs'].values()).issubset(set(bound.values())):
+                raise ValueError('recovery input binding mismatch')
+            for row in records:
+                current = db.execute('SELECT source_sha256 FROM queue WHERE source_key=?', (row['source_key'],)).fetchone()
+                if not current or current[0] != row['expected_sha256']:
+                    raise ValueError('recovery source hash mismatch')
+                if row['scan_status'] not in {'scanned_clipped','scanned_metadata_repaired_clipped','read_or_parse_error'}:
+                    raise ValueError('unsupported recovery status')
+                if row['scan_status'] != 'read_or_parse_error':
+                    if row['observed_sha256'] != current[0] or row.get('recovery_scope') != 'non_meta_data_bytes_clipped_for_metadata_read_only':
+                        raise ValueError('recovery evidence mismatch')
+                if len(row['copyright_notices']) > 64 or any(not isinstance(n.get('text'),str) or len(n['text'])>8192 for n in row['copyright_notices']):
+                    raise ValueError('invalid notice evidence')
+            db.execute('''CREATE TABLE IF NOT EXISTS source_notice_recovery(
+                revision INTEGER PRIMARY KEY AUTOINCREMENT,source_key TEXT REFERENCES queue,
+                receipt_sha256 TEXT,source_sha256 TEXT,scan_status TEXT,evidence_json TEXT,
+                previous_quality_json TEXT,imported_on TEXT,UNIQUE(source_key,receipt_sha256))''')
+            try:
+                recovered = 0
+                for row in records:
+                    old = db.execute('SELECT evidence_json FROM source_identity_quality WHERE source_key=?', (row['source_key'],)).fetchone()
+                    if old is None:raise ValueError('source quality record missing')
+                    db.execute('INSERT INTO source_notice_recovery(source_key,receipt_sha256,source_sha256,scan_status,evidence_json,previous_quality_json,imported_on) VALUES (?,?,?,?,?,?,?)',
+                        (row['source_key'],digest,row['expected_sha256'],row['scan_status'],json.dumps(row,ensure_ascii=False),old[0],now()))
+                    if row['scan_status'] == 'read_or_parse_error':continue
+                    current = json.loads(old[0])
+                    current['copyright_notice_recovery'] = row
+                    current['copyright_scan_status'] = row['scan_status']
+                    current['copyright_notice_status'] = 'present_unverified' if row['copyright_notices'] else 'absent'
+                    current['risks'] = [x for x in current['risks'] if x != 'copyright_notice_scan_unavailable']
+                    db.execute('UPDATE source_identity_quality SET risks_json=?,evidence_json=? WHERE source_key=?',
+                        (json.dumps(current['risks']),json.dumps(current,ensure_ascii=False),row['source_key']))
+                    recovered += 1
+                db.commit()
+            except Exception:
+                db.rollback();raise
+    return dict(imported_sources=len(records),recovered_sources=recovered,receipt_sha256=digest,
+        output_sha256=file_digest(index),published=False,rights_clearance='not_established')
+
+
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
     for field in ('work-index', 'metadata', 'catalog', 'output'):

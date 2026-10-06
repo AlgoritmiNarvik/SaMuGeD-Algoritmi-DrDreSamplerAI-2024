@@ -23,7 +23,7 @@ from .metadata_recovery import recover_invalid_key_signatures
 MAX_BYTES=8*1024*1024
 
 
-def scan(task):
+def scan(task, *, allow_clipped_data=False):
     key,rel,expected,root=task
     result=dict(source_key=key,scan_status='unavailable',copyright_notices=[],notice_truncated=False,
                 observed_sha256=None,scan_error=None)
@@ -37,11 +37,17 @@ def scan(task):
         if not expected or actual!=expected:
             result['scan_status']='hash_mismatch';return result
         payload,_=_unwrap_midi_payload(raw)
-        repaired=False
-        try:midi=mido.MidiFile(file=io.BytesIO(payload))
-        except mido.KeySignatureError:
-            recovery=recover_invalid_key_signatures(payload)
-            midi=mido.MidiFile(file=io.BytesIO(recovery.data));repaired=True
+        repaired=False;clipped=False
+        for clip in ((False,True) if allow_clipped_data else (False,)):
+            try:
+                try:midi=mido.MidiFile(file=io.BytesIO(payload),clip=clip)
+                except mido.KeySignatureError:
+                    recovery=recover_invalid_key_signatures(payload)
+                    midi=mido.MidiFile(file=io.BytesIO(recovery.data),clip=clip);repaired=True
+                clipped=clip;break
+            except (OSError,ValueError) as exc:
+                if clip or not allow_clipped_data or str(exc)!='data byte must be in range 0..127':raise
+                # Metadata-only fallback. Original bytes and musical extraction are unchanged.
         notices=[]
         for track_index,track in enumerate(midi.tracks):
             tick=0
@@ -53,7 +59,10 @@ def scan(task):
                         notices.append(dict(text=text[:8192],track=track_index,tick=tick))
                         if len(text)>8192:result['notice_truncated']=True
                     else:result['notice_truncated']=True
-        result.update(scan_status='scanned_metadata_repaired' if repaired else 'scanned',copyright_notices=notices)
+        status='scanned_metadata_repaired' if repaired else 'scanned'
+        if clipped:status+='_clipped'
+        result.update(scan_status=status,copyright_notices=notices)
+        if clipped:result['recovery_scope']='non_meta_data_bytes_clipped_for_metadata_read_only'
     except Exception as exc:
         result.update(scan_status='read_or_parse_error',scan_error=type(exc).__name__)
     return result

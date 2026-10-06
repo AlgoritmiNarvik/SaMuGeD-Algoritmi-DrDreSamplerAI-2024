@@ -71,3 +71,9 @@ The builder checks source coverage and hashes in both directions, validates SQLi
 ## Limits
 
 Many scores lack useful creator information. Their identities and composition rights cannot be filled reliably from a filename or title alone. MusicBrainz supplies candidate identity evidence. The MLC requires authorized access for ownership information. Neither a database identifier nor a corpus license declaration establishes every intended use. Keep missing, ambiguous and unchecked evidence explicit.
+
+## MIDI notice recovery
+
+The notice scanner has an explicit `allow_clipped_data` option. It retries only when MIDI note or controller data bytes violate the 0 to 127 range. This reads copyright metadata while preserving the original file bytes. It does not rerun musical extraction or establish the scope of the notice. Key signature recovery retains its strict structural checks. Unsupported combined errors and truncated metadata remain unavailable.
+
+`import_notice_recovery` appends a recovery receipt to the work index and retains the previous quality record. It validates source hashes, input bindings, notice limits and the metadata read scope. Successful recovery updates the per source notice status and removes the unavailable scan flag. Duplicate imports and active lookup locks are rejected. Failed attempts remain recorded. Identity decisions and rights observations stay separate. The original source rights index remains an immutable baseline, while work search, phrase evidence and the portable quality export include the recovered notices.
