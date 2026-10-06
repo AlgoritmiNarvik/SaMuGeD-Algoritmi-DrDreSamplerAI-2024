@@ -88,3 +88,36 @@ def test_portable_export_keeps_rights_and_notices(tmp_path,monkeypatch):
     assert row['musical_work_license'] is None
     assert row['copyright_notice_status']=='unavailable'
     assert row['external_metadata_candidates']==[]
+
+
+def test_opt_in_clipping_recovers_notice_without_changing_source(tmp_path):
+    from test_metadata_recovery import _smf, _meta, _end
+    raw = _smf(b'\x00\x90\x3c\xff'+_meta(12,0x02,b'Copyright original notice')+_end())
+    path = tmp_path/'invalid_data.mid'; path.write_bytes(raw)
+    task = ('key',path.name,sha256(raw).hexdigest(),str(tmp_path))
+    assert scan(task)['scan_status'] == 'read_or_parse_error'
+    recovered = scan(task,allow_clipped_data=True)
+    assert recovered['scan_status'] == 'scanned_clipped'
+    assert recovered['copyright_notices'] == [dict(text='Copyright original notice',track=0,tick=12)]
+    assert recovered['observed_sha256'] == sha256(raw).hexdigest()
+    assert path.read_bytes() == raw
+    assert 'metadata_read_only' in recovered['recovery_scope']
+
+
+def test_clipping_does_not_recover_truncated_metadata(tmp_path):
+    from test_metadata_recovery import _smf
+    raw = _smf(b'\x00\xff\x02\x10short')
+    path = tmp_path/'truncated.mid';path.write_bytes(raw)
+    result = scan(('key',path.name,sha256(raw).hexdigest(),str(tmp_path)),allow_clipped_data=True)
+    assert result['scan_status'] == 'read_or_parse_error'
+    assert result['copyright_notices'] == []
+
+
+def test_combined_channel_and_key_errors_remain_unavailable(tmp_path):
+    from test_metadata_recovery import _smf, _meta, _end
+    raw = _smf(b'\x00\x90\x3c\xff'+_meta(0,0x59,b'\xff\xff')+_meta(12,0x02,b'Original notice')+_end())
+    path=tmp_path/'both.mid';path.write_bytes(raw)
+    row=scan(('key',path.name,sha256(raw).hexdigest(),str(tmp_path)),allow_clipped_data=True)
+    assert row['scan_status']=='read_or_parse_error'
+    assert row['copyright_notices']==[]
+    assert path.read_bytes()==raw
