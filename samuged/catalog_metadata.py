@@ -93,9 +93,11 @@ def prepare(catalog: Path, output: Path, *, reserve_mb=10240, max_output_mb=1024
             db.close();source.close()
 
 
-def search(path: Path, *, text=None, dataset=None, composer=None, score_license=None, limit=50):
+def search(path: Path, *, text=None, dataset=None, composer=None, score_license=None, work_license_status=None, copyright_status=None, copyright_text=None, limit=50):
     if type(limit) is not int or not 1<=limit<=500:raise ValueError('invalid result limit')
-    for v in (text,dataset,composer,score_license):
+    if work_license_status not in {None,'unknown','declared','verified'}:raise ValueError('invalid work license status')
+    if copyright_status not in {None,'present_unverified','absent','unavailable'}:raise ValueError('invalid copyright status')
+    for v in (text,dataset,composer,score_license,copyright_text):
         if v is not None and (not isinstance(v,str) or not 1<=len(v)<=500):raise ValueError('invalid filter text')
     db=sqlite3.connect(path.resolve(strict=True).as_uri()+'?mode=ro',uri=True);db.row_factory=sqlite3.Row
     try:
@@ -104,6 +106,16 @@ def search(path: Path, *, text=None, dataset=None, composer=None, score_license=
         deadline=time.monotonic()+10
         db.set_progress_handler(lambda:int(time.monotonic()>deadline),10000)
         clauses=[];params=[]
+        has_rights=bool(db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='source_rights'").fetchone())
+        if (work_license_status or copyright_status or copyright_text) and not has_rights:
+            raise ValueError('rights scan required for these filters')
+        for field,v in [('musical_work_license_status',work_license_status),('copyright_notice_status',copyright_status)]:
+            if v is not None:clauses.append(f'w.{field}=?');params.append(v)
+        if copyright_text:
+            tokens=re.findall(r'\w+',copyright_text,flags=re.UNICODE)
+            if not tokens:return []
+            clauses.append('r.source_key IN (SELECT source_key FROM copyright_text WHERE copyright_text MATCH ?)')
+            params.append(' AND '.join(chr(34)+t+chr(34) for t in tokens))
         if text:
             tokens=re.findall(r'\w+',text.replace('_',' '),flags=re.UNICODE)
             if not tokens:return []
@@ -111,8 +123,12 @@ def search(path: Path, *, text=None, dataset=None, composer=None, score_license=
             clauses.append('r.source_key IN (SELECT source_key FROM search_text WHERE search_text MATCH ?)');params.append(query)
         for field,v in [('dataset_id',dataset),('composer',composer),('score_license_declaration',score_license)]:
             if v is not None:clauses.append(f'r.{field}=?');params.append(v)
-        sql='SELECT r.* FROM records r'+(' WHERE '+' AND '.join(clauses) if clauses else '')+' ORDER BY r.source_key LIMIT ?'
-        return [dict(r) for r in db.execute(sql,params+[limit])]
+        sql=('SELECT r.*,w.musical_work_license,w.musical_work_license_status,w.musical_work_rights_holder,w.musical_work_evidence_url,w.copyright_notices_json,w.copyright_notice_status,w.copyright_notice_scope,w.notice_truncated,w.scan_status,w.scan_error,w.reviewed_on FROM records r LEFT JOIN source_rights w USING(source_key)' if has_rights else 'SELECT r.* FROM records r')+(' WHERE '+' AND '.join(clauses) if clauses else '')+' ORDER BY r.source_key LIMIT ?'
+        rows=[dict(r) for r in db.execute(sql,params+[limit])]
+        for row in rows:
+            if has_rights:row['copyright_notices']=json.loads(row.pop('copyright_notices_json') or '[]')
+            row['external_metadata_candidates']=[dict(x) for x in db.execute('SELECT provider,entity_id,title,artist,evidence_url,metadata_license,match_status,method,retrieved_on FROM external_links WHERE source_key=?',(row['source_key'],))]
+        return rows
     finally:db.close()
 
 
@@ -140,12 +156,12 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__);sub=parser.add_subparsers(dest='command',required=True)
     b=sub.add_parser('prepare');b.add_argument('--catalog',type=Path,required=True);b.add_argument('--output',type=Path,required=True)
     s=sub.add_parser('search');s.add_argument('--metadata',type=Path,required=True)
-    for flag in ['text','dataset','composer','score-license']:s.add_argument('--'+flag)
+    for flag in ['text','dataset','composer','score-license','work-license-status','copyright-status','copyright-text']:s.add_argument('--'+flag)
     s.add_argument('--limit',type=int,default=50);s.add_argument('--output',type=Path)
     a=parser.parse_args()
     if a.command=='prepare':result=prepare(a.catalog,a.output)
     else:
-        result=search(a.metadata,text=a.text,dataset=a.dataset,composer=a.composer,score_license=a.score_license,limit=a.limit)
+        result=search(a.metadata,text=a.text,dataset=a.dataset,composer=a.composer,score_license=a.score_license,work_license_status=a.work_license_status,copyright_status=a.copyright_status,copyright_text=a.copyright_text,limit=a.limit)
         if a.output:export(result,a.output)
     print(json.dumps(result,ensure_ascii=False,indent=2))
 
