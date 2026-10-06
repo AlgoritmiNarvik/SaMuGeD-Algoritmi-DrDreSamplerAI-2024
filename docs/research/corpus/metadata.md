@@ -225,3 +225,61 @@ Each source gets a rights row even if its original file cannot be parsed. The sc
 The scanner supports valid RIFF RMID containers. Invalid key signature metadata can be recovered with the same bounded helper as the MIDI parser. This is recorded as `scanned_metadata_repaired`. Original file hashes and copyright event text remain unchanged. Text is decoded using Mido's default Latin1 charset, its apparent author or owner is not inferred.
 
 The completed local scan accounts for all 208,212 sources. Copyright events are present in 1,861 Lakh files. Twenty eight files required key signature metadata recovery and 237 remain unavailable for parsing. A portable gzip JSONL export of every source keeps corpus terms, per score declarations, notices, unknown work rights and external candidate evidence together.
+
+## Usage terms for each source
+
+The usage index answers two different questions. What do the declared source terms permit? Have all rights for this particular song and file been established? It stores the answers separately. It never treats a title match, absent copyright notice or corpus license as full song clearance.
+
+| Field | Meaning |
+| --- | --- |
+| `research_terms_status` | Declared terms for noncommercial research |
+| `redistribution_terms_status` | Declared terms for sharing files and adaptations for noncommercial use |
+| `commercial_terms_status` | Declared terms for commercial use |
+| `overall_clearance_status` | All relevant rights established or not established |
+| `score_review_status` | Consistency of upstream score declarations and selection flags |
+| `source_score_id` and `score_metadata_path` | Source score identifier and archived metadata reference |
+| `usage_evidence` | Source URLs, license URL, policy version and exact score row with CSV hash |
+| `usage_conditions` | Conditions and unresolved rights scopes |
+
+`conditional_declared` means the source terms permit the use if their conditions apply and are met. `restricted_declared` means those terms restrict that use. `unresolved` means the required terms or score evidence are missing or conflicting. These are evidence labels, not legal permission verdicts. Commercial use remains restricted under MAESTRO's CC BY NC SA terms. A Public Domain Mark is an identification claim, not a copyright license or a CC0 dedication. Jurisdiction and rights in the arrangement or performance still matter.
+
+PDMX score rows join on the full original MIDI archive path. Titles, basenames and `best_path` are not join keys. The annotation checks the license and URL against the catalog and requires `license_conflict=False`, `subset:no_license_conflict=True` and `subset:all_valid=True`. Missing evidence and contradictions remain visible. A score ID is extracted from the upstream metadata path. It does not imply that its live score page was checked or that the uploader owned every relevant right. No holder is guessed from an artist, composer or publisher label.
+
+```mermaid
+flowchart LR
+  A[Original source and hash] --> B[Declared corpus terms]
+  A --> C[Exact score row]
+  B --> D[Research, sharing and commercial terms]
+  C --> E{Consistent declaration?}
+  E -->|Yes| F[Retain declaration and evidence]
+  E -->|No or missing| G[Unresolved score evidence]
+  D --> H[Separate song rights review]
+  F --> H
+  G --> H
+  classDef data fill:#22263a,color:#eee,stroke:#9a91c8
+  classDef action fill:#203334,color:#eee,stroke:#78a5a1
+  classDef decision fill:#393122,color:#eee,stroke:#baa477
+  classDef unresolved fill:#3a272e,color:#eee,stroke:#c38c9d
+  class A,B,C,F data
+  class D,H action
+  class E decision
+  class G unresolved
+```
+
+```bash
+python -m samuged.source_usage --metadata snapshot/metadata_rights.sqlite \
+  --catalog snapshot/combined_catalog.sqlite --pdmx-csv pdmx.csv \
+  --output snapshot/metadata_usage.sqlite
+python -m samuged.catalog_metadata search --metadata snapshot/metadata_usage.sqlite \
+  --dataset pdmx --score-review declaration_consistent --limit 50
+python -m samuged.catalog_metadata search --metadata snapshot/metadata_usage.sqlite \
+  --commercial-terms restricted_declared --limit 50
+python -m samuged.source_rights --export-index snapshot/metadata_usage.sqlite \
+  --output usage_metadata.jsonl.gz
+```
+
+The output is a new local index and preserves the source catalog. Its receipt binds the catalog, prior metadata and PDMX CSV hashes. Every source must have one usage row. Search and the portable export include the usage evidence. This process does not publish files, assign evaluation splits or resolve a recording candidate into a verified composition.
+
+Primary evidence comes from [Lakh](https://colinraffel.com/projects/lmd/), [PDMX](https://github.com/pnlong/PDMX), [MAESTRO](https://magenta.tensorflow.org/datasets/maestro) and the [CC BY](https://creativecommons.org/licenses/by/4.0/), [CC BY NC SA](https://creativecommons.org/licenses/by-nc-sa/4.0/) and [Public Domain Mark](https://creativecommons.org/publicdomain/mark/1.0/) terms. A full clearance claim needs evidence for the identified work, arrangement and performance in the intended use and jurisdiction. MusicBrainz core metadata can help identify candidates but its metadata license does not license the music.
+
+There is no universal lookup that establishes all permissions for a MIDI file. The [ISWC registry](https://www.iswc.org/iswc) identifies a musical work but does not supply ownership shares, which can vary by territory and right. Its automated lookup service has separate [access and use terms](https://www.iswc.org/sites/iswc/files/files/2024-08/ISWC%20ALS%20Terms%20and%20Conditions.pdf). No registry access contract or permission to publish ownership data is assumed. The local source evidence is ready for a later review against identified works and applicable permissions. This review is unfinished and no record is labeled as fully cleared.

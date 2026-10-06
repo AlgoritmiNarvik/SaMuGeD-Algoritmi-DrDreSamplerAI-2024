@@ -127,6 +127,8 @@ def export_records(index: Path, output: Path, *, max_output_mb=256):
         db.execute('PRAGMA query_only=ON');db.execute('PRAGMA trusted_schema=OFF')
         if db.execute('PRAGMA user_version').fetchone()[0]!=1:raise ValueError('unsupported metadata index')
         if db.execute('SELECT count(*) FROM records LEFT JOIN source_rights USING(source_key) WHERE source_rights.source_key IS NULL').fetchone()[0]:raise ValueError('incomplete rights coverage')
+        has_usage=bool(db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='source_usage'").fetchone())
+        if has_usage and db.execute('SELECT count(*) FROM records LEFT JOIN source_usage USING(source_key) WHERE source_usage.source_key IS NULL').fetchone()[0]:raise ValueError('incomplete usage coverage')
         with tempfile.TemporaryDirectory(prefix='samuged-rights-export-',dir=output.parent) as tmp:
             target=Path(tmp)/'rights.jsonl.gz';count=0
             with target.open('xb') as raw:
@@ -136,6 +138,10 @@ def export_records(index: Path, output: Path, *, max_output_mb=256):
                         for original,field in [('genre_json','genre_raw'),('conditions_json','corpus_conditions'),('copyright_notices_json','copyright_notices')]:
                             row[field]=json.loads(row.pop(original))
                         row['external_metadata_candidates']=[dict(x) for x in db.execute('SELECT * FROM external_links WHERE source_key=?',(row['source_key'],))]
+                        if has_usage:
+                            usage=dict(db.execute('SELECT * FROM source_usage WHERE source_key=?',(row['source_key'],)).fetchone());usage.pop('source_key')
+                            for original,field in [('usage_conditions_json','usage_conditions'),('usage_evidence_json','usage_evidence')]:usage[field]=json.loads(usage.pop(original))
+                            row.update(usage)
                         zipped.write((json.dumps(row,ensure_ascii=False,allow_nan=False)+'\n').encode())
                         count+=1
                         if raw.tell()>max_output_mb*1024**2:raise ValueError('export storage budget reached')
