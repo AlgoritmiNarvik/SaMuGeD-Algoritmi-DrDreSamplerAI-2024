@@ -2,7 +2,7 @@
 
 This is the archived Flask interface for the SimilarMidis feature similarity workflow. It is retained for historical use and does not implement the current audited recurrence extractor.
 
-The current research guide is [one level up in docs/research](../../docs/research/README.md). The public releases are the [recurring phrases dataset](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases) and the [earworm loops Space](https://huggingface.co/spaces/AlmazErmilov/samuged-earworm-loops).
+The current research guide is [one level up in docs/research](../../docs/research/README.md). The public releases are the [recurring phrases dataset](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases) and the [earworms Space](https://huggingface.co/spaces/AlmazErmilov/samuged-earworms).
 
 ## Requirements
 
