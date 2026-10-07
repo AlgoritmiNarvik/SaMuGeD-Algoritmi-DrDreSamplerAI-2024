@@ -5,7 +5,9 @@ from collections import namedtuple
 
 import pytest
 
-from samuged.candidate_assessment import prepare, summary, packet, notice_check
+from samuged import work_identity_offline_recordings as wor
+from samuged.candidate_assessment import main, parser, prepare, summary, packet, notice_check
+from samuged.dataset import file_digest
 from samuged.work_identity import Client, run
 
 WORK = '00000000-0000-0000-0000-000000000001'
@@ -25,6 +27,7 @@ SOURCES = {
     's9': ('m9', [], []),
     's10': ('m10', [], [(WORK, {'title_agreement': 'recording_title_normalized', 'creator_agreement': 'initials_candidate'})]),
     's11': ('m11', [], [(WORK, {})]),
+    's12': ('m12', [], []),
 }
 # Offline dump candidates: s1 agrees, s8 is disjoint, s9 is dump only with many namesakes, s11 is a superset.
 OFFLINE = {'s1': [(WORK, 1)], 's8': [(SECOND, 1)], 's9': [(WORK, 7)], 's11': [(WORK, 1), (SECOND, 1)]}
@@ -275,3 +278,147 @@ def test_packet_rehashes_inputs_at_the_end(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match='input changed'):
         packet(out, work, target)
     assert not target.exists() and not list(tmp_path.glob('.packet.json.*'))
+
+
+FULLEXPORT = 'musicbrainz_fullexport'
+# Full export candidates as (work, recording, creator agreement): s1 agrees with API and dump, s3 is disjoint
+# from the API, s11 nests inside the dump superset and s12 is full export only with two recordings of one work.
+RECORDINGS = {'s1': [(WORK, 'r1', 'normalized_tokens')], 's3': [(SECOND, 'r2', 'normalized_tokens')],
+              's11': [(WORK, 'r3', 'normalized_tokens')],
+              's12': [(WORK, 'r4', 'initials_candidate'), (WORK, 'r5', 'initials_candidate')]}
+
+
+def recording_evidence(work_id, recording_id, agreement, title='Song', creator='Bach'):
+    """Evidence in the shape written by work_identity_offline_recordings.match."""
+    basis = dict(source_creator_basis='catalog_artist', query_title=title, query_creator=creator,
+        title_agreement='recording_title_normalized', creator_agreement=agreement,
+        credited_artists=[dict(name=creator, gid='a1', agreement=agreement)],
+        recording=dict(gid=recording_id, name=title, credit=creator), recording_namesake_count=3,
+        matching_recording_count=1, matching_recordings_truncated=False, linked_work_count=1, linked_works_truncated=False,
+        distinct_work_candidates=1, multiple_work_candidates=False, musical_comparison='not_performed',
+        source_identity_verified=False)
+    work = dict(gid=work_id, title=title, type='Song', relations=[dict(type='composer', artist=dict(id='a1', name=creator))])
+    return dict(provider=wor.PROVIDER, policy=wor.POLICY, metadata_license='CC0-1.0', method=wor.METHOD,
+        dump=dict(export_name='20261007-002147'), match_basis=basis, work=work, musical_work_license_status='unknown',
+        rights_holder_status='not_established', **wor.UNVERIFIED)
+
+
+def recordings_index(tmp_path, work, candidates=RECORDINGS):
+    path = tmp_path/'recordings.sqlite'
+    with sqlite3.connect(path) as db:
+        db.executescript(wor.SCHEMA)
+        db.execute("ATTACH DATABASE ? AS w", (str(work),))
+        db.execute("""INSERT INTO queue SELECT source_key,source_sha256,dataset_id,title,creator,'recording','candidate','candidate','now'
+            FROM w.queue WHERE source_key IN (%s)""" % ','.join('?'*len(candidates)), list(candidates))
+        for key, items in candidates.items():
+            for work_id, recording_id, agreement in items:
+                db.execute('INSERT INTO work_candidates VALUES (?,?,?,?,?,?)', (key, work_id, recording_id, 'Song',
+                           json.dumps(recording_evidence(work_id, recording_id, agreement)), 'candidate'))
+    return path
+
+
+def test_recordings_index_as_third_provider(tmp_path, monkeypatch):
+    work, meta, offline = build(tmp_path, monkeypatch)
+    subset = tmp_path/'subset.sqlite'
+    recordings = recordings_index(tmp_path, work)
+    before = [p.read_bytes() for p in (work, meta, offline, subset, recordings)]
+    out = tmp_path/'assessment.sqlite'
+    prepare(work, meta, out, offline_index=offline, subset=subset, recordings_index=recordings)
+    assert [p.read_bytes() for p in (work, meta, offline, subset, recordings)] == before
+    found, best = rows(out)
+    api, dump = 'musicbrainz', 'musicbrainz_json_dump'
+    # Three providers propose the same work: agreement, and the full export row reaches the full tier like an API row.
+    one = found['s1', WORK, FULLEXPORT]
+    assert one[0] == 'single_work_full_agreement' and one[1]['provider_cross_check'] == 'providers_agree'
+    assert one[1]['providers'] == sorted([api, dump, FULLEXPORT]) and one[1]['origin'] == 'recordings_index'
+    assert one[1]['writers'] == ['Bach'] and one[1]['title_agreement'] == 'recording_title_normalized'
+    assert one[1]['creator_agreement_kind'] == 'normalized_tokens' and one[1]['recording_ids'] == ['r1']
+    assert one[1]['namesake_source'] == 'subset' and one[1]['notice_check'] == 'corroborates'
+    assert found['s1', WORK, api][1]['provider_cross_check'] == 'providers_agree' and best['s1'] == ('single_work_full_agreement', 1)
+    # API against full export disjoint is a conflict.
+    three = found['s3', SECOND, FULLEXPORT][1]
+    assert three['provider_cross_check'] == 'providers_differ' and three['providers'] == [FULLEXPORT]
+    assert found['s3', WORK, api][1]['provider_cross_check'] == 'providers_differ' and best['s3'] == ('conflict', 0)
+    # Two providers nest inside the dump superset: overlap, nested, no conflict.
+    eleven = found['s11', WORK, FULLEXPORT][1]
+    assert eleven['provider_cross_check'] == 'providers_overlap' and eleven['provider_sets_nested'] is True
+    assert eleven['providers'] == sorted([api, dump, FULLEXPORT]) and best['s11'] == ('multiple_works', 6)
+    # A full export only source with two recordings of one work collapses into one weaker assessment.
+    twelve = found['s12', WORK, FULLEXPORT]
+    assert twelve[0] == 'single_work_weaker_agreement' and twelve[1]['provider_cross_check'] == 'single_provider'
+    assert twelve[1]['creator_agreement_kind'] == 'initials_candidate' and twelve[1]['recording_ids'] == ['r4', 'r5']
+    assert [k for k in found if k[0] == 's12'] == [('s12', WORK, FULLEXPORT)] and best['s12'] == ('single_work_weaker_agreement', 4)
+    with sqlite3.connect(out) as db:
+        inputs = json.loads(db.execute('SELECT inputs_json FROM provenance').fetchone()[0])
+        assert inputs['recordings_index'] == dict(path=str(recordings), sha256=file_digest(recordings))
+        assert set(inputs) == {'work_index', 'metadata', 'offline_index', 'subset', 'recordings_index'}
+        assert json.loads(db.execute("SELECT providers_json FROM source_summary WHERE source_key='s1'").fetchone()[0]) == \
+            sorted([api, dump, FULLEXPORT])
+        assert 'creator agrees by initials only' in json.loads(
+            db.execute("SELECT reasons_json FROM source_summary WHERE source_key='s12'").fetchone()[0])
+    counts = summary(out)
+    assert counts['providers'] == {api: 11, dump: 5, FULLEXPORT: 4} and counts['sources'] == 12
+    assert counts['provider_cross_check']['providers_differ'] == 4  # s8 API and dump, s3 API and full export
+
+
+def test_three_providers_differ_when_one_pair_is_disjoint(tmp_path, monkeypatch):
+    work, meta, offline = build(tmp_path, monkeypatch)
+    # s11: API {WORK}, dump {WORK, SECOND}, full export {SECOND}: API and full export are disjoint.
+    recordings = recordings_index(tmp_path, work, {'s11': [(SECOND, 'r1', 'normalized_tokens')]})
+    out = tmp_path/'a.sqlite'; prepare(work, meta, out, offline_index=offline, recordings_index=recordings)
+    found, best = rows(out)
+    assert {s['provider_cross_check'] for (k, _, _), (_, s) in found.items() if k == 's11'} == {'providers_differ'}
+    assert best['s11'] == ('conflict', 0)
+
+
+def test_recordings_index_binding_and_provider_origin(tmp_path, monkeypatch):
+    work, meta, offline = build(tmp_path, monkeypatch)
+    recordings = recordings_index(tmp_path, work)
+    with sqlite3.connect(recordings) as db:
+        db.execute("UPDATE queue SET source_sha256='other' WHERE source_key='s12'")
+    with pytest.raises(ValueError, match='binding'):
+        prepare(work, meta, tmp_path/'a.sqlite', recordings_index=recordings)
+    with sqlite3.connect(recordings) as db:
+        db.execute("UPDATE queue SET source_sha256='sha-s12' WHERE source_key='s12'")
+        db.execute("UPDATE work_candidates SET evidence_json=json_set(evidence_json,'$.provider','musicbrainz_json_dump')")
+    with pytest.raises(ValueError, match='both candidate indexes'):
+        prepare(work, meta, tmp_path/'b.sqlite', offline_index=offline, recordings_index=recordings)
+    with sqlite3.connect(recordings) as db:
+        db.execute("UPDATE work_candidates SET evidence_json=json_set(evidence_json,'$.match_basis.source_identity_verified',json('true'))")
+    with pytest.raises(ValueError, match='unverified'):
+        prepare(work, meta, tmp_path/'c.sqlite', recordings_index=recordings)
+    assert not list(tmp_path.glob('[abc].sqlite'))
+
+
+def test_packet_checks_recordings_index(tmp_path, monkeypatch):
+    work, meta, _ = build(tmp_path, monkeypatch)
+    recordings = recordings_index(tmp_path, work)
+    out = tmp_path/'a.sqlite'; prepare(work, meta, out, recordings_index=recordings)
+    target = tmp_path/'packet.json'
+    packet(out, work, target, recordings_index=recordings, tier='conflict')
+    document = json.loads(target.read_text())
+    s3 = next(s for s in document['sources'] if s['source_key'] == 's3')
+    assert {c['provider'] for c in s3['candidates']} == {'musicbrainz', FULLEXPORT}
+    with sqlite3.connect(recordings) as db:
+        db.execute("UPDATE queue SET title='Changed' WHERE source_key='s1'")
+    with pytest.raises(ValueError, match='recordings_index does not match'):
+        packet(out, work, tmp_path/'bad.json', recordings_index=recordings)
+    plain = tmp_path/'plain.sqlite'; prepare(work, meta, plain)
+    with pytest.raises(ValueError, match='recordings_index does not match'):
+        packet(plain, work, tmp_path/'bad.json', recordings_index=recordings)
+    assert not (tmp_path/'bad.json').exists()
+
+
+def test_cli_recordings_index_flag(tmp_path, monkeypatch, capsys):
+    args = parser().parse_args(['prepare', '--work-index', 'w', '--metadata', 'm', '--output', 'o', '--recordings-index', 'r'])
+    assert str(args.recordings_index) == 'r' and args.offline_index is None
+    args = parser().parse_args(['packet', '--assessment', 'a', '--work-index', 'w', '--output', 'o', '--recordings-index', 'r'])
+    assert str(args.recordings_index) == 'r'
+    work, meta, _ = build(tmp_path, monkeypatch)
+    recordings = recordings_index(tmp_path, work)
+    out = tmp_path/'a.sqlite'
+    main(['prepare', '--work-index', str(work), '--metadata', str(meta), '--output', str(out),
+          '--recordings-index', str(recordings)])
+    assert json.loads(capsys.readouterr().out)['assessments'] == 15
+    main(['summary', '--assessment', str(out)])
+    assert json.loads(capsys.readouterr().out)['providers'] == {'musicbrainz': 11, FULLEXPORT: 4}

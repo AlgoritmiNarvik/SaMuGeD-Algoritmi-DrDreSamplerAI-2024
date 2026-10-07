@@ -1,9 +1,10 @@
 """Assessment tiers and cross checks for unreviewed work candidates.
 
 The module reads work candidates from the API work index and, when present, the offline
-dump index. It never writes identity reviews or rights observations, never modifies an
-input index, never opens the network and never promotes a candidate to an accepted
-identity or a rights clearance. Every output row is an assessment with signals for review.
+dump index and the offline recordings index built from the full export. It never writes
+identity reviews or rights observations, never modifies an input index, never opens the
+network and never promotes a candidate to an accepted identity or a rights clearance. Every
+output row is an assessment with signals for review.
 """
 from __future__ import annotations
 import argparse
@@ -104,7 +105,8 @@ def read_candidates(db, schema, origin):
     return result
 
 
-def prepare(work_index: Path, metadata: Path, output: Path, *, offline_index: Path | None = None, subset: Path | None = None):
+def prepare(work_index: Path, metadata: Path, output: Path, *, offline_index: Path | None = None, subset: Path | None = None,
+            recordings_index: Path | None = None):
     """Build a new assessment index. All inputs are attached read only and re-hashed at the end.
 
     The work index lock is held for the whole build, so a lookup runner started meanwhile fails fast."""
@@ -115,27 +117,29 @@ def prepare(work_index: Path, metadata: Path, output: Path, *, offline_index: Pa
         except BlockingIOError:
             raise ValueError('work index lock held') from None
         try:
-            return build(work_index, metadata, output, offline_index, subset)
+            return build(work_index, metadata, output, offline_index, subset, recordings_index)
         finally:
             fcntl.flock(lock, fcntl.LOCK_UN)
 
 
-def build(work_index, metadata, output, offline_index, subset):
-    paths = dict(work_index=work_index, metadata=metadata, offline_index=offline_index, subset=subset)
+def build(work_index, metadata, output, offline_index, subset, recordings_index=None):
+    paths = dict(work_index=work_index, metadata=metadata, offline_index=offline_index, subset=subset,
+                 recordings_index=recordings_index)
     inputs = {k: dict(path=str(p), sha256=file_digest(p)) for k, p in paths.items() if p is not None}
     temp = output.with_name(f'.{output.name}.{uuid.uuid4()}.tmp')
     try:
         with closing(sqlite3.connect(temp, uri=True)) as db:
             db.execute('PRAGMA max_page_count=262144')
-            for schema, key in (('w', 'work_index'), ('m', 'metadata'), ('o', 'offline_index'), ('s', 'subset')):
+            for schema, key in (('w', 'work_index'), ('m', 'metadata'), ('o', 'offline_index'), ('s', 'subset'), ('r', 'recordings_index')):
                 if paths[key] is not None:
                     db.execute(f'ATTACH DATABASE ? AS {schema}', (ro(paths[key]),))
-            rows = read_candidates(db, 'w', 'work_index') + (read_candidates(db, 'o', 'offline_index') if offline_index else [])
+            rows = read_candidates(db, 'w', 'work_index') + (read_candidates(db, 'o', 'offline_index') if offline_index else []) \
+                + (read_candidates(db, 'r', 'recordings_index') if recordings_index else [])
             origins = defaultdict(set)
             for r in rows:
                 origins[r['provider']].add(r['origin'])
             if any(len(v) > 1 for v in origins.values()):
-                raise ValueError('a provider appears in both candidate indexes')
+                raise ValueError('a provider appears in both candidate indexes')  # One origin per provider.
             db.executescript('''CREATE TEMP TABLE keys(source_key TEXT PRIMARY KEY);
                 CREATE TEMP TABLE hashes(musical_sha256 TEXT PRIMARY KEY);''')
             db.executemany('INSERT OR IGNORE INTO temp.keys VALUES (?)', [(r['key'],) for r in rows])
@@ -202,6 +206,7 @@ def assess(db, rows, records, twins, notices, namesakes):
                      else 'duplicates_agree' if all(work in s for s in rival) else 'duplicates_partial')
         sets = list(own.values())
         # The dump checks every namesake, so a superset from one provider is expected, not a contradiction.
+        # With three providers: agree when all sets are equal, differ when any pair is disjoint, overlap otherwise.
         cross = ('single_provider' if len(sets) < 2 else 'providers_agree' if all(s == sets[0] for s in sets)
                  else 'providers_differ' if any(not (a & b) for a in sets for b in sets) else 'providers_overlap')
         nested = cross == 'providers_overlap' and all(a <= b or b <= a for a in sets for b in sets)
@@ -215,7 +220,8 @@ def assess(db, rows, records, twins, notices, namesakes):
             namesake_source='evidence' if counts else 'subset' if namesake is not None else None,
             title_alias_namesake_count=alias,
             notice_check=check, notice_tokens=matched, duplicate_check=duplicate, duplicate_count=len(others),
-            duplicates_with_candidates=len(rival), candidate_group=group, provider_cross_check=cross, provider_sets_nested=nested, **STATUS)
+            duplicates_with_candidates=len(rival), candidate_group=group, provider_cross_check=cross, provider_sets_nested=nested,
+            providers=sorted(p for p, s in own.items() if work in s), **STATUS)
         signals['tier'] = tier = tier_of(signals)
         db.execute('INSERT INTO assessments VALUES (?,?,?,?,?,?,?)',
                    (key, work, provider, tier, json.dumps(signals, ensure_ascii=False), POLICY, assessed_on))
@@ -261,7 +267,7 @@ def reasons_of(s):
     out += {'providers_differ': ['providers found disjoint work sets'],
             'providers_overlap': ['one provider found a subset of the other' if s['provider_sets_nested']
                                   else 'providers share some works but not all'],
-            'providers_agree': ['API and dump providers found the same works']}.get(s['provider_cross_check'], [])
+            'providers_agree': ['all providers found the same works']}.get(s['provider_cross_check'], [])
     if s['distinct_works_all_providers'] > 1:
         out.append(f"{s['distinct_works_all_providers']} distinct work candidates")
     if s['title_agreement'] is None or s['creator_agreement_kind'] is None:
@@ -286,10 +292,13 @@ def summary(assessment: Path):
         return dict(policy=POLICY, sources=db.execute('SELECT count(*) FROM source_summary').fetchone()[0],
                     assessments=db.execute('SELECT count(*) FROM assessments').fetchone()[0], best_tier=dict(tiers),
                     notice_check=count('notice_check'), duplicate_check=count('duplicate_check'),
-                    provider_cross_check=count('provider_cross_check'), identity_verified=False, **STATUS)
+                    provider_cross_check=count('provider_cross_check'),
+                    providers=dict(db.execute('SELECT provider,count(*) FROM assessments GROUP BY 1')),
+                    identity_verified=False, **STATUS)
 
 
-def packet(assessment: Path, work_index: Path, output: Path, *, offline_index: Path | None = None, tier=None, limit=200):
+def packet(assessment: Path, work_index: Path, output: Path, *, offline_index: Path | None = None, tier=None, limit=200,
+           recordings_index: Path | None = None):
     """Write a bounded JSON review packet. Nothing in it is an accepted identity."""
     if type(limit) is not int or not 1 <= limit <= 1000 or tier not in (None, *TIERS):
         raise ValueError('invalid packet bounds')
@@ -297,10 +306,10 @@ def packet(assessment: Path, work_index: Path, output: Path, *, offline_index: P
     with closing(sqlite3.connect(ro(assessment), uri=True)) as db:
         db.row_factory = sqlite3.Row
         inputs = json.loads(db.execute('SELECT inputs_json FROM provenance').fetchone()[0])
-        for key, path in (('work_index', work_index), ('offline_index', offline_index)):
+        for key, path in (('work_index', work_index), ('offline_index', offline_index), ('recordings_index', recordings_index)):
             if path is not None and (key not in inputs or file_digest(path) != inputs[key]['sha256']):
                 raise ValueError(f'{key} does not match assessment provenance')
-        digests = {p: file_digest(p) for p in (assessment, work_index, offline_index) if p is not None}
+        digests = {p: file_digest(p) for p in (assessment, work_index, offline_index, recordings_index) if p is not None}
         db.execute('ATTACH DATABASE ? AS w', (ro(work_index),))
         rows = db.execute('SELECT * FROM source_summary'+(' WHERE best_tier=?' if tier else '')+
                           ' ORDER BY review_priority,source_key LIMIT ?', ([tier] if tier else [])+[limit]).fetchall()
@@ -327,26 +336,34 @@ def packet(assessment: Path, work_index: Path, output: Path, *, offline_index: P
                 output_sha256=file_digest(output), identity_verified=False, **STATUS)
 
 
-def main():
+def parser():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
     build = sub.add_parser('prepare')
     for name in ('work-index', 'metadata', 'output'):
         build.add_argument('--'+name, type=Path, required=True)
     build.add_argument('--offline-index', type=Path); build.add_argument('--subset', type=Path)
+    build.add_argument('--recordings-index', type=Path)
     count = sub.add_parser('summary'); count.add_argument('--assessment', type=Path, required=True)
     pack = sub.add_parser('packet')
     for name in ('assessment', 'work-index', 'output'):
         pack.add_argument('--'+name, type=Path, required=True)
-    pack.add_argument('--offline-index', type=Path); pack.add_argument('--tier', choices=TIERS)
+    pack.add_argument('--offline-index', type=Path); pack.add_argument('--recordings-index', type=Path)
+    pack.add_argument('--tier', choices=TIERS)
     pack.add_argument('--limit', type=int, default=200)
-    args = parser.parse_args()
+    return parser
+
+
+def main(argv=None):
+    args = parser().parse_args(argv)
     if args.command == 'prepare':
-        result = prepare(args.work_index, args.metadata, args.output, offline_index=args.offline_index, subset=args.subset)
+        result = prepare(args.work_index, args.metadata, args.output, offline_index=args.offline_index, subset=args.subset,
+                         recordings_index=args.recordings_index)
     elif args.command == 'summary':
         result = summary(args.assessment)
     else:
-        result = packet(args.assessment, args.work_index, args.output, offline_index=args.offline_index, tier=args.tier, limit=args.limit)
+        result = packet(args.assessment, args.work_index, args.output, offline_index=args.offline_index, tier=args.tier,
+                        limit=args.limit, recordings_index=args.recordings_index)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
