@@ -35,7 +35,7 @@ def creator_kind(value):
         return 'unattributed'
     # Unknown author markers, also when concatenated with following text ('Urheber unbekanntDatum').
     if value.strip() in {'?', '??', '-'} or re.search(
-            r'unbekannt|unknown|inconnu|desconocido|sconosciuto|\banon|\b(ukjent|okand|n n)\b', normalized):
+            r'unbekannt|unknown|inconnu|desconocido|sconosciuto|\btradi[ctz]ion|\banon|\b(ukjent|okand|n n)\b', normalized):
         return 'unattributed'
     if normalized.startswith(('misc ', 'various ', 'arr ', 'arranged ', 'after ')) or normalized in {'misc', 'various'}:
         return 'generic_or_ambiguous'
