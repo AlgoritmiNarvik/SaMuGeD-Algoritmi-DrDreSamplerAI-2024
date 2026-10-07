@@ -1,11 +1,12 @@
 # Candidate assessment
 
-This layer sorts unreviewed work candidates into review tiers and records the cross checks behind each tier. It reads the API work index, the optional offline dump index, the metadata usage index and the optional MusicBrainz subset. All inputs are attached read only and hashed before and after the run. The result is a separate SQLite file with assessments and signals. It is not a review and it is not a rights clearance.
+This layer sorts unreviewed work candidates into review tiers and records the cross checks behind each tier. It reads the API work index, the optional offline dump index, the optional offline recordings index, the metadata usage index and the optional MusicBrainz subset. All inputs are attached read only and hashed before and after the run. The result is a separate SQLite file with assessments and signals. It is not a review and it is not a rights clearance.
 
 ```mermaid
 flowchart LR
     W[API work index<br/>queue and candidates]:::data --> B[Source binding<br/>key and source hash]:::action
     O[Offline dump index<br/>same table shapes]:::data --> B
+    R[Offline recordings index<br/>full export candidates]:::data --> B
     M[Metadata usage index<br/>notices and musical hashes]:::data --> B
     S[MusicBrainz subset<br/>title namesakes]:::data --> G
     B --> G[Signals per source, work and provider]:::action
@@ -30,7 +31,17 @@ flowchart LR
 
 ## Inputs and binding
 
-Both candidate indexes have the same `queue` and `work_candidates` tables. The offline index is a second source of candidate rows; its provider is `musicbrainz_json_dump` and its evidence policy is `work-candidates-v3-dump`. Every candidate source key must exist in its own queue, in the API work index queue and in `metadata.records`, all with the same `source_sha256`. A provider that appears in both indexes, a candidate whose evidence claims a verified source identity or a binding mismatch stops the run with an error and no output.
+Up to three candidate indexes are read. They share the `queue` and `work_candidates` columns the assessment uses.
+
+| Input | Origin | Provider | Evidence policy |
+| --- | --- | --- | --- |
+| `--work-index` | `work_index` | `musicbrainz` | `work-candidates-v3` and older API policies |
+| `--offline-index` | `offline_index` | `musicbrainz_json_dump` | `work-candidates-v3-dump` |
+| `--recordings-index` | `recordings_index` | `musicbrainz_fullexport` | `work-candidates-v3-fullexport` |
+
+The recordings index is the sidecar written by [offline recording candidates from the full export](work_identity_offline_recordings.md). Its candidates come from the recording rule, so their evidence has the API recording shape. The title agreement is `recording_title_normalized`, the creator agreement is the full credit agreement (`normalized_tokens` or the weaker `initials_candidate`) and `work.relations` lists the agreeing writers. Its `recording_namesake_count` counts recordings, not works, so it is not used as `namesake_count`. Like API rows, full export rows take their namesake count from `--subset`.
+
+Every candidate source key must exist in its own queue, in the API work index queue and in `metadata.records`, all with the same `source_sha256`. Each provider may come from one origin only. A provider that appears in two indexes, a candidate whose evidence claims a verified source identity or a binding mismatch stops the run with an error and no output.
 
 Several recording rows for the same work collapse into one assessment row per source, work and provider. Older evidence policies without a `match_basis` are kept and assessed with unknown agreement.
 
@@ -46,10 +57,12 @@ Several recording rows for the same work collapse into one assessment row per so
 | `namesake_count` | Works whose canonical title equals the normalized query title: `title_namesake_count` from the dump evidence, or the subset `work_count` for API rows |
 | `title_alias_namesake_count` | Works that match the title only through an alias, from the dump evidence or the subset `alias_count`; recorded, not used for the tier |
 
-API rows have no namesake count of their own. Without `--subset` their count is unknown and they can reach at most `single_work_weaker_agreement`, so pass `--subset` when API rows should be able to reach the full tier.
 | `notice_check` | MIDI copyright notice compared with writer names, see below |
 | `duplicate_check` | Candidates of other sources with the same musical hash, see below |
-| `provider_cross_check` | Work sets of the API and dump providers for this source, see below |
+| `provider_cross_check` | Work sets of all providers for this source, see below |
+| `providers` | Providers that proposed this work for this source |
+
+API and full export rows have no work namesake count of their own. Without `--subset` their count is unknown and they can reach at most `single_work_weaker_agreement`, so pass `--subset` when these rows should be able to reach the full tier.
 
 Each row also stores the evidence policy, the index it came from, recording ids, the work title, the candidate group and the counts behind every check.
 
@@ -73,9 +86,11 @@ Other sources with the same `musical_sha256` are compared when they have candida
 | Value | Rule |
 | --- | --- |
 | `single_provider` | Only one provider has candidates for the source |
-| `providers_agree` | Both providers found the same work set |
-| `providers_overlap` | The work sets share works but differ; `provider_sets_nested` is true when one set is a strict subset of the other |
-| `providers_differ` | The work sets are disjoint |
+| `providers_agree` | All providers found the same work set |
+| `providers_overlap` | No two work sets are disjoint but not all are equal; `provider_sets_nested` is true when every pair of sets is nested |
+| `providers_differ` | At least one pair of work sets is disjoint |
+
+The work sets are compared per source, one set per provider that has candidates. With three providers a single disjoint pair is enough for `providers_differ`, for example an API set and a full export set that share no work while the dump set contains both.
 
 The dump provider checks every namesake and adds the librettist role and sort name agreement, so a dump superset of the API work set is expected rather than a contradiction. Overlap is not a conflict; the extra works lead to `multiple_works`. Only disjoint work sets set the `conflict` tier.
 
@@ -125,16 +140,18 @@ python -m samuged.candidate_assessment prepare \
   --work-index /path/to/work_identity_v04.sqlite \
   --metadata /path/to/metadata_usage_v07.sqlite \
   --offline-index /path/to/work_identity_offline.sqlite \
+  --recordings-index /path/to/work_identity_offline_recordings_v01.sqlite \
   --subset /path/to/musicbrainz_subset_v01.sqlite \
-  --output /path/to/candidate_assessment_v01.sqlite
+  --output /path/to/candidate_assessment_v02.sqlite
 
 python -m samuged.candidate_assessment summary \
-  --assessment /path/to/candidate_assessment_v01.sqlite
+  --assessment /path/to/candidate_assessment_v02.sqlite
 
 python -m samuged.candidate_assessment packet \
-  --assessment /path/to/candidate_assessment_v01.sqlite \
+  --assessment /path/to/candidate_assessment_v02.sqlite \
   --work-index /path/to/work_identity_v04.sqlite \
+  --recordings-index /path/to/work_identity_offline_recordings_v01.sqlite \
   --output /path/to/review_packet.json --tier conflict --limit 200
 ```
 
-`summary` counts best tiers per dataset and the notice, duplicate and provider check values. `packet` writes a JSON file for up to 1000 sources ordered by review priority and source key. It lists the source labels and each candidate with its work title, writers, provider, tier, signals and MusicBrainz work URL. The packet refuses an existing output and refuses indexes whose hashes differ from the assessment provenance. It hashes the assessment and the indexes again before writing and refuses when any of them changed. Its header states that nothing in it is an accepted identity.
+`--offline-index` and `--recordings-index` are optional and independent. `summary` counts best tiers per dataset, the notice, duplicate and provider check values and the assessments per provider. `packet` writes a JSON file for up to 1000 sources ordered by review priority and source key. It lists the source labels and each candidate with its work title, writers, provider, tier, signals and MusicBrainz work URL. The packet refuses an existing output and refuses any index passed to it (`--work-index`, `--offline-index` or `--recordings-index`) that is missing from the assessment provenance or whose hash differs from it. It hashes the assessment and the indexes again before writing and refuses when any of them changed. Its header states that nothing in it is an accepted identity.
