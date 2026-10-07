@@ -29,7 +29,7 @@ POLICY, PROVIDER = 'work-candidates-v3-dump', 'musicbrainz_json_dump'
 LICENSE, LICENSE_URL = 'CC0-1.0', 'https://musicbrainz.org/doc/About/Data_License'
 METHOD = 'normalized_labels_names_or_initials_and_dump_relationship_not_MIDI_identity'
 WRITERS = ('composer', 'writer', 'lyricist', 'librettist')
-EXAMINED, TITLE_ONLY, IDS, BATCH = 200, 50, 10, 5000
+TITLE_ONLY, IDS, BATCH = 50, 10, 5000
 RESERVE, PAGES, MB = 10.75*1024**3, 524288, 1024*1024  # 2 GiB at 4 KiB pages
 JURISDICTION = ('Life plus 70 years applies in the EEA and many other states; the United States and some others use '
                 'different rules. Estimate for the composition layer only, not clearance for arrangements, '
@@ -53,7 +53,7 @@ CREATE TABLE source_creators(source_key TEXT REFERENCES queue,creator_key TEXT,r
 CREATE INDEX source_creator_key ON source_creators(creator_key);
 CREATE TABLE creator_identities(creator_key TEXT PRIMARY KEY,raw_examples_json TEXT,source_count INTEGER,
     dataset_counts_json TEXT,status TEXT CHECK(status IN {IDENTITY}),artist_id TEXT,artist_name TEXT,artist_type TEXT,
-    begin TEXT,end TEXT,ended INTEGER,person_namesakes INTEGER,total_namesakes INTEGER,candidate_ids_json TEXT,evidence_json TEXT);
+    begin TEXT,end TEXT,ended INTEGER,person_namesakes INTEGER,total_namesakes INTEGER,alias_namesakes INTEGER,candidate_ids_json TEXT,evidence_json TEXT);
 CREATE TABLE term_estimates(creator_key TEXT PRIMARY KEY REFERENCES creator_identities,artist_id TEXT,death_year INTEGER,
     rule TEXT,threshold_year INTEGER,
     status TEXT CHECK(status IN ('likely_expired','likely_in_term','living_or_unknown_end','unknown')),evidence_json TEXT);
@@ -76,8 +76,8 @@ def _guard(output: Path):
 def _short(key): return len(key.replace(' ', '')) < 3  # The subset drops these keys too.
 
 
-def dump_block(sub, work_sha):
-    """Check that both subset passes completed from this work index and return the dump block."""
+def dump_block(sub, work_sha, score_sha):
+    """Check that both subset passes completed from these inputs and return the dump block."""
     cursor = sub.execute('SELECT * FROM provenance ORDER BY rowid')
     fields = [c[0] for c in cursor.description]
     rows = [dict(zip(fields, r), archives=json.loads(r[fields.index('archives_json')]),
@@ -91,6 +91,8 @@ def dump_block(sub, work_sha):
     archive, works = archives['work.tar.xz']
     if work_sha not in works['inputs'].values():
         raise ValueError('subset was built from another work index')
+    if score_sha not in works['inputs'].values():
+        raise ValueError('subset was built from another score metadata file')
     block = dict(dump_name=works['dump_name'], timestamp=works['timestamp'], replication_sequence=works['replication_sequence'],
                  schema_sequence=works['schema_sequence'], archive_sha256=archive['sha256'])
     return block, [{k: v for k, v in r.items() if not k.endswith('_json')} for r in rows]
@@ -99,7 +101,8 @@ def dump_block(sub, work_sha):
 class Reference:
     """In memory title and name lookups over the read only subset, with lazily loaded work records."""
     def __init__(self, sub):
-        self.sub, self.records, self.ranked = sub, {}, {}
+        self.sub, self.records, self.ranked, self.teams, self.agreeing = sub, {}, {}, {}, {}
+        self.creator_set = {k for (k,) in sub.execute('SELECT name_key FROM creator_set')}
         self.titles = defaultdict(list)
         for title, work_id, kind in sub.execute('SELECT normalized_title,work_id,kind FROM work_titles'):
             self.titles[title].append((work_id, kind))
@@ -122,6 +125,20 @@ class Reference:
                 kinds[work_id] = 'title' if kind == 'title' or kinds.get(work_id) == 'title' else 'alias'
             self.ranked[title] = sorted(kinds.items(), key=lambda x: (x[1] != 'title', -(self.performances.get(x[0]) or 0), x[0]))
         return self.ranked[title]
+
+    def agreeing_works(self, title, creator):
+        """Every namesake work with at least one agreeing writer. Writers are cached per work, results per pair."""
+        if (title, creator) not in self.agreeing:
+            found = []
+            for work_id, kind in self.ranked_works(title):
+                if work_id not in self.teams:
+                    self.teams[work_id] = writers(self.work(work_id))
+                agreeing = [dict(name=w['name'], role=w['role'], agreement=a, artist_id=w['artist_id'])
+                            for w in self.teams[work_id] for a in [agreement(w, creator)] if a]
+                if agreeing:
+                    found.append((work_id, kind, agreeing))
+            self.agreeing[title, creator] = found
+        return self.agreeing[title, creator]
 
 
 def writers(record):
@@ -149,23 +166,18 @@ def match(row, ref, dump):
     ranked = ref.ranked_works(title)
     if not ranked:
         return 'no_namesake', [], [], set()
-    examined, (canonical, aliases) = ranked[:EXAMINED], ref.namesakes.get(title, (None, None))
+    canonical, aliases = ref.namesakes.get(title, (None, None))
     basis = basis or 'original_catalog_labels_unverified'
     common = dict(source_creator_basis=basis, query_title=raw_title, query_creator=raw_creator,
                   title_namesake_count=canonical, title_alias_namesake_count=aliases, source_creator_role=role_of(dataset, basis))
-    found = []
-    for work_id, kind in examined if creator else ():
-        record = ref.work(work_id)
-        agreeing = [dict(name=w['name'], role=w['role'], agreement=a, artist_id=w['artist_id'])
-                    for w in writers(record) for a in [agreement(w, creator)] if a]
-        if agreeing:
-            found.append((work_id, kind, record, agreeing))
+    found = ref.agreeing_works(title, creator) if creator else []
     if found:
         rows = []
-        for work_id, kind, record, agreeing in found:
+        for work_id, kind, agreeing in found:
+            record = ref.work(work_id)
             basis_json = dict(common, title_agreement='canonical_title_normalized' if kind == 'title' else 'alias_normalized',
                 creator_agreement=agreeing, distinct_work_candidates=len(found), multiple_work_candidates=len(found) > 1,
-                linked_work_count=len(examined), namesakes_truncated=len(ranked) > EXAMINED,
+                linked_work_count=len(ranked),
                 musical_comparison='not_performed', source_identity_verified=False)
             work = dict(record, relations=[dict(type=w['role'], artist=dict(id=w['artist_id'], name=w['name'])) for w in writers(record)])
             evidence = dict(provider=PROVIDER, policy=POLICY, metadata_license=LICENSE, metadata_license_url=LICENSE_URL,
@@ -173,7 +185,7 @@ def match(row, ref, dump):
                 musical_work_license_status='unknown', rights_holder_status='not_established', **UNVERIFIED)
             rows.append((key, work_id, '', record['title'], json.dumps(evidence, ensure_ascii=False), 'candidate'))
         # Only full token agreement on a canonical title can narrow a creator identity.
-        strong = {a['artist_id'] for _, kind, _, agreeing in found if kind == 'title'
+        strong = {a['artist_id'] for _, kind, agreeing in found if kind == 'title'
                   for a in agreeing if a['agreement'] == 'normalized_tokens'}
         return 'candidate', rows, [], strong
     status = 'title_matches_other_writers_requires_review' if creator else 'title_only_candidate_requires_review'
@@ -209,7 +221,7 @@ def identify(db, sub, creators, writer_ids, dump):
     for key, artist_id, kind in sub.execute('SELECT name_key,artist_id,kind FROM artist_names'):
         if key in creators and artist_id in artists:
             names[key].append((artist_id, kind))
-    counts = {k: (p, t) for k, p, t in sub.execute('SELECT name_key,person_count,total_count FROM name_namesakes')}
+    counts = {k: c for k, *c in sub.execute('SELECT name_key,person_count,total_count,alias_count FROM name_namesakes')}
     year, identities, terms = datetime.now(timezone.utc).year, [], []
     for key in sorted(creators):
         entries, info = names.get(key, []), creators[key]
@@ -223,12 +235,14 @@ def identify(db, sub, creators, writer_ids, dump):
         evidence = dict(identity_status='candidate_unverified', rights_clearance='not_established', dump=dump,
                         matching_rule='name_key_exact_then_work_relation', matched_by_alias_only=bool(entries) and
                         all(kind == 'alias' for _, kind in entries), work_relation_ids=via[:IDS])
+        if chosen and artist[1] != 'Person':  # Dissolution dates of groups are not a life span.
+            evidence['term_estimate_skipped'] = 'artist_type_not_person'
         identities.append((key, json.dumps(info['raw'][:3], ensure_ascii=False), len(info['sources']),
-            json.dumps(dict(sorted(info['datasets'].items()))), status, chosen, *artist, *counts.get(key, (None, None)),
+            json.dumps(dict(sorted(info['datasets'].items()))), status, chosen, *artist, *counts.get(key, (None,)*3),
             json.dumps((persons+[a for a in primary if a not in persons])[:IDS]), json.dumps(evidence, ensure_ascii=False)))
-        if chosen:
+        if chosen and artist[1] == 'Person':
             terms.append(term_estimate(key, chosen, artist, year))
-    db.executemany('INSERT INTO creator_identities VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', identities)
+    db.executemany('INSERT INTO creator_identities VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', identities)
     db.executemany('INSERT INTO term_estimates VALUES (?,?,?,?,?,?,?)', terms)
 
 
@@ -256,14 +270,14 @@ def prepare(work_index: Path, subset: Path, score_metadata: Path, output: Path, 
             if key in chosen:
                 claims[key] += [(name_key(x), claim) for x in creator_search_names(claim)]
     with closing(_ro(subset)) as sub, tempfile.TemporaryDirectory(dir=output.parent) as temp:
-        dump, subset_rows = dump_block(sub, inputs['work_index']['sha256'])
+        dump, subset_rows = dump_block(sub, inputs['work_index']['sha256'], inputs['score_metadata']['sha256'])
         ref = Reference(sub)
         target = Path(temp)/'offline.sqlite'
         with closing(sqlite3.connect(target)) as db:
             db.execute('PRAGMA page_size=4096'); db.execute(f'PRAGMA max_page_count={PAGES}')
             db.executescript(SCHEMA)
             creators = defaultdict(lambda: dict(raw=[], sources=set(), datasets=Counter()))
-            writer_ids, skipped = defaultdict(set), 0
+            writer_ids, skipped = defaultdict(set), set()
             buffers = dict(queue=[], work_candidates=[], title_only_candidates=[], source_creators=[])
             for n, row in enumerate(selected, 1):
                 key, sha, ds, raw_title, raw_creator = row[:5]
@@ -274,7 +288,9 @@ def prepare(work_index: Path, subset: Path, score_metadata: Path, output: Path, 
                 own |= {(k, claim, 'score_composer_claim') for k, claim in claims.get(key, ())}
                 for creator_key, raw, basis in sorted(own):
                     if _short(creator_key):
-                        skipped += 1; continue
+                        skipped.add(creator_key); continue
+                    if creator_key not in ref.creator_set:
+                        raise ValueError('creator key outside subset creator set')
                     info = creators[creator_key]
                     if raw not in info['raw'] and len(info['raw']) < 3:
                         info['raw'].append(raw)
@@ -293,7 +309,7 @@ def prepare(work_index: Path, subset: Path, score_metadata: Path, output: Path, 
             if any(file_digest(Path(v['path'])) != v['sha256'] for v in inputs.values()):
                 raise ValueError('input changed during prepare')
             selection = dict(dataset=dataset, limit=limit, truncated=truncated, sources=len(selected),
-                             creator_keys_skipped_short=skipped)
+                             creator_keys_skipped_short=len(skipped))
             db.execute('INSERT INTO provenance VALUES (?,?,?,?,?,0,?)', (POLICY, json.dumps(inputs), json.dumps(
                 dict(block=dump, subset_provenance=subset_rows), ensure_ascii=False), json.dumps(selection), now(), 'not_established'))
             db.commit()
@@ -331,10 +347,10 @@ def source_record(db, key, sha, dataset, state, dump_name):
             title_alias_namesake_count=basis['title_alias_namesake_count']))
     title_only = [dict(work_id=w, title=t, writers=json.loads(team), status=s) for w, t, team, s in db.execute(
         'SELECT work_id,title,writers_json,status FROM title_only_candidates WHERE source_key=? ORDER BY rowid LIMIT ?', (key, TITLE_ONLY))]
-    creators = [dict(creator_key=k, basis=b, identity_status=s, artist_id=a, artist_name=n,
+    creators = [dict(creator_key=k, basis=b, identity_status=s, artist_id=a, artist_name=n, alias_namesakes=al,
                      term_estimate=dict(status=ts, death_year=d, threshold_year=y) if ts else None)
-                for k, b, s, a, n, ts, d, y in db.execute('''SELECT s.creator_key,s.basis,i.status,i.artist_id,i.artist_name,
-                    t.status,t.death_year,t.threshold_year FROM source_creators s JOIN creator_identities i USING(creator_key)
+                for k, b, s, a, n, al, ts, d, y in db.execute('''SELECT s.creator_key,s.basis,i.status,i.artist_id,i.artist_name,
+                    i.alias_namesakes,t.status,t.death_year,t.threshold_year FROM source_creators s JOIN creator_identities i USING(creator_key)
                     LEFT JOIN term_estimates t USING(creator_key) WHERE s.source_key=? ORDER BY 1,2''', (key,))]
     return dict(source_key=key, source_sha256=sha, dataset_id=dataset, status=state, candidates=candidates,
                 title_only=title_only, creators=creators, policy=POLICY, dump_name=dump_name, **UNVERIFIED)

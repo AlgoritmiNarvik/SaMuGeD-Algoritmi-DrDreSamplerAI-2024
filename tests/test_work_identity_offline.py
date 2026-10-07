@@ -59,11 +59,16 @@ QUEUE = [('s01', 'pdmx', 'Home Free', 'Smith, John', 'usable', 'catalog_composer
 CLAIMS = {'s05': 'Anna Oldfield (1840-1900)', 's10': 'Traditional', 's01': None}
 
 
-def build_subset(path, work_sha, *, artists=True, truncated=False):
+def build_subset(path, index, scores, *, artists=True, truncated=False, works=None, work_sha=None, score_sha=None, drop_key=None):
+    creators = {mb.name_key(c) for (c,) in q(index, 'SELECT creator FROM queue')}
+    creators |= {mb.name_key(x) for (c,) in q(scores, 'SELECT composer_claim FROM score_metadata') for x in mb.creator_search_names(c)}
+    creators = {k for k in creators if len(k.replace(' ', '')) >= 3} - {drop_key}
+    inputs = {'/x/v04.sqlite': work_sha or file_digest(index), '/x/scores.sqlite': score_sha or file_digest(scores)}
     with sqlite3.connect(path) as db:
         db.executescript(mb.SCHEMA)
+        db.executemany('INSERT INTO creator_set VALUES (?)', [(k,) for k in sorted(creators)])
         counts = defaultdict(lambda: [0, 0])
-        for raw in WORKS:
+        for raw in works or WORKS:
             w = mb.project_work(raw); canon = label(w['title'])
             aliases = {label(a['name']) for a in w['aliases']} - {canon}
             db.execute('INSERT INTO works VALUES (?,?,?,?,?,?)', (w['id'], w['title'], canon, 'Song', None, json.dumps(w)))
@@ -82,7 +87,7 @@ def build_subset(path, work_sha, *, artists=True, truncated=False):
         for archive in ['work.tar.xz'] + ['artist.tar.xz']*artists:
             entry = dict(archive=archive, sha256='ab'*32 if archive == 'work.tar.xz' else 'cd'*32, truncated=truncated)
             db.execute('INSERT INTO provenance VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (mb.POLICY, '20261003-001001',
-                json.dumps([entry]), '2026-10-03 00:10:01', 123, 30, json.dumps({'/x/v04.sqlite': work_sha}), 1, 1,
+                json.dumps([entry]), '2026-10-03 00:10:01', 123, 30, json.dumps(inputs), 1, 1,
                 mb.LICENSE, mb.LICENSE_URL, 0, 'not_established', 'now', 0))
 
 
@@ -100,7 +105,7 @@ def env(tmp_path, monkeypatch):
         db.execute('CREATE TABLE score_metadata(source_key TEXT,source_sha256 TEXT,score_id TEXT,source_url TEXT,composer_claim TEXT,review_required INTEGER,evidence_json TEXT)')
         db.executemany('INSERT INTO score_metadata VALUES (?,?,?,?,?,?,?)', [(k, 'h'+k, k, None, c, 1, '{}') for k, c in CLAIMS.items()])
     subset = tmp_path/'subset.sqlite'
-    build_subset(subset, file_digest(index))
+    build_subset(subset, index, scores)
     return index, subset, scores, tmp_path/'offline.sqlite'
 
 
@@ -134,7 +139,7 @@ def test_candidates_mirror_api_rules(env):
     assert b['title_agreement'] == 'canonical_title_normalized' and b['creator_agreement'] == [
         dict(name='John Smith', role='composer', agreement='normalized_tokens', artist_id=SMITH)]
     assert (b['title_namesake_count'], b['title_alias_namesake_count'], b['linked_work_count']) == (2, 1, 3)
-    assert b['distinct_work_candidates'] == 1 and b['multiple_work_candidates'] is False and b['namesakes_truncated'] is False
+    assert b['distinct_work_candidates'] == 1 and b['multiple_work_candidates'] is False and 'namesakes_truncated' not in b
     assert b['source_identity_verified'] is False and b['musical_comparison'] == 'not_performed'
     assert b['source_creator_role'] == 'composer_label' and b['source_creator_basis'] == 'catalog_composer'
     assert e['work']['id'] == uid(1) and e['work']['iswcs'] == ['T-1'] and e['rights_holder_status'] == 'not_established'
@@ -146,7 +151,7 @@ def test_candidates_mirror_api_rules(env):
     lakh = evidence(out, 's04')
     assert set(lakh) == {uid(6)} and lakh[uid(6)]['match_basis']['source_creator_role'] == 'performer_label'
     assert q(out, "SELECT DISTINCT recording_id,match_status FROM work_candidates") == [('', 'candidate')]
-    assert set(evidence(out, 's11')) == {uid(159)}  # Lowest ranked namesake still examined under the 200 cap.
+    assert set(evidence(out, 's11')) == {uid(159)}  # The lowest ranked namesake is examined too.
 
 
 def test_output_is_readable_by_candidate_assessment(env):
@@ -176,14 +181,25 @@ def test_title_only_rows(env):
     assert len(capped) == 50 and all(json.loads(e)['truncated'] and json.loads(e)['ambiguous_title'] for (e,) in capped)
 
 
-def test_examined_cap(env, monkeypatch):
+def test_every_namesake_is_examined(env, tmp_path):
+    index, _, scores, _ = env
+    gavottes = [work(1000+i, 'Gavotte', [MIDWAY] if i == 249 else [OTHER], performances=300-i) for i in range(250)]
+    subset = tmp_path/'gavotte.sqlite'
+    build_subset(subset, index, scores, works=WORKS+gavottes)
+    with sqlite3.connect(subset) as db:
+        state, rows, _, ids = wio.match(('s13', 'h', 'pdmx', 'Gavotte', 'Bert Midway', 'usable', 'catalog_composer'), wio.Reference(db), {})
+    assert state == 'candidate' and [r[1] for r in rows] == [uid(1249)] and ids == {MIDWAY}
+    basis = json.loads(rows[0][4])['match_basis']
+    assert basis['linked_work_count'] == 250 and 'namesakes_truncated' not in basis
+
+
+def test_only_strong_candidates_disambiguate(env):
     index, subset, scores, out = env
-    monkeypatch.setattr(wio, 'EXAMINED', 10)
-    wio.prepare(index, subset, scores, out)
-    assert q(out, "SELECT status FROM queue WHERE source_key='s11'") == [('no_candidate',)]
-    # Only the alias candidate of s03 remains, so the name based status applies.
+    with sqlite3.connect(index) as db:  # Without s11 only the alias candidate of s03 remains.
+        db.execute("UPDATE queue SET creator=NULL WHERE source_key='s11'")
+    build_subset(subset.with_name('s.sqlite'), index, scores)
+    wio.prepare(index, subset.with_name('s.sqlite'), scores, out)
     assert q(out, "SELECT status,artist_id FROM creator_identities WHERE creator_key='bert midway'") == [('single_person_candidate', MIDWAY)]
-    assert json.loads(q(out, "SELECT evidence_json FROM work_candidates WHERE source_key='s01'")[0][0])['match_basis']['namesakes_truncated'] is False
 
 
 def test_weak_candidates_do_not_disambiguate(env):
@@ -229,12 +245,18 @@ def test_unknown_term_status():
 def test_refusals(env, tmp_path, monkeypatch):
     index, subset, scores, out = env
     for name, kwargs in (('no_artists.sqlite', dict(artists=False)), ('truncated.sqlite', dict(truncated=True))):
-        build_subset(tmp_path/name, file_digest(index), **kwargs)
+        build_subset(tmp_path/name, index, scores, **kwargs)
         with pytest.raises(ValueError, match='artists passes|truncated'):
             wio.prepare(index, tmp_path/name, scores, out)
-    build_subset(tmp_path/'other.sqlite', '0'*64)
+    build_subset(tmp_path/'other.sqlite', index, scores, work_sha='0'*64)
     with pytest.raises(ValueError, match='another work index'):
         wio.prepare(index, tmp_path/'other.sqlite', scores, out)
+    build_subset(tmp_path/'other_scores.sqlite', index, scores, score_sha='0'*64)
+    with pytest.raises(ValueError, match='another score metadata'):
+        wio.prepare(index, tmp_path/'other_scores.sqlite', scores, out)
+    build_subset(tmp_path/'stale.sqlite', index, scores, drop_key='anna oldfield')
+    with pytest.raises(ValueError, match='creator key outside subset creator set'):
+        wio.prepare(index, tmp_path/'stale.sqlite', scores, out)
     with pytest.raises(ValueError, match='positive'):
         wio.prepare(index, subset, scores, out, limit=0)
     assert not out.exists()
@@ -299,3 +321,38 @@ def test_export(env, tmp_path, monkeypatch):
     with pytest.raises(ValueError, match='max size'):
         wio.export(out, tmp_path/'small.jsonl.gz', max_output_mb=1)
     assert not (tmp_path/'small.jsonl.gz').exists()
+
+
+def test_group_gets_no_term_estimate(env, tmp_path):
+    index, subset, scores, _ = env
+    out = sqlite3.connect(tmp_path/'identities.sqlite'); out.executescript(wio.SCHEMA)
+    creators = {'kiss': dict(raw=['Kiss'], sources={'s07'}, datasets={'lakh': 1})}
+    with sqlite3.connect(subset) as sub:
+        wio.identify(out, sub, creators, {'kiss': {KISS}}, {})
+    status, artist_id, encoded = out.execute("SELECT status,artist_id,evidence_json FROM creator_identities").fetchone()
+    assert (status, artist_id) == ('disambiguated_by_work_relation', KISS)
+    assert json.loads(encoded)['term_estimate_skipped'] == 'artist_type_not_person'
+    assert out.execute('SELECT count(*) FROM term_estimates').fetchone()[0] == 0
+    out.close()
+
+
+def test_short_keys_counted_once(env, tmp_path):
+    index, _, scores, out = env
+    with sqlite3.connect(index) as db:
+        db.execute("UPDATE queue SET creator='M.' WHERE source_key='s07'")
+    build_subset(tmp_path/'s.sqlite', index, scores)
+    result = wio.prepare(index, tmp_path/'s.sqlite', scores, out)
+    assert result['selection']['creator_keys_skipped_short'] == 1
+
+
+def test_alias_namesakes_carried(env, tmp_path):
+    index, subset, scores, out = env
+    with sqlite3.connect(subset) as db:
+        db.execute("UPDATE name_namesakes SET alias_count=3 WHERE name_key='kiss'")
+    wio.prepare(index, subset, scores, out)
+    assert q(out, "SELECT person_namesakes,total_namesakes,alias_namesakes FROM creator_identities WHERE creator_key='kiss'") == [(0, 1, 3)]
+    wio.export(out, tmp_path/'e.jsonl.gz')
+    with gzip.open(tmp_path/'e.jsonl.gz', 'rt', encoding='utf-8') as f:
+        record = next(r for r in map(json.loads, f) if r['source_key'] == 's07')
+    assert record['creators'] == [dict(creator_key='kiss', basis='queue_creator', identity_status='non_person_match', artist_id=None,
+                                       artist_name=None, alias_namesakes=3, term_estimate=None)]
