@@ -14,7 +14,7 @@ MusicBrainz publishes full JSON dumps under CC0. The work dump (687 MB compresse
 2. All new evidence goes to separate sidecar indexes bound to the immutable `work_identity_v04.sqlite` by `source_key` and `source_sha256`. Each module owns one index and records input hashes in a `provenance` table.
 3. Evidence from dumps records the dump name, archive sha256, timestamp and replication sequence instead of a request URL and retrieval date. The matching rules stay those of `work-candidates-v3`: normalized title or alias agreement plus creator agreement by normalized tokens or initials. The policy label changes so dump results are never confused with API results.
 4. No result is promoted to a verified identity or to rights clearance. Title only matches are `title_only_candidate_requires_review`. Term estimates from composer death years are estimates with the rule named, not clearance.
-5. The dump archives are temporary. They are verified against the signed `SHA256SUMS`, filtered and then deleted. The 10 GiB storage reserve stays in force.
+5. The dump archives are temporary. They are verified against the published `SHA256SUMS` list, the signature status of that list is recorded, and the archives are filtered and then deleted. The 10 GiB storage reserve stays in force.
 
 ## Components
 
@@ -46,7 +46,7 @@ Verifies archive hashes against `SHA256SUMS`, reads `TIMESTAMP`, `REPLICATION_SE
 
 ### work_identity_offline
 
-Applies the `work-candidates-v3` rules to every work kind source against the subset. Sources with a title and a creator produce `work_candidates` rows in the same shape as the API index, with evidence naming the dump and policy `work-candidates-v3-dump`. Sources with a title only produce `title_only_candidates` rows with every namesake work and its writers, the namesake count and the review status. Distinct creators are matched to artists with the same agreement rules; life spans produce `term_estimates` with the rule `life_plus_70` and a status of likely expired, likely in term or unknown. Ambiguous names are recorded as ambiguous, never resolved by popularity.
+Applies the `work-candidates-v3` title and writer agreement rules to every source against the subset. The offline pass is broader than one API search page: it checks every namesake work, matches sort names too and includes the librettist role, so a dump work set that contains the API set is expected. Sources with a title and a creator produce `work_candidates` rows in the same shape as the API index, with evidence naming the dump and policy `work-candidates-v3-dump`. Sources with a title only produce `title_only_candidates` rows with up to 50 namesake works and their writers, the full namesake count and the review status. Distinct creators are matched to artists with the same agreement rules; life spans produce `term_estimates` with the rule `life_plus_70` and a status of likely expired, likely in term or unknown. Ambiguous names are recorded as ambiguous, never resolved by popularity.
 
 ### provenance_hints
 
