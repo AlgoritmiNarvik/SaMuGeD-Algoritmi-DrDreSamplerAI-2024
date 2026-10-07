@@ -15,7 +15,7 @@ tags:
 - copyright
 pretty_name: SaMuGeD Earworms recurring phrases (main dataset)
 size_categories:
-- 100K<n<1M
+- 1M<n<10M
 configs:
   - config_name: closed_melodic
     default: true
@@ -81,7 +81,7 @@ The release has three parts. This repository holds the phrases, splits, MIDI byt
 | --- | ---: | ---: | ---: | ---: |
 | Rows in `source_terms`, `provenance_hints` and `work_identity` | 17,232 | 1,276 | 189,704 | 208,212 |
 
-The corpus expansion applies the same closed detector to PDMX and MAESTRO. `pdmx_melodic` holds 459,659 melodic phrases from 189,704 scores and `maestro_melodic` holds 3,423 melodic phrases from 1,276 performances. Both use the phrase schema of the Lakh configurations. Artist and title come from the upstream score or performance metadata, not from file paths. Their `split` is `unassigned`, because no combined evaluation split has been made for the expanded corpora. Every PDMX batch and the MAESTRO run passed a full independent replay audit.
+The corpus expansion applies the same closed detector to PDMX and MAESTRO. `pdmx_melodic` holds 459,659 melodic phrases from 178,888 of the 189,704 PDMX scores and `maestro_melodic` holds 3,423 melodic phrases from 1,201 of the 1,276 MAESTRO performances. The remaining sources produced no phrase that passed the detector. Both use the phrase schema of the Lakh configurations. Artist and title come from the upstream score or performance metadata, not from file paths. Their `split` is `unassigned`, because no combined evaluation split has been made for the expanded corpora. Every PDMX batch and the MAESTRO run passed a full independent replay audit.
 
 Rows contain note arrays, verified occurrence coordinates, source hashes and MIDI bytes. The processed Lakh MIDI Clean snapshot has 17,232 source paths, 16,995 successful parses and 237 recorded failures. Both releases passed complete artifact audits. Reference selection replay covers all successful sources, closed replay covers a stratified 256 source sample.
 

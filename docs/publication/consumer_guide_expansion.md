@@ -4,11 +4,11 @@ This section belongs at the end of the published `CONSUMER_GUIDE.md`. It describ
 
 ### Phrase configurations
 
-`pdmx_melodic` (459,659 rows from 189,704 PDMX scores) and `maestro_melodic` (3,423 rows from 1,276 MAESTRO performances) use exactly the schema of `closed_melodic`. Ticks, occurrence coordinates, note arrays and `midi_bytes` have the same meaning. Three columns differ in origin.
+`pdmx_melodic` (459,659 rows from 178,888 of the 189,704 PDMX scores) and `maestro_melodic` (3,423 rows from 1,201 of the 1,276 MAESTRO performances) use exactly the schema of `closed_melodic`. Ticks, occurrence coordinates, note arrays and `midi_bytes` have the same meaning. Three columns differ in origin.
 
 | Column | Expansion meaning |
 | --- | --- |
-| `artist`, `title` | Upstream score or performance metadata from the combined catalog, not the file path. MAESTRO rows often have no artist, the composer is in `source_terms.composer` |
+| `artist`, `title` | Upstream score or performance metadata from the combined catalog, not the file path. MAESTRO rows have no artist, the composer is in `source_terms.composer` |
 | `split` | Always `unassigned`. No evaluation split exists for the expanded corpora. Batch split labels from extraction are bookkeeping only |
 | `split_group` | The catalog split group, or the catalog source key when none is assigned |
 
