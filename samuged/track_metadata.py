@@ -33,6 +33,10 @@ def creator_kind(value):
     normalized = label(value)
     if re.search(r'\b(traditional|trad|anonymous|anon|unbekannt|unknown|folk)\b', normalized):
         return 'unattributed'
+    # Unknown author markers, also when concatenated with following text ('Urheber unbekanntDatum').
+    if value.strip() in {'?', '??', '-'} or re.search(
+            r'unbekannt|unknown|inconnu|desconocido|sconosciuto|\btradi[ctz]ion|\banon|\b(ukjent|okand|n n)\b', normalized):
+        return 'unattributed'
     if normalized.startswith(('misc ', 'various ', 'arr ', 'arranged ', 'after ')) or normalized in {'misc', 'various'}:
         return 'generic_or_ambiguous'
     if re.search(r'\b(https?|www)\b', normalized) or encoding_suspect(value):

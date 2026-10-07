@@ -98,3 +98,16 @@ def test_audit_gaps_are_searchable_and_inherited_by_phrase(tmp_path,monkeypatch)
     assert search_candidates(output,gap='nonexistent')==[]
     assert phrase_evidence(catalog,meta,output)[0]['source_metadata_audit']['identity_status']=='unresolved'
     with pytest.raises(ValueError,match='audit required'):search_candidates(work,gap='anything')
+
+
+@pytest.mark.parametrize('value,kind',[
+    ('Urheber unbekannt, 1720 belegt','unattributed'),
+    ('Urheber unbekanntDatum in der hier transkribierten schriftlichen Quelle: 1776 - 1791','unattributed'),
+    ('?','unattributed'),('??','unattributed'),('-','unattributed'),
+    ('Unknown composer','unattributed'),('Composer unknown','unattributed'),('Anonyme','unattributed'),
+    ('Anónimo','unattributed'),('Compositeur inconnu','unattributed'),('Autor desconocido','unattributed'),
+    ('Autore sconosciuto','unattributed'),('Tradicional','unattributed'),('Traditionell','unattributed'),('Tradizionale','unattributed'),('Ukjent','unattributed'),('Okänd','unattributed'),('N.N.','unattributed'),
+    ('unknown','missing'),('Turlough O\'Connor (1670-1738)','named_claim'),('Shannon Smith','named_claim'),
+    ('Canon Hill','named_claim'),('Nina Simone','named_claim'),('Misc tunes','generic_or_ambiguous')])
+def test_extended_unattributed_markers(value,kind):
+    assert creator_kind(value)==kind

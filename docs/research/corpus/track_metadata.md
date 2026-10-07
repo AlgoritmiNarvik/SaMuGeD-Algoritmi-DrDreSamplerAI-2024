@@ -33,7 +33,7 @@ flowchart LR
 | `gaps` | Unresolved identity and rights fields |
 | Input hashes | Exact metadata index, source MIDI and PDMX CSV bindings |
 
-`named_claim` describes the source label. It does not establish that the label is a person, the composer or a rights holder. When a composer is missing, a named `artist_name` may become a lookup hint. Its role stays `upstream_artist_role_unverified`. Labels such as `Misc tunes`, `Traditional`, `Anonymous`, `after ...` and `arr. ...` do not become composer names.
+`named_claim` describes the source label. It does not establish that the label is a person, the composer or a rights holder. When a composer is missing, a named `artist_name` may become a lookup hint. Its role stays `upstream_artist_role_unverified`. Labels such as `Misc tunes`, `Traditional`, `Anonymous`, `after ...` and `arr. ...` do not become composer names. Unknown author markers are also recognised inside longer or concatenated text, such as `Urheber unbekanntDatum ...`, `unknown`, `anonym`, `inconnu`, `desconocido`, `sconosciuto`, `ukjent`, `okänd` and `N.N.`, and the bare values `?`, `??` and `-` count as unattributed. This affects index builds made after the change; existing indexes keep their recorded labels.
 
 A title containing only an ID is not sent as a song name. Suspected encoding damage stays visible for review rather than being repaired by guessing. These checks are heuristics and may flag legitimate labels. Raw text is preserved for correction.
 
