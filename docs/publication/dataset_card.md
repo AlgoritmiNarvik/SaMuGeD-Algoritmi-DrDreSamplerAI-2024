@@ -108,6 +108,16 @@ Three configurations hold one row for each of the 208,212 sources of Lakh, MAEST
 
 These labels are evidence, not clearance. A corpus license or a per score declaration describes what the source states, not who owns the composition. A missing copyright notice does not mean the music is free of copyright. MusicBrainz candidates come from title and name agreement. They are unverified, they are never promoted to an accepted identity and some sources have several. Nothing in these configurations establishes composition, arrangement or performance rights. `identity_status` is `candidate_unverified` or `unresolved` and `rights_clearance` is always `not_established`. In `work_identity`, an API status of `pending` is historical. The dump indexes cover those sources instead.
 
+Coverage of the identity layer differs by corpus. Lakh titles and artists are popular music that MusicBrainz lists well. PDMX is mostly traditional tunes transcribed from collections, which MusicBrainz rarely records as works, and MAESTRO uses classical titles that the lookup does not normalise yet.
+
+| Corpus | Sources | At least one work candidate | Single candidate, full agreement | Main reason for the rest |
+| --- | ---: | ---: | ---: | --- |
+| Lakh | 17,232 | 78.8% | 39.9% | No MusicBrainz work with that title and artist |
+| MAESTRO | 1,276 | 6.9% | 1.3% | Classical title forms differ from MusicBrainz |
+| PDMX | 189,704 | 0.5% | 0.2% | 75% are traditional collection transcriptions, 17.8% match by title only |
+
+Every source has its corpus license and, for PDMX, its per score declaration in `source_terms`. The candidate percentages above say how many sources have a MusicBrainz work proposal, not how many are cleared.
+
 Join phrases to their source metadata on `source_id`, which is unique across the three corpora. Byte identical files occur under several PDMX sources, so `source_sha256` can match more than one metadata row.
 
 ```python
@@ -123,7 +133,7 @@ joined = phrases.merge(terms[["source_id", "source_sha256", "score_license_decla
 
 The [Space](https://huggingface.co/spaces/AlmazErmilov/samuged-earworms) is a curated listening demo, not the full dataset. Browse the dataset viewer above for more MIDI phrases. Additional web MIDI examples by Tool are demo supplements outside this dataset.
 
-Three top 50 collections cover repeated motifs, popular songs and drums. The Space adds a personal Tool listening collection, including separate web MIDI supplements. These supplements are not included in the dataset. Filter by song or part, compare the layers and follow their source note attacks. A separate ten song selection uses published recognition or earworm occurrence evidence. Five [CSV rankings](analytics/) are included. The original analytic popularity cohort uses an exact historical sales list match. The live Space applies a separate listening curation.
+Three top 50 collections cover repeated motifs, popular songs and drums. The Space adds a personal Tool listening collection, including separate web MIDI supplements. These supplements are not included in the dataset. Filter by song or part, compare the layers and follow their source note attacks. A separate ten song selection uses published recognition or earworm occurrence evidence. Five [CSV rankings](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases/tree/main/analytics) are included. The original analytic popularity cohort uses an exact historical sales list match. The live Space applies a separate listening curation.
 
 Playback loops until stopped. Download 48 kHz stereo PCM 24 bit WAV, FLAC or loop MIDI. FluidSynth with ColomboGMGS2 17.02 Vanilla renders the listening demo, preserving source notes, tempo and instrument programs. These are not commercial recording excerpts. The complete cycle can extend beyond the detector prototype. [Selection and rendering details](demo/README.md) explain the evidence and source construction.
 
@@ -162,7 +172,7 @@ Copy the BibTeX below or [download the bibliography](https://huggingface.co/data
   author = {Wu, Peiyi and Øren, Asle Fjæran and Dadman, Shayan and Ermilov, Almaz},
   title = {{SaMuGeD} Earworms (Ostinato / Catchy musical hooks)},
   year = {2026},
-  version = {0.1},
+  version = {0.2},
   url = {https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases},
   note = {Research dataset release}
 }

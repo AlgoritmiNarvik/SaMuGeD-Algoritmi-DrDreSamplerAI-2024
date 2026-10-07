@@ -2,11 +2,13 @@ cff-version: 1.2.0
 message: Please cite this dataset when using SaMuGeD Earworms.
 type: dataset
 title: SaMuGeD Earworms (Ostinato / Catchy musical hooks)
-version: '0.1'
-date-released: '2026-10-03'
+version: '0.2'
+date-released: '2026-10-08'
 url: https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases
 repository-code: https://github.com/AlgoritmiNarvik/SaMuGeD-Algoritmi-DrDreSampler-2024
-license: CC-BY-4.0
+license:
+  - CC-BY-4.0
+  - CC-BY-NC-SA-4.0
 authors:
   - family-names: Wu
     given-names: Peiyi
