@@ -8,7 +8,7 @@ tags:
 - symbolic-music
 - repetition
 - percussion
-pretty_name: SaMuGeD Earworms (Ostinato / Catchy musical hooks)
+pretty_name: SaMuGeD Earworms recurring phrases (main dataset)
 size_categories:
 - 10K<n<100K
 configs:
@@ -31,9 +31,11 @@ configs:
         path: data/reference_percussion/*.parquet
 ---
 
-# SaMuGeD Earworms (Ostinato / Catchy musical hooks)
+# SaMuGeD Earworms recurring phrases
 
-Source verified recurring MIDI phrases with separate drum patterns.
+Main dataset of the SaMuGeD Earworms release (Ostinato / Catchy musical hooks). Source verified recurring MIDI phrases with separate drum patterns.
+
+The release has three parts. This repository holds the phrases, splits, MIDI bytes, archives and the research note. The [Space](https://huggingface.co/spaces/AlmazErmilov/samuged-earworms) is the listening demo. The [listening audio repository](https://huggingface.co/datasets/AlmazErmilov/samuged-earworms-audio) only stores the rendered loops the Space player streams and is not needed to use this dataset.
 
 [![Dataset](https://img.shields.io/badge/Hugging_Face-dataset-FFD21E?logo=huggingface&logoColor=000)](https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases)
 [![Listen](https://img.shields.io/badge/Hugging_Face-listen-ACA0E9?logo=huggingface&logoColor=000)](https://huggingface.co/spaces/AlmazErmilov/samuged-earworms)
