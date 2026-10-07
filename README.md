@@ -108,7 +108,7 @@ Use **Cite this repository** in the GitHub sidebar, or copy the BibTeX below. [D
   author = {Wu, Peiyi and Øren, Asle Fjæran and Dadman, Shayan and Ermilov, Almaz},
   title = {{SaMuGeD} Earworms (Ostinato / Catchy musical hooks)},
   year = {2026},
-  version = {0.1},
+  version = {0.2},
   url = {https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases},
   note = {Research dataset release}
 }
@@ -116,4 +116,4 @@ Use **Cite this repository** in the GitHub sidebar, or copy the BibTeX below. [D
 
 ## License
 
-Code uses [MIT](LICENSE). The derived dataset follows Lakh's declared [CC BY 4.0 collection license](https://colinraffel.com/projects/lmd/). Underlying composition and arrangement attribution is incomplete. No independent rights clearance is claimed. External evaluation datasets and original commercial recordings are excluded.
+Code uses [MIT](LICENSE). The Lakh and PDMX configurations follow their declared CC BY 4.0 collection licenses ([Lakh](https://colinraffel.com/projects/lmd/), [PDMX](https://zenodo.org/records/15571083)) and the MAESTRO configuration follows CC BY-NC-SA 4.0. Underlying composition and arrangement attribution is incomplete. No independent rights clearance is claimed. External evaluation datasets and original commercial recordings are excluded.
