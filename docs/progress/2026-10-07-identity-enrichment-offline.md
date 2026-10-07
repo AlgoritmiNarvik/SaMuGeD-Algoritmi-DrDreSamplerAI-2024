@@ -4,4 +4,4 @@ Added four sidecar layers that resolve work identity evidence without the one re
 
 The classifier for creator labels now treats unknown author markers in several languages and traditional spellings as unattributed. None of the new layers writes to the working API index, promotes a candidate to a verified identity or treats a declaration or life span as rights clearance. The Lakh recording lookup continues through the pinned API runtime under a local chain supervisor with archived receipts.
 
-Validation: 821 tests passed in the full suite. On the local corpus the dump subset holds 164,091 works and 97,747 artists; the offline pass covers all 208,212 sources in 15 seconds with 6,217 work candidates, 326,224 title only rows and 2,706 creator identity candidates. Corpus data, dump archives and receipts remain local.
+Validation: 828 tests passed in the full suite. On the local corpus the dump subset holds 164,091 works and 97,747 artists; the offline pass covers all 208,212 sources in 15 seconds with 6,231 work candidates, 326,224 title only rows and 2,706 creator identity candidates. Corpus data, dump archives and receipts remain local.
