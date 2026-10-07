@@ -112,15 +112,8 @@ def repackage(metadata: Path, archive: Path, output: Path, name: str) -> dict:
 def parquet_views(dataset: Path, output: Path, name: str) -> dict:
     import pyarrow as pa
     import pyarrow.parquet as pq
-    fields = [pa.field(k, pa.string()) for k in (
-        "phrase_id", "source_id", "source_path", "source_sha256", "artist", "title", "kind",
-        "family_id", "split", "split_group", "part_name", "occurrences_json", "matcher_flags_json")]
-    fields += [pa.field(k, pa.int64()) for k in ("start_tick", "end_tick", "ticks_per_beat", "note_count", "occurrence_count", "program")]
-    fields += [pa.field("duration_beats", pa.float64()), pa.field("recurrence_score", pa.float64())]
-    fields += [pa.field(k, pa.list_(pa.float64())) for k in ("onsets_beats", "durations_beats")]
-    fields += [pa.field(k, pa.list_(pa.int64())) for k in ("pitches", "velocities")]
-    fields += [pa.field("midi_bytes", pa.binary()), pa.field("midi_sha256", pa.string())]
-    schema = pa.schema(fields)
+    from samuged.publication_schema import phrase_schema
+    schema = phrase_schema()
     writers, buffers, counts = {}, {}, {}
     try:
         for kind in ("melodic", "percussion"):

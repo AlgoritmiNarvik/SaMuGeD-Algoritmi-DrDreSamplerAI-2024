@@ -132,9 +132,40 @@ The opening Schism example reads actual source notes, verified occurrence spans 
 
 The explanation starts open on desktop and phones. Its cards select the example diagram stages. On phones, users can collapse it with the summary button. Changing viewport size preserves their choice.
 
+## Corpus expansion configs
+
+The expansion adds `pdmx_melodic`, `maestro_melodic`, `source_terms`, `provenance_hints` and `work_identity` to the existing dataset. The four Lakh configurations and their archives stay unchanged. Build the merged work identity export first, then the public folder. Neither command uploads anything. See [work identity merge](../research/corpus/work_identity_merge.md) and [expansion publication](../research/corpus/expansion_publication.md).
+
+```sh
+python -m samuged.work_identity_merge prepare \
+  --work-index SNAPSHOT/work_identity_v05.sqlite \
+  --offline-index EXPANSION/work_identity_offline_v01.sqlite \
+  --recordings-index EXPANSION/work_identity_offline_recordings_v01.sqlite \
+  --assessment EXPANSION/candidate_assessment_v02.sqlite \
+  --metadata SNAPSHOT/usage_metadata.jsonl.gz \
+  --output EXPANSION/work_identity_v06.jsonl.gz
+python -m samuged.expansion_publication prepare --output NEW_EXPANSION_DIR \
+  --pdmx-root EXPANSION/pdmx_full --maestro-dataset EXPANSION/maestro_full_closed \
+  --catalog SNAPSHOT/combined_catalog.sqlite --usage SNAPSHOT/usage_metadata.jsonl.gz \
+  --hints EXPANSION/provenance_hints_v01.jsonl.gz --identity EXPANSION/work_identity_v06.jsonl.gz \
+  --assessment EXPANSION/candidate_assessment_v02.sqlite --registry docs/research/corpus/sources.json
+python -m samuged.expansion_publication verify --output NEW_EXPANSION_DIR
+```
+
+Copy `dataset_card.md` into the folder as `README.md` and append [consumer_guide_expansion.md](consumer_guide_expansion.md) to a copy of the published `CONSUMER_GUIDE.md` placed there too, so the card lists the new configurations in the same commit. Then preview and upload in additive mode.
+
+```sh
+python -m scripts.publish_huggingface --owner ACCOUNT_NAME --dataset NEW_EXPANSION_DIR \
+  --dataset-only --receipt EXPANSION_UPLOAD_RECEIPT.json
+python -m scripts.publish_huggingface --owner ACCOUNT_NAME --dataset NEW_EXPANSION_DIR \
+  --dataset-only --receipt EXPANSION_UPLOAD_RECEIPT.json --publish
+```
+
+`--dataset-only` uploads into the existing dataset repository without creating it. Files present in the folder are added or replaced, and no other repository file is deleted, because the upload passes an explicit file list and no delete patterns. The folder therefore holds only new paths (`data/<config>/`, `evidence/expansion_*.json`) plus the card and guide that are meant to be replaced. `--path-in-repo` places the folder under a repository subfolder, the default is the root. The receipt records the commit and the size and SHA-256 of every uploaded file. Check the dataset viewer and the Parquet row counts after upload.
+
 ## Public cards and citation
 
-The root README and `CITATION.cff` provide GitHub citation metadata. `CITATION.bib` contains the same dataset citation. The Hugging Face card source is [dataset_card.md](dataset_card.md). Publish it as the dataset `README.md` with both citation files. The card of the listening audio repository is [audio_dataset_card.md](audio_dataset_card.md). Publish it as that repository `README.md`. The two cards name the main dataset and the supplement differently so the release parts are not confused. Preserve the four data configurations when editing the card. Card updates do not require rebuilding archives or Parquet files.
+The root README and `CITATION.cff` provide GitHub citation metadata. `CITATION.bib` contains the same dataset citation. The Hugging Face card source is [dataset_card.md](dataset_card.md). Publish it as the dataset `README.md` with both citation files. The card of the listening audio repository is [audio_dataset_card.md](audio_dataset_card.md). Publish it as that repository `README.md`. The two cards name the main dataset and the supplement differently so the release parts are not confused. Preserve the four Lakh data configurations and the five expansion configurations when editing the card. Card updates do not require rebuilding archives or Parquet files.
 
 The player labels its limited listening selection and links to the full phrase dataset. Additional web MIDI examples by Tool remain separate from the dataset.
 
