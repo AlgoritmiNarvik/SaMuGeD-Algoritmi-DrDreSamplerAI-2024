@@ -134,7 +134,7 @@ The explanation starts open on desktop and phones. Its cards select the example 
 
 ## Public cards and citation
 
-The root README and `CITATION.cff` provide GitHub citation metadata. `CITATION.bib` contains the same dataset citation. The Hugging Face card source is [dataset_card.md](dataset_card.md). Publish it as the dataset `README.md` with both citation files. Preserve the four data configurations when editing the card. Card updates do not require rebuilding archives or Parquet files.
+The root README and `CITATION.cff` provide GitHub citation metadata. `CITATION.bib` contains the same dataset citation. The Hugging Face card source is [dataset_card.md](dataset_card.md). Publish it as the dataset `README.md` with both citation files. The card of the listening audio repository is [audio_dataset_card.md](audio_dataset_card.md). Publish it as that repository `README.md`. The two cards name the main dataset and the supplement differently so the release parts are not confused. Preserve the four data configurations when editing the card. Card updates do not require rebuilding archives or Parquet files.
 
 The player labels its limited listening selection and links to the full phrase dataset. Additional web MIDI examples by Tool remain separate from the dataset.
 
