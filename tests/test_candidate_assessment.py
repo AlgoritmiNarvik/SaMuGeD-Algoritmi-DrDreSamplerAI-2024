@@ -24,9 +24,10 @@ SOURCES = {
     's8': ('m8', [], [(WORK, {})]),
     's9': ('m9', [], []),
     's10': ('m10', [], [(WORK, {'title_agreement': 'recording_title_normalized', 'creator_agreement': 'initials_candidate'})]),
+    's11': ('m11', [], [(WORK, {})]),
 }
-# Offline dump candidates: s1 agrees, s8 differs, s9 is dump only with many namesakes.
-OFFLINE = {'s1': [(WORK, 1)], 's8': [(SECOND, 1)], 's9': [(WORK, 7)]}
+# Offline dump candidates: s1 agrees, s8 is disjoint, s9 is dump only with many namesakes, s11 is a superset.
+OFFLINE = {'s1': [(WORK, 1)], 's8': [(SECOND, 1)], 's9': [(WORK, 7)], 's11': [(WORK, 1), (SECOND, 1)]}
 
 
 def build(tmp_path, monkeypatch):
@@ -71,6 +72,10 @@ def build(tmp_path, monkeypatch):
                 evidence['match_basis'] = dict(base['match_basis'], title_namesake_count=namesakes, title_alias_namesake_count=9)
                 evidence['work'] = dict(base['work'], id=work_id)
                 o.execute('INSERT INTO work_candidates VALUES (?,?,?,?,?,?)', (key, work_id, '', 'Song', json.dumps(evidence), 'candidate'))
+    subset = tmp_path/'subset.sqlite'
+    with sqlite3.connect(subset) as db:
+        db.execute('CREATE TABLE title_namesakes(normalized_title TEXT PRIMARY KEY, work_count INTEGER, alias_count INTEGER)')
+        db.execute("INSERT INTO title_namesakes VALUES ('song',1,0)")
     return work, meta, offline
 
 
@@ -85,10 +90,11 @@ def rows(path):
 
 def test_tiers_signals_and_inputs_unchanged(tmp_path, monkeypatch):
     work, meta, offline = build(tmp_path, monkeypatch)
-    before = [p.read_bytes() for p in (work, meta, offline)]
+    subset = tmp_path/'subset.sqlite'
+    before = [p.read_bytes() for p in (work, meta, offline, subset)]
     out = tmp_path/'assessment.sqlite'
-    result = prepare(work, meta, out, offline_index=offline)
-    assert [p.read_bytes() for p in (work, meta, offline)] == before
+    result = prepare(work, meta, out, offline_index=offline, subset=subset)
+    assert [p.read_bytes() for p in (work, meta, offline, subset)] == before
     assert result['identity_status'] == 'unverified_assessment_only' and result['rights_clearance'] == 'not_established'
     found, best = rows(out)
     api, dump = 'musicbrainz', 'musicbrainz_json_dump'
@@ -110,13 +116,18 @@ def test_tiers_signals_and_inputs_unchanged(tmp_path, monkeypatch):
     assert found['s6', THIRD, api][1]['duplicate_check'] == 'duplicates_conflict'
     assert found['s8', WORK, api][1]['provider_cross_check'] == 'providers_differ'
     assert found['s8', SECOND, dump][1]['distinct_works_all_providers'] == 2
+    # A dump superset is expected because the dump checks every namesake: no conflict.
+    eleven = found['s11', WORK, api][1]
+    assert eleven['provider_cross_check'] == 'providers_overlap' and eleven['provider_sets_nested'] is True
+    assert best['s11'] == ('multiple_works', 6)
     nine = found['s9', WORK, dump][1]
     assert nine['namesake_count'] == 7 and nine['provider_cross_check'] == 'single_provider' and nine['origin'] == 'offline_index'
     assert found['s10', WORK, api][1]['creator_agreement_kind'] == 'initials_candidate'
     with sqlite3.connect(out) as db:
         assert db.execute('SELECT DISTINCT identity_status,rights_clearance FROM source_summary').fetchall() == [('unverified_assessment_only', 'not_established')]
         inputs = json.loads(db.execute('SELECT inputs_json FROM provenance').fetchone()[0])
-        assert set(inputs) == {'work_index', 'metadata', 'offline_index'}
+        assert set(inputs) == {'work_index', 'metadata', 'offline_index', 'subset'}
+        assert 'one provider found a subset of the other' in json.loads(db.execute("SELECT reasons_json FROM source_summary WHERE source_key='s11'").fetchone()[0])
         assert 'works share this title' in ' '.join(json.loads(db.execute("SELECT reasons_json FROM source_summary WHERE source_key='s9'").fetchone()[0]))
     with sqlite3.connect(work) as db:
         assert db.execute('SELECT count(*) FROM reviews').fetchone()[0] == 0
@@ -126,8 +137,7 @@ def test_subset_namesakes_and_api_only(tmp_path, monkeypatch):
     work, meta, _ = build(tmp_path, monkeypatch)
     subset = tmp_path/'subset.sqlite'
     with sqlite3.connect(subset) as db:
-        db.execute('CREATE TABLE title_namesakes(normalized_title TEXT PRIMARY KEY, work_count INTEGER, alias_count INTEGER)')
-        db.execute("INSERT INTO title_namesakes VALUES ('song',2,9)")
+        db.execute("UPDATE title_namesakes SET work_count=2,alias_count=9")
     out = tmp_path/'a.sqlite'; prepare(work, meta, out, subset=subset)
     found, best = rows(out)
     assert found['s1', WORK, 'musicbrainz'][1]['namesake_count'] == 2
@@ -190,13 +200,13 @@ def test_existing_output_and_storage_reserve(tmp_path, monkeypatch):
 
 def test_summary_and_packet(tmp_path, monkeypatch):
     work, meta, offline = build(tmp_path, monkeypatch)
-    out = tmp_path/'a.sqlite'; prepare(work, meta, out, offline_index=offline)
+    out = tmp_path/'a.sqlite'; prepare(work, meta, out, offline_index=offline, subset=tmp_path/'subset.sqlite')
     counts = summary(out)
-    assert counts['sources'] == 10 and counts['assessments'] == 13
-    assert counts['best_tier']['local'] == {'conflict': 3, 'multiple_works': 1,
+    assert counts['sources'] == 11 and counts['assessments'] == 16
+    assert counts['best_tier']['local'] == {'conflict': 3, 'multiple_works': 2,
         'single_work_full_agreement': 3, 'single_work_weaker_agreement': 3}
-    assert counts['notice_check'] == {'corroborates': 2, 'names_other_party': 1, 'no_notice': 9, 'uninformative': 1}
-    assert counts['duplicate_check'] == {'duplicates_agree': 3, 'duplicates_conflict': 2, 'no_duplicates': 8}
+    assert counts['notice_check'] == {'corroborates': 2, 'names_other_party': 1, 'no_notice': 12, 'uninformative': 1}
+    assert counts['duplicate_check'] == {'duplicates_agree': 3, 'duplicates_conflict': 2, 'no_duplicates': 11}
     target = tmp_path/'packet.json'
     result = packet(out, work, target, offline_index=offline, limit=3)
     document = json.loads(target.read_text())
@@ -222,3 +232,46 @@ def test_summary_and_packet(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match='provenance'):
         packet(out, work, tmp_path/'bad.json')
     assert not (tmp_path/'bad.json').exists()
+
+
+def test_unknown_namesake_count_is_not_full_agreement(tmp_path, monkeypatch):
+    work, meta, offline = build(tmp_path, monkeypatch)
+    out = tmp_path/'a.sqlite'; prepare(work, meta, out, offline_index=offline)
+    found, best = rows(out)
+    assert found['s5', WORK, 'musicbrainz'][1]['namesake_count'] is None
+    assert found['s5', WORK, 'musicbrainz'][0] == 'single_work_weaker_agreement' and best['s5'] == ('single_work_weaker_agreement', 4)
+    # The dump row carries its own namesake count and may still reach the full tier.
+    assert found['s1', WORK, 'musicbrainz_json_dump'][0] == 'single_work_full_agreement' and best['s1'] == ('single_work_full_agreement', 1)
+    with sqlite3.connect(out) as db:
+        assert 'namesake count unknown' in json.loads(db.execute("SELECT reasons_json FROM source_summary WHERE source_key='s5'").fetchone()[0])
+
+
+def test_work_index_lock_blocks_concurrent_runner(tmp_path, monkeypatch):
+    import fcntl
+    work, meta, _ = build(tmp_path, monkeypatch)
+    out = tmp_path/'a.sqlite'
+    with work.with_suffix('.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with pytest.raises(ValueError, match='work index lock held'):
+            prepare(work, meta, out)
+    assert not out.exists()
+    prepare(work, meta, out)
+    with work.with_suffix('.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)  # Released after the build.
+
+
+def test_packet_rehashes_inputs_at_the_end(tmp_path, monkeypatch):
+    import samuged.candidate_assessment as module
+    work, meta, _ = build(tmp_path, monkeypatch)
+    out = tmp_path/'a.sqlite'; prepare(work, meta, out)
+    original, seen = module.file_digest, set()
+    def digest(path):
+        if path == out and path in seen:
+            return 'changed'
+        seen.add(path)
+        return original(path)
+    monkeypatch.setattr(module, 'file_digest', digest)
+    target = tmp_path/'packet.json'
+    with pytest.raises(ValueError, match='input changed'):
+        packet(out, work, target)
+    assert not target.exists() and not list(tmp_path.glob('.packet.json.*'))

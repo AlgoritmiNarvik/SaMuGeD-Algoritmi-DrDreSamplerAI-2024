@@ -7,6 +7,7 @@ identity or a rights clearance. Every output row is an assessment with signals f
 """
 from __future__ import annotations
 import argparse
+import fcntl
 from collections import defaultdict
 from contextlib import closing
 from datetime import datetime, timezone
@@ -104,8 +105,22 @@ def read_candidates(db, schema, origin):
 
 
 def prepare(work_index: Path, metadata: Path, output: Path, *, offline_index: Path | None = None, subset: Path | None = None):
-    """Build a new assessment index. All inputs are attached read only and re-hashed at the end."""
+    """Build a new assessment index. All inputs are attached read only and re-hashed at the end.
+
+    The work index lock is held for the whole build, so a lookup runner started meanwhile fails fast."""
     guard(output)
+    with Path(work_index).with_suffix('.lock').open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise ValueError('work index lock held') from None
+        try:
+            return build(work_index, metadata, output, offline_index, subset)
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def build(work_index, metadata, output, offline_index, subset):
     paths = dict(work_index=work_index, metadata=metadata, offline_index=offline_index, subset=subset)
     inputs = {k: dict(path=str(p), sha256=file_digest(p)) for k, p in paths.items() if p is not None}
     temp = output.with_name(f'.{output.name}.{uuid.uuid4()}.tmp')
@@ -186,7 +201,10 @@ def assess(db, rows, records, twins, notices, namesakes):
         duplicate = ('no_duplicates' if not rival else 'duplicates_conflict' if any(not (s & mine) for s in rival)
                      else 'duplicates_agree' if all(work in s for s in rival) else 'duplicates_partial')
         sets = list(own.values())
-        cross = 'single_provider' if len(sets) < 2 else 'providers_agree' if all(s == sets[0] for s in sets) else 'providers_differ'
+        # The dump checks every namesake, so a superset from one provider is expected, not a contradiction.
+        cross = ('single_provider' if len(sets) < 2 else 'providers_agree' if all(s == sets[0] for s in sets)
+                 else 'providers_differ' if any(not (a & b) for a in sets for b in sets) else 'providers_overlap')
+        nested = cross == 'providers_overlap' and all(a <= b or b <= a for a in sets for b in sets)
         check, matched = notice_check(notices.get(key, []), writers)
         signals = dict(evidence_policy=evidence.get('policy'), origin=items[0]['origin'], work_title=items[0]['title'],
             recording_ids=sorted({i['recording'] for i in items} - {''}),
@@ -197,7 +215,7 @@ def assess(db, rows, records, twins, notices, namesakes):
             namesake_source='evidence' if counts else 'subset' if namesake is not None else None,
             title_alias_namesake_count=alias,
             notice_check=check, notice_tokens=matched, duplicate_check=duplicate, duplicate_count=len(others),
-            duplicates_with_candidates=len(rival), candidate_group=group, provider_cross_check=cross, **STATUS)
+            duplicates_with_candidates=len(rival), candidate_group=group, provider_cross_check=cross, provider_sets_nested=nested, **STATUS)
         signals['tier'] = tier = tier_of(signals)
         db.execute('INSERT INTO assessments VALUES (?,?,?,?,?,?,?)',
                    (key, work, provider, tier, json.dumps(signals, ensure_ascii=False), POLICY, assessed_on))
@@ -226,7 +244,7 @@ def tier_of(s):
     if s['distinct_works'] > 1 or s['distinct_works_all_providers'] > 1:
         return 'multiple_works'
     if s['title_agreement'] in FULL_TITLE and s['creator_agreement_kind'] == 'normalized_tokens' \
-            and (s['namesake_count'] is None or s['namesake_count'] <= 3):
+            and s['namesake_count'] is not None and s['namesake_count'] <= 3:
         return 'single_work_full_agreement'
     return 'single_work_weaker_agreement'
 
@@ -240,7 +258,9 @@ def reasons_of(s):
     out += {'duplicates_conflict': ['a musical duplicate has disjoint work candidates'],
             'duplicates_partial': ['musical duplicates overlap only partly'],
             'duplicates_agree': ['musical duplicates share this work']}.get(s['duplicate_check'], [])
-    out += {'providers_differ': ['providers found different work sets'],
+    out += {'providers_differ': ['providers found disjoint work sets'],
+            'providers_overlap': ['one provider found a subset of the other' if s['provider_sets_nested']
+                                  else 'providers share some works but not all'],
             'providers_agree': ['API and dump providers found the same works']}.get(s['provider_cross_check'], [])
     if s['distinct_works_all_providers'] > 1:
         out.append(f"{s['distinct_works_all_providers']} distinct work candidates")
@@ -250,6 +270,8 @@ def reasons_of(s):
         out.append('title agrees through an alias only')
     if s['creator_agreement_kind'] == 'initials_candidate':
         out.append('creator agrees by initials only')
+    if s['namesake_count'] is None:
+        out.append('namesake count unknown')
     if (s['namesake_count'] or 0) > 3:
         out.append(f"{s['namesake_count']} works share this title")
     return out
@@ -278,6 +300,7 @@ def packet(assessment: Path, work_index: Path, output: Path, *, offline_index: P
         for key, path in (('work_index', work_index), ('offline_index', offline_index)):
             if path is not None and (key not in inputs or file_digest(path) != inputs[key]['sha256']):
                 raise ValueError(f'{key} does not match assessment provenance')
+        digests = {p: file_digest(p) for p in (assessment, work_index, offline_index) if p is not None}
         db.execute('ATTACH DATABASE ? AS w', (ro(work_index),))
         rows = db.execute('SELECT * FROM source_summary'+(' WHERE best_tier=?' if tier else '')+
                           ' ORDER BY review_priority,source_key LIMIT ?', ([tier] if tier else [])+[limit]).fetchall()
@@ -295,6 +318,8 @@ def packet(assessment: Path, work_index: Path, output: Path, *, offline_index: P
     document = dict(header=dict(policy=POLICY, notice='Review packet only. Nothing here is an accepted identity, '
         'a review decision or a rights clearance. Musical comparison was not performed.', tier=tier, limit=limit,
         sources=len(sources), created_on=now(), identity_verified=False, **STATUS), sources=sources)
+    if any(file_digest(p) != digest for p, digest in digests.items()):
+        raise ValueError('input changed while writing the packet')
     temp = output.with_name(f'.{output.name}.{uuid.uuid4()}.tmp')
     temp.write_text(json.dumps(document, ensure_ascii=False, indent=2), encoding='utf-8')
     publish(temp, output)
