@@ -87,3 +87,33 @@ def test_invalid_combinations_are_refused(tmp_path, folder):
         args_for(tmp_path, folder, '--path-in-repo', '../outside')
     with pytest.raises(SystemExit):
         parse_args(['--owner', 'o', '--dataset', str(folder), '--receipt', 'r.json', '--path-in-repo', 'x'])
+
+
+def test_space_only_adds_files_to_the_existing_space(tmp_path):
+    space = tmp_path / 'space'
+    (space / 'audio' / 'abc').mkdir(parents=True)
+    (space / 'audio' / 'abc' / 'loop.mid').write_bytes(b'MThd')
+    (space / 'catalog.json').write_text('{}')
+    args = parse_args(['--owner', 'owner', '--space', str(space), '--space-only', '--receipt', str(tmp_path / 'r.json')])
+    assert args.space_only and args.dataset is None
+    api = FakeApi()
+    preview = run(args, api)
+    assert preview == {'space': {'repo': 'owner/samuged-earworms', 'files': 2, 'bytes': 6,
+                                 'mode': 'add_or_replace_only', 'path_in_repo': '.'}}
+    assert api.calls == []
+    args.publish = True
+    receipt = run(args, api)
+    assert [c[0] for c in api.calls] == ['upload_folder']
+    kwargs = api.calls[0][2]
+    assert kwargs['repo_type'] == 'space' and kwargs['repo_id'] == 'owner/samuged-earworms'
+    assert 'delete_patterns' not in kwargs and sorted(kwargs['allow_patterns']) == ['audio/abc/loop.mid', 'catalog.json']
+    assert receipt['space']['mode'] == 'add_or_replace_only'
+
+
+def test_space_only_refuses_a_dataset_and_requires_a_space(tmp_path):
+    with pytest.raises(SystemExit):
+        parse_args(['--owner', 'o', '--space-only', '--receipt', 'r.json'])
+    with pytest.raises(SystemExit):
+        parse_args(['--owner', 'o', '--space', str(tmp_path), '--dataset', str(tmp_path), '--space-only', '--receipt', 'r.json'])
+    with pytest.raises(SystemExit):
+        parse_args(['--owner', 'o', '--receipt', 'r.json'])
