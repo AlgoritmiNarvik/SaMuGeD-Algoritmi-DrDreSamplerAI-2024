@@ -17,12 +17,12 @@ pretty_name: SaMuGeD Earworms recurring phrases (main dataset)
 size_categories:
 - 1M<n<10M
 configs:
-  - config_name: closed_melodic
+  - config_name: lakh_melodic
     default: true
     data_files:
       - split: all
         path: data/closed_melodic/*.parquet
-  - config_name: closed_percussion
+  - config_name: lakh_percussion
     data_files:
       - split: all
         path: data/closed_percussion/*.parquet
@@ -64,7 +64,7 @@ The release has three parts. This repository holds the phrases, splits, MIDI byt
 
 | Release | Melodic | Percussion | Total |
 | --- | ---: | ---: | ---: |
-| Closed selection (primary) | 50,566 | 44,511 | 95,077 |
+| Lakh phrases (primary) | 50,566 | 44,511 | 95,077 |
 | PDMX expansion (`pdmx_melodic`) | 459,659 | | 459,659 |
 | MAESTRO expansion (`maestro_melodic`) | 3,423 | | 3,423 |
 
@@ -78,12 +78,12 @@ Rows contain note arrays, verified occurrence coordinates, source hashes and MID
 
 ```python
 from datasets import load_dataset
-phrases = load_dataset("AlmazErmilov/samuged-recurring-phrases", "closed_melodic", split="all")
+phrases = load_dataset("AlmazErmilov/samuged-recurring-phrases", "lakh_melodic", split="all")
 with open("phrase.mid", "wb") as output:
     output.write(phrases[0]["midi_bytes"])
 ```
 
-`closed_melodic` and `closed_percussion` hold the Lakh phrases of the primary closed detector.
+`lakh_melodic` and `lakh_percussion` hold the Lakh phrases of the primary closed selection detector. Their Parquet files live in the `data/closed_melodic` and `data/closed_percussion` folders, named after the selection rule like the primary archive.
 
 Filter the original `split` column before training. `overlap_excluded` and `duplicate_excluded` are not training or test rows. The [primary archive](archives/closed.tar.gz) includes manifests, provenance, split views, MIDI and checksums. Extract into an empty directory. Read the [consumer guide](CONSUMER_GUIDE.md).
 
@@ -140,7 +140,7 @@ The Lakh collection follows the upstream [Lakh CC BY 4.0 declaration](https://co
 
 | Configurations | License | Notes |
 | --- | --- | --- |
-| `closed_*` and the reference archive | CC BY 4.0 | Lakh MIDI declaration, composition attribution incomplete |
+| `lakh_*` and the reference archive | CC BY 4.0 | Lakh MIDI declaration, composition attribution incomplete |
 | `pdmx_melodic` | CC BY 4.0 | PDMX corpus license, with per score Public Domain Mark or CC0 declarations kept in `source_terms` |
 | `maestro_melodic` | CC BY NC SA 4.0 | MAESTRO license, noncommercial use only and adapted material shared under the same license |
 | `source_terms`, `provenance_hints` and `work_identity` | CC BY 4.0 | Fields taken from MusicBrainz are CC0 1.0 |

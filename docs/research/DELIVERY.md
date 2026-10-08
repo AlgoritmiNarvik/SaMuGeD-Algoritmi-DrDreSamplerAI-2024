@@ -6,7 +6,7 @@
 
 | Selection | Melodic phrases | Drum patterns | Total |
 | --- | ---: | ---: | ---: |
-| Closed, primary release | 50,566 | 44,511 | 95,077 |
+| Lakh phrases, primary release (closed selection) | 50,566 | 44,511 | 95,077 |
 
 The fixed window reference selection (50,439 melodic phrases, 44,511 drum patterns, 94,950 in total) is the baseline of the research note. It stays on the hub as the reference archive and the `data/reference_*` Parquet folders for reproducibility, but it is no longer listed as a dataset configuration. Both selections use the same percussion detector. Source accounting covers 17,232 MIDI paths, 16,995 successful parses and 237 recorded parse failures.
 
