@@ -6,10 +6,9 @@
 
 | Selection | Melodic phrases | Drum patterns | Total |
 | --- | ---: | ---: | ---: |
-| Closed, primary release | 50,566 | 44,511 | 95,077 |
-| Fixed window reference | 50,439 | 44,511 | 94,950 |
+| Lakh phrases, primary release (closed selection) | 50,566 | 44,511 | 95,077 |
 
-Both selections use the same percussion detector. These are alternative releases, not disjoint datasets. Source accounting covers 17,232 MIDI paths, 16,995 successful parses and 237 recorded parse failures.
+The fixed window reference selection (50,439 melodic phrases, 44,511 drum patterns, 94,950 in total) is the baseline of the research note. It stays on the hub as the reference archive and the `data/reference_*` Parquet folders for reproducibility, but it is no longer listed as a dataset configuration. Both selections use the same percussion detector. Source accounting covers 17,232 MIDI paths, 16,995 successful parses and 237 recorded parse failures.
 
 Both releases passed source and MIDI artifact audits. Reference selection replay covers all successful sources. Closed selection replay covers a stratified 256 source sample. The [consumer guide](consumer_guide.md) explains archive verification, metadata and split handling. [Method documentation](README.md) and the [artifact index](artifact_index.md) describe the evidence and experimental variants.
 
