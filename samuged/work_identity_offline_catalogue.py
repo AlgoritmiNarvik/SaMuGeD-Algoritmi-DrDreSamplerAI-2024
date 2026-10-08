@@ -36,7 +36,7 @@ from .work_identity import label, mbid, now
 from .work_identity_offline import LICENSE, LICENSE_URL, _guard
 
 SUBSET_POLICY = 'musicbrainz-fullexport-catalogue-subset-v1'
-POLICY, PROVIDER = 'work-candidates-v4-catalogue', 'musicbrainz_fullexport_catalogue'
+POLICY, PROVIDER = 'work-candidates-v5-catalogue', 'musicbrainz_fullexport_catalogue'
 METHOD = 'composer_identity_and_catalogue_number_agreement_not_MIDI_identity'
 DATASET = 'maestro'
 BATCH, PROGRESS = 50000, 1000000
@@ -393,7 +393,8 @@ def dump_block(sub, work_sha, offline_sha):
 COMPOSER_ROLES = {'composer', 'writer', 'librettist', 'lyricist'}
 ARRANGER_ROLES = set(CREATOR_TYPES) - COMPOSER_ROLES
 # Work to work relation types whose entity1 is derived from entity0; a derived work is dropped when its original matched too.
-DERIVED = {'arrangement', 'medley', 'based on', 'revision', 'later version', 'other version', 'orchestration',
+# The names are MusicBrainz link type names. 'revision of' links a revised work (entity1) to its original (entity0).
+DERIVED = {'arrangement', 'medley', 'based on', 'revision of', 'other version', 'orchestration', 'adaptation',
            'translation', 'transliteration', 'later translated version', 'later parody version'}
 TEMPO_WORDS = set('''allegro allegretto andante andantino adagio adagietto largo larghetto lento presto prestissimo vivace
     vivo moderato grave molto assai non troppo ma poco piu meno con brio maestoso cantabile sostenuto espressivo

@@ -23,7 +23,7 @@ import uuid
 from .dataset import file_digest
 from .work_identity import label
 
-POLICY = 'candidate-assessment-v2'
+POLICY = 'candidate-assessment-v3'
 CATALOGUE = 'musicbrainz_fullexport_catalogue'  # Provider name for documentation and tests, not used for logic.
 TIERS = ('conflict', 'single_work_full_agreement', 'single_work_weaker_agreement', 'multiple_works')
 PRIORITY = dict(zip(TIERS, range(4)))
@@ -194,21 +194,54 @@ def first_of(bases, field):
     return next((b[field] for b in bases if b.get(field) is not None), None)
 
 
+def work_families(rows):
+    """Group the catalogue candidates of one source that are duplicate MusicBrainz works of one composer and one
+    catalogue number: works sharing a specific key, or works sharing a bare key and an equal normalized title.
+
+    MusicBrainz lists the same sonata or etude more than once (one entry per editor), so without this rule such
+    sources count several works. Each family counts as its lowest work id. Nickname matches never form a family.
+    Returns {(source key, work): (lowest work id, sorted members, rule)}."""
+    groups = defaultdict(set)
+    for r in rows:
+        basis = r['evidence'].get('match_basis') or {}
+        composer = (basis.get('composer') or {}).get('gid')
+        key = basis.get('catalogue_key')
+        if r['provider'] != CATALOGUE or not composer or not key or basis.get('title_agreement') == 'nickname_quoted':
+            continue
+        if basis.get('catalogue_key_specific') is True:
+            groups[r['key'], 'catalogue_key', composer, key].add(r['work'])
+        else:
+            groups[r['key'], 'catalogue_key_and_title', composer, key, label(r['title'])].add(r['work'])
+    families = {}
+    for (key, rule, *_), works in groups.items():
+        if len(works) > 1:
+            members = sorted(works)
+            for work in members:
+                families[key, work] = (members[0], members, rule)
+    return families
+
+
 def canonical_works(rows):
-    """Map (source key, work) to the candidate work that lists it among its related parts, movements or versions.
+    """Map (source key, work) to the candidate work it counts as: the catalogue work that lists it among its related
+    parts, movements or versions, or the lowest work id of its duplicate family.
 
     The catalogue index reduces movements and arrangements to the work itself and records their ids, so a dump or
     API candidate for the first movement counts as the same work as the catalogue candidate for the sonata."""
+    families = work_families(rows)
     parent = {}
     for r in sorted(rows, key=lambda r: (r['key'], r['work'])):
+        own = families.get((r['key'], r['work']), (r['work'],))[0]
         for related in (r['evidence'].get('match_basis') or {}).get('related_work_ids') or []:
-            parent.setdefault((r['key'], related), r['work'])
-    return parent
+            parent.setdefault((r['key'], related), own)
+    for (key, work), (lowest, _, _) in families.items():
+        if work != lowest:
+            parent[key, work] = lowest
+    return parent, families
 
 
 def assess(db, rows, records, twins, notices, namesakes):
     groups, works = defaultdict(list), defaultdict(lambda: defaultdict(set))
-    parent = canonical_works(rows)
+    parent, families = canonical_works(rows)
     for r in rows:
         groups[r['key'], r['work'], r['provider']].append(r)
         works[r['key']][r['provider']].add(parent.get((r['key'], r['work']), r['work']))
@@ -227,6 +260,7 @@ def assess(db, rows, records, twins, notices, namesakes):
         music, group = records[key][1], records[key][2]
         others = {k for k in twins.get(music, set()) if k != key} if music else set()
         canonical = parent.get((key, work), work)
+        family = families.get((key, work)) or families.get((key, canonical))  # Parts and other providers follow the family.
         mine = set().union(*own.values())
         rival = [set().union(*works[k].values()) for k in sorted(others) if k in works]
         duplicate = ('no_duplicates' if not rival else 'duplicates_conflict' if any(not (s & mine) for s in rival)
@@ -240,6 +274,7 @@ def assess(db, rows, records, twins, notices, namesakes):
         check, matched = notice_check(notices.get(key, []), writers)
         signals = dict(evidence_policy=evidence.get('policy'), origin=items[0]['origin'], work_title=items[0]['title'],
             canonical_work=canonical if canonical != work else None,
+            work_family=family[1] if family else None, work_family_rule=family[2] if family else None,
             recording_ids=sorted({i['recording'] for i in items} - {''}),
             distinct_works=len(own[provider]), distinct_works_all_providers=len(mine),
             title_agreement=next((t for t in TITLE_KINDS if t in titles), None),
@@ -279,7 +314,7 @@ def tier_of(s):
         return 'conflict'
     if s['distinct_works'] > 1 or s['distinct_works_all_providers'] > 1:
         return 'multiple_works'
-    if s['title_agreement'] in FULL_TITLE and s['creator_agreement_kind'] in FULL_CREATOR \
+    if s['title_agreement'] in FULL_TITLE and s['creator_agreement_kind'] in FULL_CREATOR and not s.get('work_family') \
             and s['namesake_count'] is not None and s['namesake_count'] <= 3 and s.get('key_agreement') != 'disagrees' \
             and s.get('form_agreement') != 'disagrees' \
             and (not s['title_agreement'].startswith('catalogue_number') or s.get('catalogue_key_specific') is True):
@@ -324,7 +359,11 @@ def reasons_of(s):
         out.append('namesake count unknown')
     if (s['namesake_count'] or 0) > 3:
         out.append(f"{s['namesake_count']} works share this title")
-    if s.get('canonical_work'):
+    if s.get('work_family'):
+        out.append(f"{len(s['work_family'])} duplicate works of one composer and catalogue number"
+                   + (' and title' if s.get('work_family_rule') == 'catalogue_key_and_title' else '')
+                   + ' count as the lowest work id')
+    elif s.get('canonical_work'):
         out.append('candidate is a part or version of another candidate work and counts as that work')
     return out
 

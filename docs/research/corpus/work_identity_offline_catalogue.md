@@ -47,7 +47,7 @@ All inputs are hashed before the build and again at the end. The build stops whe
 5. A nickname is used only when no catalogue key has a hit. It is a quoted text in the MAESTRO title (straight or typographic quotes or guillemets), folded, with at least six characters, and it must not consist only of tempo words such as `Molto vivace`. A top level work (a work without a parent) is indexed under its exact folded title or alias, the prefix of the title before `:`, `,`, `(` or ` from `, or a quoted text inside the title. So `Carmen: Acte II` and `Carmen, Act IV (Opera)` both index under `carmen`. There is no substring matching, so `Carmen Medley` does not match `carmen`, and a movement is never indexed.
 6. The matched works are reduced to the works themselves, in this order.
    - (a) A matched work is dropped when one of its ancestors, up to three levels of parts, is also matched. The highest matched work stays.
-   - (b) A work derived from a matched work through a link of type `arrangement`, `medley`, `based on`, `revision`, `later version`, `other version`, `orchestration`, a translation or a parody version is dropped. The check uses every matched work, so a work derived from a movement of a matched work is dropped too.
+   - (b) A work derived from a matched work through a link of type `arrangement`, `medley`, `based on`, `revision of`, `other version`, `orchestration`, `adaptation`, a translation or a parody version is dropped. The names are the MusicBrainz link type names, with the original work as entity0. The check uses every matched work, so a work derived from a movement of a matched work is dropped too. A revised sonata whose original also matched is reduced to the original.
    - (c) A work whose title has the form `<title of another kept work>: <something>` is dropped. A work never counts its own titles and aliases, so a single work with an alias equal to its title before the colon is kept.
    - (d) A movement form is dropped when at least one work that is not a movement form remains. A movement form is defined below.
    - (e) For a bare opus key, a work whose own keys carry a numbered piece of the same opus, such as `op2no1` for the key `op2`, is dropped when a set level work remains. A set level work is a work whose own keys carry no numbered piece of that opus.
@@ -90,7 +90,7 @@ Catalogue numbers are read from work titles and aliases. The attribute path stay
 
 ## Evidence
 
-The evidence JSON uses provider `musicbrainz_fullexport_catalogue`, policy `work-candidates-v4-catalogue`, metadata license `CC0-1.0` and method `composer_identity_and_catalogue_number_agreement_not_MIDI_identity`. The `dump` block names the export, the archive sha256, the timestamp, the replication and schema sequence and the signature status.
+The evidence JSON uses provider `musicbrainz_fullexport_catalogue`, policy `work-candidates-v5-catalogue` (v4 named the revision link `revision`, which never matched, so revisions of a matched work stayed as separate candidates), metadata license `CC0-1.0` and method `composer_identity_and_catalogue_number_agreement_not_MIDI_identity`. The `dump` block names the export, the archive sha256, the timestamp, the replication and schema sequence and the signature status.
 
 `match_basis` records the following.
 
