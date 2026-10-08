@@ -109,7 +109,7 @@ def env(tmp_path):
     paths = make_indexes(tmp_path, queue, candidates=False)
     identity = tmp_path/'work_identity_v06.jsonl.gz'
     wim.prepare(paths['work_index'], paths['offline_index'], paths['recordings_index'], paths['assessment'], identity,
-                metadata=paths['metadata'])
+                metadata=paths['metadata'], catalogue_index=paths['catalogue_index'])
     usage, hints = tmp_path/'usage_metadata.jsonl.gz', tmp_path/'provenance_hints.jsonl.gz'
     for path, make in ((usage, usage_row), (hints, hint_row)):
         with gzip.open(path, 'wt') as stream:
@@ -203,6 +203,7 @@ def test_sharding_splits_rows_by_file(env):
 
 
 def test_metadata_configs_have_unique_shared_keys(env):
+    import pyarrow as pa
     out, _ = build(env)
     keys = {name: table(out, name).column('source_key').to_pylist() for name in ep.METADATA_CONFIGS}
     expected = sorted(k for k, _, _ in env[2])
@@ -212,7 +213,13 @@ def test_metadata_configs_have_unique_shared_keys(env):
     row = terms.to_pylist()[0]
     assert json.loads(row['usage_evidence_json']) == dict(dataset_url='https://example.org')
     assert row['warning_count'] == 0 and 'corpus_conditions' not in row
-    identity = table(out, 'work_identity').to_pylist()
+    identity_table = table(out, 'work_identity')
+    assert identity_table.schema.equals(ep.metadata_schema('work_identity'))
+    assert identity_table.schema.field('dump_catalogue_status').type == pa.string()
+    assert identity_table.schema.field('dump_catalogue_reason').type == pa.string()
+    identity = identity_table.to_pylist()
+    assert {(r['dataset_id'], r['dump_catalogue_status']) for r in identity} == {
+        ('pdmx', None), ('lakh', None), ('maestro', 'no_candidate')}
     assert {r['identity_status'] for r in identity} == {'unresolved'} and {r['candidate_count'] for r in identity} == {0}
     assert json.loads(identity[0]['candidates_json']) == []
     phrase_ids = set(table(out, 'pdmx_melodic').column('source_id').to_pylist())

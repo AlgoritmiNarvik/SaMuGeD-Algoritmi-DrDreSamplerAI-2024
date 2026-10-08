@@ -7,6 +7,7 @@ import pytest
 from samuged import work_identity_merge as wim
 from samuged.dataset import file_digest
 from samuged.work_identity_offline import SCHEMA as WORKS_SCHEMA
+from samuged.work_identity_offline_catalogue import SCHEMA as CATALOGUE_SCHEMA
 from samuged.work_identity_offline_recordings import SCHEMA as RECORDINGS_SCHEMA
 
 API_SCHEMA = '''
@@ -25,7 +26,7 @@ CREATE TABLE source_summary(source_key TEXT PRIMARY KEY, dataset_id TEXT, best_t
     identity_status TEXT CHECK(identity_status='unverified_assessment_only'),
     rights_clearance TEXT CHECK(rights_clearance='not_established'));
 '''
-W1, W2, W3 = 'work-1', 'work-2', 'work-3'
+W1, W2, W3, W4 = 'work-1', 'work-2', 'work-3', 'work-4'
 
 
 def api_evidence(work_id, title, writers, iswcs=()):
@@ -55,19 +56,31 @@ def recording_evidence(work_id, title, writers):
         identity_verified=False, rights_clearance='not_established')
 
 
+def catalogue_evidence(work_id, title):
+    return dict(provider='musicbrainz_fullexport_catalogue', policy='work-candidates-v4-catalogue',
+        match_basis=dict(title_agreement='catalogue_number_attribute', creator_agreement='composer_identity',
+                         catalogue_key='op27no2', catalogue_key_specific=True, key_agreement='agrees',
+                         title_namesake_count=1, source_identity_verified=False),
+        work=dict(gid=work_id, title=title, type=17,
+                  relations=[dict(type='composer', artist=dict(id='c1', name='Ludwig van Beethoven'))]),
+        identity_verified=False, rights_clearance='not_established')
+
+
 def default_sources():
     """(key, sha, dataset, title, creator, query_kind, api_status)."""
     return [('k1', 'h1', 'lakh', 'Song', 'Band', 'recording', 'candidate'),
             ('k2', 'h2', 'pdmx', 'Air', 'Composer', 'work', 'pending'),
             ('k3', 'h3', 'maestro', None, None, 'work', 'missing_labels'),
-            ('k4', 'h4', 'lakh', 'Other', 'Band', 'recording', 'no_candidate')]
+            ('k4', 'h4', 'lakh', 'Other', 'Band', 'recording', 'no_candidate'),
+            ('k5', 'h5', 'maestro', 'Sonata Op. 27 No. 2', 'Ludwig van Beethoven', 'work', 'no_candidate')]
 
 
 def make_indexes(root, sources=None, *, candidates=True):
-    """Build tiny API, dump works, dump recordings and assessment indexes with their real table shapes."""
+    """Build tiny API, dump works, dump recordings, dump catalogue and assessment indexes with real table shapes."""
     sources = sources or default_sources()
     paths = dict(work_index=root/'work_identity_v05.sqlite', offline_index=root/'offline.sqlite',
-                 recordings_index=root/'recordings.sqlite', assessment=root/'assessment.sqlite')
+                 recordings_index=root/'recordings.sqlite', catalogue_index=root/'catalogue.sqlite',
+                 assessment=root/'assessment.sqlite')
     with sqlite3.connect(paths['work_index']) as db:
         db.executescript(API_SCHEMA)
         db.executemany('INSERT INTO queue VALUES (?,?,?,?,?,?,?,NULL,?)', [(*s, 'now') for s in sources])
@@ -94,6 +107,19 @@ def make_indexes(root, sources=None, *, candidates=True):
                                        (W1, 'rec-2', [('composer', 'a1', 'Ann Writer')]), (W2, 'rec-3', [])):
                 db.execute('INSERT INTO work_candidates VALUES (?,?,?,?,?,?)', (sources[0][0], work, rec, 'Song',
                     json.dumps(recording_evidence(work, 'Song (recording)', writers)), 'candidate'))
+    with sqlite3.connect(paths['catalogue_index']) as db:
+        db.executescript(CATALOGUE_SCHEMA)
+        for k, h, d, t, c, q, s in sources:
+            if d != 'maestro' or q != 'work':
+                continue
+            matched = candidates and k == 'k5'
+            status, reason = ('missing_labels', 'missing_title') if t is None else \
+                ('candidate', 'candidate') if matched else ('no_candidate', 'catalogue_number_without_work')
+            db.execute('INSERT INTO queue VALUES (?,?,?,?,?,?,?,?,?)', (k, h, d, t, c, q, status, reason, 'now'))
+            if matched:
+                title = 'Piano Sonata No. 14, Op. 27 No. 2'
+                db.execute('INSERT INTO work_candidates VALUES (?,?,?,?,?,?)', (k, W4, '', title,
+                    json.dumps(catalogue_evidence(W4, title)), 'candidate'))
     with sqlite3.connect(paths['assessment']) as db:
         db.executescript(ASSESSMENT_SCHEMA)
         if candidates:
@@ -116,18 +142,20 @@ def run(tmp_path, **changes):
     paths = make_indexes(tmp_path, **changes)
     out = tmp_path/'work_identity_v06.jsonl.gz'
     receipt = wim.prepare(paths['work_index'], paths['offline_index'], paths['recordings_index'], paths['assessment'],
-                          out, metadata=paths['metadata'])
+                          out, metadata=paths['metadata'], catalogue_index=paths['catalogue_index'])
     rows = [json.loads(line) for line in gzip.open(out, 'rt')]
     return paths, out, receipt, rows
 
 
 def test_merge_row_shape_and_candidates(tmp_path):
     paths, out, receipt, rows = run(tmp_path)
-    assert [r['source_key'] for r in rows] == ['k1', 'k2', 'k3', 'k4']
+    assert [r['source_key'] for r in rows] == ['k1', 'k2', 'k3', 'k4', 'k5']
     assert all(tuple(r) == wim.FIELDS for r in rows)
+    assert receipt['policy'] == 'work-identity-merge-v2' and all(r['policy'] == 'work-identity-merge-v2' for r in rows)
     one = rows[0]
     assert (one['api_status'], one['dump_works_status'], one['dump_recordings_status'], one['dump_recordings_reason']) == \
         ('candidate', 'no_candidate', 'candidate', 'candidate')
+    assert one['dump_catalogue_status'] is None and one['dump_catalogue_reason'] is None
     assert [c['work_id'] for c in one['candidates']] == [W1, W2]
     first = one['candidates'][0]
     assert tuple(first) == wim.CANDIDATE_FIELDS
@@ -147,19 +175,35 @@ def test_merge_row_shape_and_candidates(tmp_path):
     assert rows[1]['dump_recordings_status'] is None and rows[1]['api_status'] == 'pending'
     empty = rows[2]
     assert empty['candidates'] == [] and empty['identity_status'] == 'unresolved' and empty['best_tier'] is None
-    assert empty['assessment_reasons'] == [] and empty['policy'] == 'work-identity-merge-v1'
+    assert empty['assessment_reasons'] == [] and empty['policy'] == 'work-identity-merge-v2'
+    assert (empty['dump_catalogue_status'], empty['dump_catalogue_reason']) == ('missing_labels', 'missing_title')
+    catalogue = rows[4]
+    assert (catalogue['dump_catalogue_status'], catalogue['dump_catalogue_reason']) == ('candidate', 'candidate')
+    assert catalogue['dump_recordings_status'] is None and catalogue['dump_works_status'] == 'no_namesake'
+    assert [c['work_id'] for c in catalogue['candidates']] == [W4]
+    assert catalogue['candidates'][0]['providers'] == ['musicbrainz_fullexport_catalogue']
+    assert catalogue['candidates'][0]['work_title'] == 'Piano Sonata No. 14, Op. 27 No. 2'
+    assert (catalogue['candidates'][0]['title_agreement'], catalogue['candidates'][0]['creator_agreement']) == \
+        ('catalogue_number_attribute', 'composer_identity')
+    assert catalogue['identity_status'] == 'candidate_unverified' and catalogue['rights_clearance'] == 'not_established'
 
 
 def test_receipt_and_status_counts(tmp_path):
     paths, out, receipt, rows = run(tmp_path)
     stored = json.loads(wim.receipt_path(out).read_text())
-    assert stored['rows'] == 4 and stored['candidates'] == 3
-    assert stored['counts']['api_status'] == {'candidate': 1, 'missing_labels': 1, 'no_candidate': 1, 'pending': 1}
-    assert stored['counts']['dump_recordings_status'] == {'None': 2, 'candidate': 1, 'no_candidate': 1}
-    assert stored['counts']['identity_status'] == {'candidate_unverified': 2, 'unresolved': 2}
+    assert stored['rows'] == 5 and stored['candidates'] == 4
+    assert stored['counts']['api_status'] == {'candidate': 1, 'missing_labels': 1, 'no_candidate': 2, 'pending': 1}
+    assert stored['counts']['dump_works_status'] == {'candidate': 1, 'missing_labels': 1, 'no_candidate': 1,
+                                                     'no_namesake': 2}
+    assert stored['counts']['dump_recordings_status'] == {'None': 3, 'candidate': 1, 'no_candidate': 1}
+    assert stored['counts']['dump_catalogue_status'] == {'None': 3, 'candidate': 1, 'missing_labels': 1}
+    assert stored['counts']['identity_status'] == {'candidate_unverified': 3, 'unresolved': 2}
     assert stored['counts']['candidate_providers'] == {'musicbrainz+musicbrainz_fullexport': 1,
-                                                       'musicbrainz_fullexport': 1, 'musicbrainz_json_dump': 1}
-    assert set(stored['inputs']) == {'work_index', 'offline_index', 'recordings_index', 'assessment', 'metadata'}
+                                                       'musicbrainz_fullexport': 1, 'musicbrainz_json_dump': 1,
+                                                       'musicbrainz_fullexport_catalogue': 1}
+    assert set(stored['inputs']) == {'work_index', 'offline_index', 'recordings_index', 'catalogue_index', 'assessment',
+                                     'metadata'}
+    assert stored['inputs']['catalogue_index']['sha256'] == file_digest(paths['catalogue_index'])
     assert stored['inputs']['assessment']['sha256'] == file_digest(paths['assessment'])
     assert stored['output_sha256'] == file_digest(out)
     assert stored['identity_verified'] is False and stored['rights_clearance'] == 'not_established'
@@ -172,11 +216,11 @@ def test_inputs_are_not_written_and_output_is_not_replaced(tmp_path):
     before = {k: file_digest(p) for k, p in paths.items()}
     out = tmp_path/'export.jsonl.gz'
     wim.prepare(*(paths[k] for k in ('work_index', 'offline_index', 'recordings_index', 'assessment')), out,
-                metadata=paths['metadata'])
+                metadata=paths['metadata'], catalogue_index=paths['catalogue_index'])
     assert {k: file_digest(p) for k, p in paths.items()} == before
     with pytest.raises(FileExistsError):
         wim.prepare(*(paths[k] for k in ('work_index', 'offline_index', 'recordings_index', 'assessment')), out,
-                    metadata=paths['metadata'])
+                    metadata=paths['metadata'], catalogue_index=paths['catalogue_index'])
 
 
 def test_source_hash_mismatch_stops_without_output(tmp_path):
@@ -188,6 +232,31 @@ def test_source_hash_mismatch_stops_without_output(tmp_path):
         wim.prepare(*(paths[k] for k in ('work_index', 'offline_index', 'recordings_index', 'assessment')), out,
                     metadata=paths['metadata'])
     assert not out.exists() and not wim.receipt_path(out).exists()
+
+
+def test_catalogue_source_hash_mismatch_stops_without_output(tmp_path):
+    paths = make_indexes(tmp_path)
+    with sqlite3.connect(paths['catalogue_index']) as db:
+        db.execute("UPDATE queue SET source_sha256='other' WHERE source_key='k5'")
+    out = tmp_path/'export.jsonl.gz'
+    with pytest.raises(ValueError, match='dump catalogue source hash differs'):
+        wim.prepare(*(paths[k] for k in ('work_index', 'offline_index', 'recordings_index', 'assessment')), out,
+                    metadata=paths['metadata'], catalogue_index=paths['catalogue_index'])
+    assert not out.exists() and not wim.receipt_path(out).exists()
+
+
+def test_prepare_without_catalogue_index_writes_null_fields(tmp_path):
+    paths = make_indexes(tmp_path)
+    out = tmp_path/'export.jsonl.gz'
+    receipt = wim.prepare(*(paths[k] for k in ('work_index', 'offline_index', 'recordings_index', 'assessment')), out,
+                          metadata=paths['metadata'])
+    rows = [json.loads(line) for line in gzip.open(out, 'rt')]
+    assert all(tuple(r) == wim.FIELDS for r in rows)
+    assert all(r['dump_catalogue_status'] is None and r['dump_catalogue_reason'] is None for r in rows)
+    assert rows[4]['identity_status'] == 'unresolved' and rows[4]['candidates'] == []
+    assert set(receipt['inputs']) == {'work_index', 'offline_index', 'recordings_index', 'assessment', 'metadata'}
+    result = wim.status(out)
+    assert result['receipt_matches'] is True and result['counts']['dump_catalogue_status'] == {'None': 5}
 
 
 def test_metadata_must_cover_the_queue(tmp_path):

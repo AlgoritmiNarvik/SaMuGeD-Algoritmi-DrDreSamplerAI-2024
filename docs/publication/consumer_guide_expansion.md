@@ -38,12 +38,13 @@ Lists and objects are stored as JSON text in columns ending in `_json`. Decode t
 | `work_identity.api_status` | MusicBrainz API lookup status: `candidate`, `no_candidate`, `missing_labels` or `pending` |
 | `work_identity.dump_works_status` | Offline work lookup: `candidate`, `no_candidate`, `no_namesake`, `title_only_candidates` or `missing_labels` |
 | `work_identity.dump_recordings_status`, `dump_recordings_reason` | Offline recording lookup for Lakh rows, null for PDMX and MAESTRO |
+| `work_identity.dump_catalogue_status`, `dump_catalogue_reason` | Offline composer and catalogue number lookup for MAESTRO rows, null for Lakh and PDMX. Reasons: `candidate`, `no_catalogue_number`, `catalogue_number_without_work`, `composer_not_identified`, `missing_title`, `title_not_usable` or `missing_creator` |
 | `work_identity.best_tier` | Assessment tier of the source: `conflict`, `single_work_full_agreement`, `single_work_weaker_agreement` or `multiple_works`, null when no candidate was assessed |
 | `work_identity.identity_status` | `candidate_unverified` when at least one candidate exists, otherwise `unresolved` |
 
-`pending` API rows are historical. The API lookup stopped before reaching them and the two offline dump indexes cover those sources instead. Read the dump statuses for those rows.
+`pending` API rows are historical. The API lookup stopped before reaching them and the offline dump indexes cover those sources instead. Read the dump statuses for those rows.
 
-Each entry of `candidates_json` names one MusicBrainz work with its title, ISWCs, the providers that found it (`musicbrainz` for the API, `musicbrainz_json_dump` for dump works, `musicbrainz_fullexport` for dump recordings), writers, its assessment tier and the strongest title and creator agreement recorded. A candidate is a title and name agreement. It is not a verified identity and it says nothing about who owns the work.
+Each entry of `candidates_json` names one MusicBrainz work with its title, ISWCs, the providers that found it (`musicbrainz` for the API, `musicbrainz_json_dump` for dump works, `musicbrainz_fullexport` for dump recordings, `musicbrainz_fullexport_catalogue` for composer and catalogue number matches), writers, its assessment tier and the strongest title and creator agreement recorded. Title agreement is a canonical, recording or alias title, a catalogue number in the work title (`catalogue_number_title`) or a quoted nickname. Creator agreement is full name tokens, a composer identity, initials, a single person namesake or a surname inside a single artist credit (`surname_subset`). Only full tokens and composer identity count towards the full agreement tier. A candidate is a title and name agreement. It is not a verified identity and it says nothing about who owns the work.
 
 ### What the metadata does not establish
 

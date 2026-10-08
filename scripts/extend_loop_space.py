@@ -7,6 +7,8 @@ re-renders their audio with the Space's current SoundFont and effect profile, ap
 per selection and regenerates the page, the card and the rendering receipts. Audio stays outside the
 Space: the FLAC files are collected in a separate folder for the audio repository and the catalog keeps
 pointing at a pinned audio base URL.
+`tempo` estimates a pulse for the rows of groups without a tempo map, from the note onset intervals of each loop MIDI,
+and records the estimate in the catalog, the phrase metadata and a receipt.
 """
 from __future__ import annotations
 
@@ -17,8 +19,11 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import statistics
 import sys
 import tempfile
+
+import mido
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from samuged.audio_loops import EFFECT_PROFILES, _optional_audio, _renderer_provenance, _sha256_file, seconds_between
@@ -49,6 +54,10 @@ CORPORA = {
         'tempo_label': 'nominal BPM, no tempo map',
     },
 }
+TEMPO_VERSION = 'samuged-tempo-estimate-v1'
+TEMPO_LABEL = 'estimated BPM from onset intervals'
+CHORD_GAP, MIN_INTERVAL, MIN_PERIOD, PERIOD_TOLERANCE = 0.035, 0.05, 0.08, 0.12
+COVERAGE_SHARE, MAX_PERIOD = 0.85, 1.0
 
 
 def _json(path: Path):
@@ -331,9 +340,10 @@ def card(path: Path, groups: dict, loops: int) -> None:
     for key, group in groups.items():
         lines.append(f'- {group["title"]}: {len(group["rows"])} loops, source license {group["license"]}.')
     lines.append('')
-    lines.append('MAESTRO performances carry no tempo map, so the BPM shown for them is the nominal file tempo and '
-                 'cycles follow the recorded timing. Identity of the underlying works is not verified and no rights '
-                 'clearance is claimed for any corpus.')
+    lines.append('MAESTRO performances carry no tempo map. The BPM shown for them is a pulse estimated from the onset '
+                 'intervals of each phrase, ambiguous by a factor of two, and the file tempo is a nominal 120. Cycles '
+                 'follow the recorded timing. Identity of the underlying works is not verified and no rights clearance '
+                 'is claimed for any corpus.')
     path.write_text(text + '\n'.join(lines) + '\n')
 
 
@@ -366,12 +376,130 @@ def pin(space: Path, audio_base_url: str) -> dict:
     return catalog
 
 
+def _explains(interval: float, period: float) -> bool:
+    """An interval is explained by a period when it is a whole multiple of the period or of half the period."""
+    for parts in (1, 2):
+        ratio = interval * parts / period
+        n = round(ratio)
+        if n >= 1 and abs(ratio - n) / n <= PERIOD_TOLERANCE:
+            return True
+    return False
+
+
+def estimate_pulse(onsets: list[float]) -> dict | None:
+    """Estimate the pulse of a phrase from its note onset intervals, folded into a 60 to 180 BPM tactus range.
+
+    Notes within CHORD_GAP of the previous note form one chord onset. Each distinct interval is a candidate period.
+    Among the candidates that explain at least COVERAGE_SHARE of the best count, the longest period up to MAX_PERIOD
+    wins, so the beat is preferred over its subdivisions and a few short ornaments do not pull the pulse down to their
+    level.
+    """
+    chords, previous = [], None
+    for time in sorted(onsets):
+        if previous is None or time - previous > CHORD_GAP:
+            chords.append(time)
+        previous = time
+    intervals = [b - a for a, b in zip(chords, chords[1:]) if b - a > MIN_INTERVAL]
+    if len(intervals) < 3:
+        return None
+    candidates = sorted({round(x, 3) for x in intervals if round(x, 3) >= MIN_PERIOD})
+    if not candidates:
+        return None
+    coverage = {p: sum(1 for x in intervals if _explains(x, p)) for p in candidates}
+    best = max(coverage.values())
+    eligible = [p for p in candidates if p <= MAX_PERIOD and coverage[p] >= COVERAGE_SHARE * best]
+    period = max(eligible) if eligible else max(candidates, key=lambda p: (coverage[p], p))
+    pulse_bpm = 60 / period
+    bpm = pulse_bpm
+    while bpm < 60:
+        bpm *= 2
+    while bpm >= 180:
+        bpm /= 2
+    return {'bpm': round(bpm, 1), 'pulse_bpm': round(pulse_bpm, 1), 'pulse_seconds': round(period, 4),
+            'interval_count': len(intervals), 'method': 'onset interval pulse, folded to 60 to 180 BPM',
+            'ambiguity': 'metrical level ambiguous by a factor of two'}
+
+
+def midi_onsets(path: Path) -> list[float]:
+    """Note on times in seconds, read through the tempo map of the file."""
+    onsets, now = [], 0.0
+    for message in mido.MidiFile(path):
+        now += message.time
+        if message.type == 'note_on' and message.velocity > 0:
+            onsets.append(now)
+    return onsets
+
+
+def _tempo_note(nominal: float) -> str:
+    return ('Pulse estimated from the onset intervals of the phrase, metrical level ambiguous by a factor of two. '
+            f'The file states a nominal {nominal:g} BPM with no tempo map.')
+
+
+def _refresh_hash(folder: Path) -> None:
+    """Keep the artifact hash of an edited metadata file in step with its content."""
+    hashes_path = folder / 'hashes.json'
+    if not hashes_path.exists():
+        return
+    hashes = _json(hashes_path)
+    metadata = folder / 'metadata.json'
+    for artifact in hashes['artifacts']:
+        if artifact['path'] == f'{folder.name}/metadata.json':
+            artifact.update(bytes=metadata.stat().st_size, sha256=_sha256_file(metadata))
+    _write(hashes_path, hashes)
+
+
+def estimate_space_tempo(space: Path, groups: list[str]) -> dict:
+    """Estimate a pulse for every row of the named groups and record it in the catalog, the metadata and a receipt.
+
+    Rows without an estimate stay unchanged. The nominal tempo of a row is kept in bpm_nominal from the first run on.
+    """
+    catalog = _json(space / 'catalog.json')
+    for key in groups:
+        if key not in catalog['groups']:
+            raise ValueError(f'group not in the Space: {key}')
+    found = [(key, row, estimate_pulse(midi_onsets(space / 'audio' / row['phrase_id'] / 'loop.mid')))
+             for key in groups for row in catalog['groups'][key]['rows']]
+    entries = []
+    for key, row, estimate in found:
+        entry = {'phrase_id': row['phrase_id'], 'group': key, 'tempo_estimate': None}
+        if estimate is not None:
+            folder = space / 'audio' / row['phrase_id']
+            nominal = row.setdefault('bpm_nominal', row['bpm'])
+            row.update(bpm=estimate['bpm'], tempo_label=TEMPO_LABEL, tempo_note=_tempo_note(nominal))
+            metadata = _json(folder / 'metadata.json')
+            metadata['tempo_estimate'] = {**estimate, 'nominal_bpm': nominal}
+            _write(folder / 'metadata.json', metadata)
+            _refresh_hash(folder)
+            entry.update(tempo_estimate=metadata['tempo_estimate'],
+                         metadata_sha256=_sha256_file(folder / 'metadata.json'))
+        entries.append(entry)
+    summary = {}
+    for key in groups:
+        values = [estimate['bpm'] for k, _, estimate in found if k == key and estimate is not None]
+        summary[key] = {'rows': sum(1 for k, _, _ in found if k == key), 'estimated': len(values),
+                        'min_bpm': min(values, default=None),
+                        'median_bpm': round(statistics.median(values), 1) if values else None,
+                        'max_bpm': max(values, default=None)}
+    _write(space / 'catalog.json', catalog)
+    _page(space, catalog)
+    expansion = {k: catalog['groups'][k] for k in CORPORA if k in catalog['groups']}
+    if expansion and (space / 'README.md').exists():
+        card(space / 'README.md', expansion, sum(len(g['rows']) for g in expansion.values()))
+    _write(space / 'rendering' / 'tempo_estimates.json', {
+        'version': TEMPO_VERSION, 'groups': summary, 'entries': entries,
+        'identity_verified': False, 'rights_clearance': 'not_established'})
+    return summary
+
+
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
     pin_parser = commands.add_parser('pin', help='rewrite the audio base URL of a built Space')
     pin_parser.add_argument('--space', type=Path, required=True)
     pin_parser.add_argument('--audio-base-url', required=True)
+    tempo_parser = commands.add_parser('tempo', help='estimate a pulse for rows without a tempo map')
+    tempo_parser.add_argument('--space', type=Path, required=True)
+    tempo_parser.add_argument('--group', action='append', help='catalog group key, repeatable (default maestro)')
     sel = commands.add_parser('select', help='rank the expansion phrases of one corpus')
     sel.add_argument('--corpus', choices=sorted(CORPORA), required=True)
     sel.add_argument('--parquet-dir', type=Path, required=True, help='folder with <config>/*.parquet')
@@ -395,6 +523,9 @@ def main(argv=None) -> None:
     if args.command == 'pin':
         catalog = pin(args.space, args.audio_base_url)
         print(json.dumps({'audio_base_url': catalog['audio_base_url']}))
+        return
+    if args.command == 'tempo':
+        print(json.dumps(estimate_space_tempo(args.space, args.group or ['maestro']), indent=2))
         return
     if args.command == 'select':
         selection = select(args.corpus, args.parquet_dir, args.output, limit=args.limit)

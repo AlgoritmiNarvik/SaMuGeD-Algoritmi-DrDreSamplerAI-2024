@@ -1,7 +1,7 @@
 """Assessment tiers and cross checks for unreviewed work candidates.
 
 The module reads work candidates from the API work index and, when present, the offline
-dump index and the offline recordings index built from the full export. It never writes
+dump index, the offline recordings index and the offline catalogue index built from the full export. It never writes
 identity reviews or rights observations, never modifies an input index, never opens the
 network and never promotes a candidate to an accepted identity or a rights clearance. Every
 output row is an assessment with signals for review.
@@ -23,11 +23,17 @@ import uuid
 from .dataset import file_digest
 from .work_identity import label
 
-POLICY = 'candidate-assessment-v1'
+POLICY = 'candidate-assessment-v2'
+CATALOGUE = 'musicbrainz_fullexport_catalogue'  # Provider name for documentation and tests, not used for logic.
 TIERS = ('conflict', 'single_work_full_agreement', 'single_work_weaker_agreement', 'multiple_works')
 PRIORITY = dict(zip(TIERS, range(4)))
 FAVOUR = ('single_work_full_agreement', 'single_work_weaker_agreement', 'multiple_works')
-FULL_TITLE = {'canonical_title_normalized', 'recording_title_normalized'}
+# Agreement kinds in order of strength. The first kind present in the evidence is reported.
+TITLE_KINDS = ('canonical_title_normalized', 'recording_title_normalized', 'catalogue_number_attribute', 'catalogue_number_title',
+               'alias_normalized', 'nickname_quoted')
+CREATOR_KINDS = ('normalized_tokens', 'composer_identity', 'initials_candidate', 'composer_name_single_namesake', 'surname_subset')
+FULL_TITLE = {'canonical_title_normalized', 'recording_title_normalized', 'catalogue_number_attribute', 'catalogue_number_title'}
+FULL_CREATOR = {'normalized_tokens', 'composer_identity'}
 WRITER_ROLES = {'composer', 'writer', 'lyricist', 'librettist'}
 # Words that describe the notice itself, sequencing or company form rather than a party.
 STOP = set('''copyright copyrighted music musical publishing publications rights reserved inc ltd
@@ -72,7 +78,7 @@ def writers_of(evidence):
 
 def creator_kind(value):
     kinds = {value} if isinstance(value, str) else {x.get('agreement') for x in value or [] if isinstance(x, dict)}
-    return next((k for k in ('normalized_tokens', 'initials_candidate') if k in kinds), None)
+    return next((k for k in CREATOR_KINDS if k in kinds), None)
 
 
 def notice_check(notices, writers):
@@ -106,7 +112,7 @@ def read_candidates(db, schema, origin):
 
 
 def prepare(work_index: Path, metadata: Path, output: Path, *, offline_index: Path | None = None, subset: Path | None = None,
-            recordings_index: Path | None = None):
+            recordings_index: Path | None = None, catalogue_index: Path | None = None):
     """Build a new assessment index. All inputs are attached read only and re-hashed at the end.
 
     The work index lock is held for the whole build, so a lookup runner started meanwhile fails fast."""
@@ -117,24 +123,26 @@ def prepare(work_index: Path, metadata: Path, output: Path, *, offline_index: Pa
         except BlockingIOError:
             raise ValueError('work index lock held') from None
         try:
-            return build(work_index, metadata, output, offline_index, subset, recordings_index)
+            return build(work_index, metadata, output, offline_index, subset, recordings_index, catalogue_index)
         finally:
             fcntl.flock(lock, fcntl.LOCK_UN)
 
 
-def build(work_index, metadata, output, offline_index, subset, recordings_index=None):
+def build(work_index, metadata, output, offline_index, subset, recordings_index=None, catalogue_index=None):
     paths = dict(work_index=work_index, metadata=metadata, offline_index=offline_index, subset=subset,
-                 recordings_index=recordings_index)
+                 recordings_index=recordings_index, catalogue_index=catalogue_index)
     inputs = {k: dict(path=str(p), sha256=file_digest(p)) for k, p in paths.items() if p is not None}
     temp = output.with_name(f'.{output.name}.{uuid.uuid4()}.tmp')
     try:
         with closing(sqlite3.connect(temp, uri=True)) as db:
             db.execute('PRAGMA max_page_count=262144')
-            for schema, key in (('w', 'work_index'), ('m', 'metadata'), ('o', 'offline_index'), ('s', 'subset'), ('r', 'recordings_index')):
+            for schema, key in (('w', 'work_index'), ('m', 'metadata'), ('o', 'offline_index'), ('s', 'subset'), ('r', 'recordings_index'),
+                                ('c', 'catalogue_index')):
                 if paths[key] is not None:
                     db.execute(f'ATTACH DATABASE ? AS {schema}', (ro(paths[key]),))
             rows = read_candidates(db, 'w', 'work_index') + (read_candidates(db, 'o', 'offline_index') if offline_index else []) \
-                + (read_candidates(db, 'r', 'recordings_index') if recordings_index else [])
+                + (read_candidates(db, 'r', 'recordings_index') if recordings_index else []) \
+                + (read_candidates(db, 'c', 'catalogue_index') if catalogue_index else [])
             origins = defaultdict(set)
             for r in rows:
                 origins[r['provider']].add(r['origin'])
@@ -181,11 +189,29 @@ def build(work_index, metadata, output, offline_index, subset, recordings_index=
                 output_bytes=output.stat().st_size, identity_verified=False, **STATUS)
 
 
+def first_of(bases, field):
+    """The first value recorded for a field across the match bases of one group, or None."""
+    return next((b[field] for b in bases if b.get(field) is not None), None)
+
+
+def canonical_works(rows):
+    """Map (source key, work) to the candidate work that lists it among its related parts, movements or versions.
+
+    The catalogue index reduces movements and arrangements to the work itself and records their ids, so a dump or
+    API candidate for the first movement counts as the same work as the catalogue candidate for the sonata."""
+    parent = {}
+    for r in sorted(rows, key=lambda r: (r['key'], r['work'])):
+        for related in (r['evidence'].get('match_basis') or {}).get('related_work_ids') or []:
+            parent.setdefault((r['key'], related), r['work'])
+    return parent
+
+
 def assess(db, rows, records, twins, notices, namesakes):
     groups, works = defaultdict(list), defaultdict(lambda: defaultdict(set))
+    parent = canonical_works(rows)
     for r in rows:
         groups[r['key'], r['work'], r['provider']].append(r)
-        works[r['key']][r['provider']].add(r['work'])
+        works[r['key']][r['provider']].add(parent.get((r['key'], r['work']), r['work']))
     summaries, assessed_on = defaultdict(list), now()
     for (key, work, provider), items in sorted(groups.items()):
         bases = [i['evidence'].get('match_basis') or {} for i in items]
@@ -200,6 +226,7 @@ def assess(db, rows, records, twins, notices, namesakes):
             if counts else namesakes.get(title, (None, None))
         music, group = records[key][1], records[key][2]
         others = {k for k in twins.get(music, set()) if k != key} if music else set()
+        canonical = parent.get((key, work), work)
         mine = set().union(*own.values())
         rival = [set().union(*works[k].values()) for k in sorted(others) if k in works]
         duplicate = ('no_duplicates' if not rival else 'duplicates_conflict' if any(not (s & mine) for s in rival)
@@ -212,16 +239,19 @@ def assess(db, rows, records, twins, notices, namesakes):
         nested = cross == 'providers_overlap' and all(a <= b or b <= a for a in sets for b in sets)
         check, matched = notice_check(notices.get(key, []), writers)
         signals = dict(evidence_policy=evidence.get('policy'), origin=items[0]['origin'], work_title=items[0]['title'],
+            canonical_work=canonical if canonical != work else None,
             recording_ids=sorted({i['recording'] for i in items} - {''}),
             distinct_works=len(own[provider]), distinct_works_all_providers=len(mine),
-            title_agreement=next((t for t in ('canonical_title_normalized', 'recording_title_normalized', 'alias_normalized') if t in titles), None),
-            creator_agreement_kind=next((k for k in ('normalized_tokens', 'initials_candidate') if k in kinds), None),
+            title_agreement=next((t for t in TITLE_KINDS if t in titles), None),
+            creator_agreement_kind=next((k for k in CREATOR_KINDS if k in kinds), None),
+            key_agreement=first_of(bases, 'key_agreement'), catalogue_key=first_of(bases, 'catalogue_key'),
+            catalogue_key_specific=first_of(bases, 'catalogue_key_specific'), form_agreement=first_of(bases, 'form_agreement'),
             writers=writers, namesake_count=namesake,
             namesake_source='evidence' if counts else 'subset' if namesake is not None else None,
             title_alias_namesake_count=alias,
             notice_check=check, notice_tokens=matched, duplicate_check=duplicate, duplicate_count=len(others),
             duplicates_with_candidates=len(rival), candidate_group=group, provider_cross_check=cross, provider_sets_nested=nested,
-            providers=sorted(p for p, s in own.items() if work in s), **STATUS)
+            providers=sorted(p for p, s in own.items() if canonical in s), **STATUS)
         signals['tier'] = tier = tier_of(signals)
         db.execute('INSERT INTO assessments VALUES (?,?,?,?,?,?,?)',
                    (key, work, provider, tier, json.dumps(signals, ensure_ascii=False), POLICY, assessed_on))
@@ -249,8 +279,10 @@ def tier_of(s):
         return 'conflict'
     if s['distinct_works'] > 1 or s['distinct_works_all_providers'] > 1:
         return 'multiple_works'
-    if s['title_agreement'] in FULL_TITLE and s['creator_agreement_kind'] == 'normalized_tokens' \
-            and s['namesake_count'] is not None and s['namesake_count'] <= 3:
+    if s['title_agreement'] in FULL_TITLE and s['creator_agreement_kind'] in FULL_CREATOR \
+            and s['namesake_count'] is not None and s['namesake_count'] <= 3 and s.get('key_agreement') != 'disagrees' \
+            and s.get('form_agreement') != 'disagrees' \
+            and (not s['title_agreement'].startswith('catalogue_number') or s.get('catalogue_key_specific') is True):
         return 'single_work_full_agreement'
     return 'single_work_weaker_agreement'
 
@@ -274,12 +306,26 @@ def reasons_of(s):
         out.append(f"match basis incomplete (evidence policy {s['evidence_policy']})")
     if s['title_agreement'] == 'alias_normalized':
         out.append('title agrees through an alias only')
+    if s['title_agreement'] == 'nickname_quoted':
+        out.append('title agrees through a quoted nickname only')
+    if (s['title_agreement'] or '').startswith('catalogue_number') and s.get('catalogue_key_specific') is False:
+        out.append('catalogue number is a bare opus without a number inside the opus')
     if s['creator_agreement_kind'] == 'initials_candidate':
         out.append('creator agrees by initials only')
+    if s['creator_agreement_kind'] == 'surname_subset':
+        out.append('creator agrees by surname only (single artist credit)')
+    if s['creator_agreement_kind'] == 'composer_name_single_namesake':
+        out.append('composer identified by name with a single namesake')
+    if s.get('key_agreement') == 'disagrees':
+        out.append('work key differs from the title key')
+    if s.get('form_agreement') == 'disagrees':
+        out.append('work form differs from the title form')
     if s['namesake_count'] is None:
         out.append('namesake count unknown')
     if (s['namesake_count'] or 0) > 3:
         out.append(f"{s['namesake_count']} works share this title")
+    if s.get('canonical_work'):
+        out.append('candidate is a part or version of another candidate work and counts as that work')
     return out
 
 
@@ -298,7 +344,7 @@ def summary(assessment: Path):
 
 
 def packet(assessment: Path, work_index: Path, output: Path, *, offline_index: Path | None = None, tier=None, limit=200,
-           recordings_index: Path | None = None):
+           recordings_index: Path | None = None, catalogue_index: Path | None = None):
     """Write a bounded JSON review packet. Nothing in it is an accepted identity."""
     if type(limit) is not int or not 1 <= limit <= 1000 or tier not in (None, *TIERS):
         raise ValueError('invalid packet bounds')
@@ -306,10 +352,11 @@ def packet(assessment: Path, work_index: Path, output: Path, *, offline_index: P
     with closing(sqlite3.connect(ro(assessment), uri=True)) as db:
         db.row_factory = sqlite3.Row
         inputs = json.loads(db.execute('SELECT inputs_json FROM provenance').fetchone()[0])
-        for key, path in (('work_index', work_index), ('offline_index', offline_index), ('recordings_index', recordings_index)):
+        for key, path in (('work_index', work_index), ('offline_index', offline_index), ('recordings_index', recordings_index),
+                          ('catalogue_index', catalogue_index)):
             if path is not None and (key not in inputs or file_digest(path) != inputs[key]['sha256']):
                 raise ValueError(f'{key} does not match assessment provenance')
-        digests = {p: file_digest(p) for p in (assessment, work_index, offline_index, recordings_index) if p is not None}
+        digests = {p: file_digest(p) for p in (assessment, work_index, offline_index, recordings_index, catalogue_index) if p is not None}
         db.execute('ATTACH DATABASE ? AS w', (ro(work_index),))
         rows = db.execute('SELECT * FROM source_summary'+(' WHERE best_tier=?' if tier else '')+
                           ' ORDER BY review_priority,source_key LIMIT ?', ([tier] if tier else [])+[limit]).fetchall()
@@ -343,12 +390,13 @@ def parser():
     for name in ('work-index', 'metadata', 'output'):
         build.add_argument('--'+name, type=Path, required=True)
     build.add_argument('--offline-index', type=Path); build.add_argument('--subset', type=Path)
-    build.add_argument('--recordings-index', type=Path)
+    build.add_argument('--recordings-index', type=Path); build.add_argument('--catalogue-index', type=Path)
     count = sub.add_parser('summary'); count.add_argument('--assessment', type=Path, required=True)
     pack = sub.add_parser('packet')
     for name in ('assessment', 'work-index', 'output'):
         pack.add_argument('--'+name, type=Path, required=True)
     pack.add_argument('--offline-index', type=Path); pack.add_argument('--recordings-index', type=Path)
+    pack.add_argument('--catalogue-index', type=Path)
     pack.add_argument('--tier', choices=TIERS)
     pack.add_argument('--limit', type=int, default=200)
     return parser
@@ -358,12 +406,12 @@ def main(argv=None):
     args = parser().parse_args(argv)
     if args.command == 'prepare':
         result = prepare(args.work_index, args.metadata, args.output, offline_index=args.offline_index, subset=args.subset,
-                         recordings_index=args.recordings_index)
+                         recordings_index=args.recordings_index, catalogue_index=args.catalogue_index)
     elif args.command == 'summary':
         result = summary(args.assessment)
     else:
         result = packet(args.assessment, args.work_index, args.output, offline_index=args.offline_index, tier=args.tier,
-                        limit=args.limit, recordings_index=args.recordings_index)
+                        limit=args.limit, recordings_index=args.recordings_index, catalogue_index=args.catalogue_index)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

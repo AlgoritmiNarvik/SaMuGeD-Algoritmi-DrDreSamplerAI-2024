@@ -175,12 +175,15 @@ python scripts/extend_loop_space.py build --space LIVE_SPACE_CLONE --output NEW_
   --selection pdmx_selection.json --selection maestro_selection.json --render RENDER_DIR ... \
   --soundfont ColomboGMGS2_Vanilla.sf2 --bank-name 'ColomboGMGS2 17.02 Vanilla' --audio-base-url CURRENT_URL \
   --source-root PDMX_SOURCES --source-root MAESTRO_SOURCES --phrase-manifest BUILD_DIR/phrases.jsonl ...
+python -m scripts.extend_loop_space tempo --space NEW_SPACE --group maestro
 python scripts/publish_huggingface.py --owner OWNER --dataset AUDIO_UPLOAD --dataset-only --dataset-name samuged-earworms-audio --receipt audio_receipt.json --publish
 python scripts/extend_loop_space.py pin --space NEW_SPACE --audio-base-url AUDIO_REPO/resolve/AUDIO_COMMIT/audio
 python scripts/publish_huggingface.py --owner OWNER --space CHANGED_FILES --space-only --receipt space_receipt.json --publish
 ```
 
-The catalog carries `group_order`, so new tabs follow the existing ones instead of sorting by key. Rows carry `tempo_label`; MAESTRO rows show the nominal file tempo as "no tempo map" because the performances are recorded in real time. Note views for the new phrases are written from the verified sources and merged into `notes/index.json`. `--space-only` adds or replaces files in the existing Space and never deletes.
+The catalog carries `group_order`, so new tabs follow the existing ones instead of sorting by key. Rows carry `tempo_label`. MAESTRO rows show an estimated pulse after the `tempo` step, described below. Note views for the new phrases are written from the verified sources and merged into `notes/index.json`. `--space-only` adds or replaces files in the existing Space and never deletes.
+
+MAESTRO performances have no tempo map, so the file tempo of 120 BPM does not reflect how fast they are played. The `tempo` step estimates a pulse for every row of a group from the note onsets of its loop MIDI. Notes within 35 ms count as one onset. An interval counts for a candidate period when it is a whole multiple or half of that period. The longest period that explains nearly as many intervals as the best candidate wins, which favours the beat over its subdivisions. The winning period is folded into 60 to 180 BPM. The result is ambiguous by a factor of two. Dense phrases can also lock onto a finer note grid than the beat, so treat the value as an estimate. Use the step only for groups without a tempo map, because it replaces the BPM of each row. The step keeps the file tempo in `bpm_nominal`, adds a `tempo_estimate` block to the metadata of each phrase and refreshes the hash of that metadata in `hashes.json`. It also refreshes the corpus section of the Space README when one exists. The receipt `rendering/tempo_estimates.json` lists the estimates per phrase, with the identity and rights flags. The build receipt keeps the hashes from build time. The FLAC files and the audio repository are not touched. Run the step after `build` and before the Space is published.
 
 ## Public cards and citation
 

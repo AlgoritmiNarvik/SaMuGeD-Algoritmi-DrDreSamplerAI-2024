@@ -54,7 +54,8 @@ USAGE_TEXT = ('artist', 'title', 'composer', 'dataset_license', 'score_license_d
 HINT_TEXT = ('claim_class', 'search_route', 'identity_status', 'rights_clearance', 'policy')
 HINT_JSON = ('reasons', 'hints')
 IDENTITY_TEXT = ('title', 'creator', 'query_kind', 'api_status', 'dump_works_status', 'dump_recordings_status',
-                 'dump_recordings_reason', 'best_tier', 'identity_status', 'rights_clearance', 'policy')
+                 'dump_recordings_reason', 'dump_catalogue_status', 'dump_catalogue_reason', 'best_tier',
+                 'identity_status', 'rights_clearance', 'policy')
 IDENTITY_INT = ('review_priority',)
 IDENTITY_JSON = ('candidates', 'assessment_reasons')
 

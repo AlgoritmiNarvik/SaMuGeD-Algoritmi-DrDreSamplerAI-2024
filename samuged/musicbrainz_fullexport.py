@@ -144,9 +144,11 @@ def _tar(handle, command):
             proc.kill(); proc.wait()
 
 
-def _rows(tar, member, table, state, limit):
+def _rows(tar, member, table, state, limit, tables=None, at_least=None):
     """Yield the kept fields of one COPY text table, one line at a time."""
-    count, keep = TABLES[table]
+    tables = TABLES if tables is None else tables
+    at_least = AT_LEAST if at_least is None else at_least
+    count, keep = tables[table]
     reader = io.BufferedReader(tar.extractfile(member), 8*1024*1024)
     read = state['lines_read']
     while line := reader.readline(LINE_LIMIT+1):
@@ -157,7 +159,7 @@ def _rows(tar, member, table, state, limit):
         read[table] += 1; state['total'] += 1
         text = line.decode('utf-8')
         fields = (text[:-1] if text.endswith('\n') else text).split('\t')
-        if len(fields) < count if table in AT_LEAST else len(fields) != count:
+        if len(fields) < count if table in at_least else len(fields) != count:
             raise ValueError(f'{table} has an unexpected column count')
         yield [unescape(fields[i]) for i in keep]
         if state['total'] % PROGRESS == 0:
