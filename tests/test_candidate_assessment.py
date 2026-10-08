@@ -5,8 +5,9 @@ from collections import namedtuple
 
 import pytest
 
+from samuged import work_identity_offline_catalogue as woc
 from samuged import work_identity_offline_recordings as wor
-from samuged.candidate_assessment import main, parser, prepare, summary, packet, notice_check
+from samuged.candidate_assessment import CATALOGUE, creator_kind, main, parser, prepare, summary, packet, notice_check
 from samuged.dataset import file_digest
 from samuged.work_identity import Client, run
 
@@ -422,3 +423,173 @@ def test_cli_recordings_index_flag(tmp_path, monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out)['assessments'] == 15
     main(['summary', '--assessment', str(out)])
     assert json.loads(capsys.readouterr().out)['providers'] == {'musicbrainz': 11, FULLEXPORT: 4}
+
+
+CATALOGUE_BASIS = dict(title_agreement='catalogue_number_attribute', creator_agreement='composer_identity',
+    catalogue_key='op27no2', catalogue_key_specific=True, key_agreement='agrees', title_namesake_count=1)
+
+
+def catalogue_evidence(work_id, change):
+    """Evidence in the shape written by work_identity_offline_catalogue.match, with the match basis changed by `change`."""
+    basis = dict(CATALOGUE_BASIS, source_identity_verified=False)
+    basis.update(change)
+    work = dict(gid=work_id, title='Sonata', type=17, relations=[dict(type='composer', artist=dict(id='c1', name='Ludwig van Beethoven'))])
+    return dict(provider=CATALOGUE, policy=woc.POLICY, match_basis=basis, work=work, **woc.UNVERIFIED)
+
+
+def catalogue_index(tmp_path, work, candidates):
+    """Catalogue sidecar with the queue rows of the work index. Candidates map a source key to (work id, basis changes)."""
+    path = tmp_path/'catalogue.sqlite'
+    with sqlite3.connect(path) as db:
+        db.executescript(woc.SCHEMA)
+        db.execute("ATTACH DATABASE ? AS w", (str(work),))
+        db.execute("""INSERT INTO queue SELECT source_key,source_sha256,dataset_id,title,creator,'work','candidate','candidate','now'
+            FROM w.queue WHERE source_key IN (%s)""" % ','.join('?'*len(candidates)), list(candidates))
+        for key, items in candidates.items():
+            for work_id, change in items:
+                db.execute('INSERT INTO work_candidates VALUES (?,?,?,?,?,?)', (key, work_id, '', 'Sonata',
+                           json.dumps(catalogue_evidence(work_id, change)), 'candidate'))
+    return path
+
+
+def test_catalogue_index_as_fourth_provider(tmp_path, monkeypatch):
+    work, meta, offline = build(tmp_path, monkeypatch)
+    subset = tmp_path/'subset.sqlite'
+    catalogue = catalogue_index(tmp_path, work, {'s1': [(WORK, {})], 's12': [(WORK, {})]})
+    before = [p.read_bytes() for p in (work, meta, offline, subset, catalogue)]
+    out = tmp_path/'assessment.sqlite'
+    prepare(work, meta, out, offline_index=offline, subset=subset, catalogue_index=catalogue)
+    assert [p.read_bytes() for p in (work, meta, offline, subset, catalogue)] == before
+    found, best = rows(out)
+    api, dump = 'musicbrainz', 'musicbrainz_json_dump'
+    # Attribute form, composer identity, a specific key that agrees and one namesake reach the full tier.
+    one = found['s12', WORK, CATALOGUE]
+    assert one[0] == 'single_work_full_agreement' and best['s12'] == ('single_work_full_agreement', 2)
+    assert one[1]['origin'] == 'catalogue_index' and one[1]['providers'] == [CATALOGUE]
+    assert one[1]['title_agreement'] == 'catalogue_number_attribute' and one[1]['creator_agreement_kind'] == 'composer_identity'
+    assert one[1]['key_agreement'] == 'agrees' and one[1]['catalogue_key'] == 'op27no2' and one[1]['catalogue_key_specific'] is True
+    assert one[1]['namesake_count'] == 1 and one[1]['namesake_source'] == 'evidence' and one[1]['recording_ids'] == []
+    # Four providers agree on the work of s1 and the catalogue row keeps the tier.
+    agree = found['s1', WORK, CATALOGUE][1]
+    assert agree['provider_cross_check'] == 'providers_agree' and agree['providers'] == sorted([api, dump, CATALOGUE])
+    assert best['s1'] == ('single_work_full_agreement', 1) and summary(out)['providers'][CATALOGUE] == 2
+    with sqlite3.connect(out) as db:
+        inputs = json.loads(db.execute('SELECT inputs_json FROM provenance').fetchone()[0])
+        assert inputs['catalogue_index'] == dict(path=str(catalogue), sha256=file_digest(catalogue))
+        assert set(inputs) == {'work_index', 'metadata', 'offline_index', 'subset', 'catalogue_index'}
+
+
+@pytest.mark.parametrize('change,reason', [
+    (dict(key_agreement='disagrees'), 'work key differs from the title key'),
+    (dict(catalogue_key='op27', catalogue_key_specific=False), 'catalogue number is a bare opus without a number inside the opus'),
+    (dict(title_agreement='catalogue_number_title', form_agreement='disagrees'), 'work form differs from the title form'),
+    (dict(title_agreement='nickname_quoted', catalogue_key_specific=False), 'title agrees through a quoted nickname only'),
+    (dict(creator_agreement='composer_name_single_namesake'), 'composer identified by name with a single namesake')])
+def test_catalogue_candidate_stays_weaker(tmp_path, monkeypatch, change, reason):
+    work, meta, _ = build(tmp_path, monkeypatch)
+    catalogue = catalogue_index(tmp_path, work, {'s12': [(WORK, change)]})
+    out = tmp_path/'a.sqlite'; prepare(work, meta, out, catalogue_index=catalogue)
+    found, best = rows(out)
+    assert found['s12', WORK, CATALOGUE][0] == 'single_work_weaker_agreement' and best['s12'] == ('single_work_weaker_agreement', 4)
+    with sqlite3.connect(out) as db:
+        assert reason in json.loads(db.execute("SELECT reasons_json FROM source_summary WHERE source_key='s12'").fetchone()[0])
+
+
+def test_surname_subset_stays_weaker(tmp_path, monkeypatch):
+    work, meta, _ = build(tmp_path, monkeypatch)
+    subset = tmp_path/'subset.sqlite'
+    recordings = recordings_index(tmp_path, work, {'s12': [(WORK, 'r9', 'surname_subset')]})
+    out = tmp_path/'a.sqlite'; prepare(work, meta, out, subset=subset, recordings_index=recordings)
+    found, best = rows(out)
+    tier, signals = found['s12', WORK, FULLEXPORT]
+    assert tier == 'single_work_weaker_agreement' and signals['creator_agreement_kind'] == 'surname_subset'
+    assert best['s12'] == ('single_work_weaker_agreement', 4)
+    with sqlite3.connect(out) as db:
+        assert 'creator agrees by surname only (single artist credit)' in json.loads(
+            db.execute("SELECT reasons_json FROM source_summary WHERE source_key='s12'").fetchone()[0])
+    # Control: the same row with a full credit agreement reaches the full tier, so the creator kind is the only difference.
+    control = tmp_path/'control'; control.mkdir()
+    full = recordings_index(control, work, {'s12': [(WORK, 'r9', 'normalized_tokens')]})
+    prepare(work, meta, control/'a.sqlite', subset=subset, recordings_index=full)
+    assert rows(control/'a.sqlite')[1]['s12'] == ('single_work_full_agreement', 2)
+
+
+@pytest.mark.parametrize('value,kind', [
+    ('composer_identity', 'composer_identity'), ('surname_subset', 'surname_subset'), ('unknown_kind', None), (None, None),
+    ([dict(agreement='initials_candidate'), dict(agreement='composer_identity')], 'composer_identity')])
+def test_creator_kind_follows_strength_order(value, kind):
+    assert creator_kind(value) == kind
+
+
+def test_catalogue_binding_and_provider_origin(tmp_path, monkeypatch):
+    work, meta, _ = build(tmp_path, monkeypatch)
+    catalogue = catalogue_index(tmp_path, work, {'s12': [(WORK, {})]})
+    with sqlite3.connect(catalogue) as db:
+        db.execute("UPDATE queue SET source_sha256='other' WHERE source_key='s12'")
+    with pytest.raises(ValueError, match='binding'):
+        prepare(work, meta, tmp_path/'a.sqlite', catalogue_index=catalogue)
+    with sqlite3.connect(catalogue) as db:
+        db.execute("UPDATE queue SET source_sha256='sha-s12' WHERE source_key='s12'")
+        db.execute("UPDATE work_candidates SET evidence_json=json_set(evidence_json,'$.provider','musicbrainz')")
+    with pytest.raises(ValueError, match='both candidate indexes'):
+        prepare(work, meta, tmp_path/'b.sqlite', catalogue_index=catalogue)
+    with sqlite3.connect(catalogue) as db:
+        db.execute("UPDATE work_candidates SET evidence_json=json_set(evidence_json,'$.provider',?,'$.match_basis.source_identity_verified',json('true'))",
+                   (CATALOGUE,))
+    with pytest.raises(ValueError, match='unverified'):
+        prepare(work, meta, tmp_path/'c.sqlite', catalogue_index=catalogue)
+    assert not list(tmp_path.glob('[abc].sqlite'))
+
+
+def test_packet_checks_catalogue_index(tmp_path, monkeypatch):
+    work, meta, _ = build(tmp_path, monkeypatch)
+    catalogue = catalogue_index(tmp_path, work, {'s12': [(WORK, {})]})
+    out = tmp_path/'a.sqlite'; prepare(work, meta, out, catalogue_index=catalogue)
+    target = tmp_path/'packet.json'
+    packet(out, work, target, catalogue_index=catalogue)
+    assert [c['work_id'] for s in json.loads(target.read_text())['sources'] for c in s['candidates'] if c['provider'] == CATALOGUE] == [WORK]
+    with sqlite3.connect(catalogue) as db:
+        db.execute("UPDATE queue SET title='Changed' WHERE source_key='s12'")
+    with pytest.raises(ValueError, match='catalogue_index does not match'):
+        packet(out, work, tmp_path/'bad.json', catalogue_index=catalogue)
+    plain = tmp_path/'plain.sqlite'; prepare(work, meta, plain)
+    with pytest.raises(ValueError, match='catalogue_index does not match'):
+        packet(plain, work, tmp_path/'bad.json', catalogue_index=catalogue)
+    assert not (tmp_path/'bad.json').exists()
+
+
+def test_cli_catalogue_index_flag(tmp_path, monkeypatch, capsys):
+    args = parser().parse_args(['prepare', '--work-index', 'w', '--metadata', 'm', '--output', 'o', '--catalogue-index', 'c'])
+    assert str(args.catalogue_index) == 'c' and args.recordings_index is None
+    args = parser().parse_args(['packet', '--assessment', 'a', '--work-index', 'w', '--output', 'o', '--catalogue-index', 'c'])
+    assert str(args.catalogue_index) == 'c'
+    work, meta, _ = build(tmp_path, monkeypatch)
+    catalogue = catalogue_index(tmp_path, work, {'s12': [(WORK, {})]})
+    out = tmp_path/'a.sqlite'
+    main(['prepare', '--work-index', str(work), '--metadata', str(meta), '--output', str(out), '--catalogue-index', str(catalogue)])
+    assert json.loads(capsys.readouterr().out)['assessments'] == 12  # Eleven API rows from the fixture and one catalogue row.
+    main(['summary', '--assessment', str(out)])
+    assert json.loads(capsys.readouterr().out)['providers'] == {'musicbrainz': 11, CATALOGUE: 1}
+    target = tmp_path/'packet.json'
+    main(['packet', '--assessment', str(out), '--work-index', str(work), '--output', str(target), '--catalogue-index', str(catalogue)])
+    assert [c['work_id'] for s in json.loads(target.read_text())['sources'] for c in s['candidates'] if c['provider'] == CATALOGUE] == [WORK]
+
+
+def test_related_part_counts_as_the_catalogue_work(tmp_path, monkeypatch):
+    """A dump candidate for the first movement and a catalogue candidate for the sonata that lists that movement
+    among its related works are one work: no conflict, one distinct work, both rows reach the full tier."""
+    work, meta, offline = build(tmp_path, monkeypatch)
+    subset = tmp_path/'subset.sqlite'
+    movement = SECOND  # s8 has the offline dump candidate SECOND and the API candidate WORK
+    catalogue = catalogue_index(tmp_path, work, {'s8': [(THIRD, dict(related_work_ids=[movement, WORK]))]})
+    out = tmp_path/'assessment.sqlite'
+    prepare(work, meta, out, offline_index=offline, subset=subset, catalogue_index=catalogue)
+    found, best = rows(out)
+    assert best['s8'][0] == 'single_work_full_agreement'
+    parent = found['s8', THIRD, CATALOGUE][1]
+    assert parent['canonical_work'] is None and parent['distinct_works_all_providers'] == 1
+    assert parent['provider_cross_check'] == 'providers_agree' and parent['providers'] == sorted(['musicbrainz', 'musicbrainz_json_dump', CATALOGUE])
+    part = found['s8', movement, 'musicbrainz_json_dump'][1]
+    assert part['canonical_work'] == THIRD and part['tier'] == 'single_work_full_agreement'
+    assert 'candidate is a part or version of another candidate work and counts as that work' in json.loads(
+        sqlite3.connect(out).execute("SELECT reasons_json FROM source_summary WHERE source_key='s8'").fetchone()[0])

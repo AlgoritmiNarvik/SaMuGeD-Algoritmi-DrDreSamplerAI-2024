@@ -36,7 +36,7 @@ Each metadata row carries `source_key`, `source_id`, `source_sha256` and `datase
 | --- | --- | --- |
 | `source_terms` | `usage_metadata.jsonl.gz` | 33 text fields, `warning_count`, `search_limited`, `notice_truncated`, then `corpus_conditions_json`, `copyright_notices_json`, `external_metadata_candidates_json`, `usage_conditions_json`, `usage_evidence_json` |
 | `provenance_hints` | `provenance_hints_v01.jsonl.gz` | `claim_class`, `search_route`, `identity_status`, `rights_clearance`, `policy`, `reasons_json`, `hints_json` |
-| `work_identity` | [merge export](work_identity_merge.md) | `title`, `creator`, `query_kind`, `api_status`, `dump_works_status`, `dump_recordings_status`, `dump_recordings_reason`, `best_tier`, `identity_status`, `rights_clearance`, `policy`, `candidate_count`, `review_priority`, `candidates_json`, `assessment_reasons_json` |
+| `work_identity` | [merge export](work_identity_merge.md) | `title`, `creator`, `query_kind`, `api_status`, `dump_works_status`, `dump_recordings_status`, `dump_recordings_reason`, `dump_catalogue_status`, `dump_catalogue_reason`, `best_tier`, `identity_status`, `rights_clearance`, `policy`, `candidate_count`, `review_priority`, `candidates_json`, `assessment_reasons_json` |
 
 Every configuration must cover every catalog source once, and the three key sets must be identical. The work identity export must match its receipt hash and must have been built from the given assessment.
 

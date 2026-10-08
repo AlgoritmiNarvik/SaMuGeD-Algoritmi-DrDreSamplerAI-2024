@@ -97,16 +97,16 @@ Three configurations hold one row for each of the 208,212 sources of Lakh, MAEST
 | --- | --- |
 | `source_terms` | Corpus license, per score license declaration, MIDI copyright notices, declared research, sharing and commercial terms, usage conditions and their evidence |
 | `provenance_hints` | Claim class, search route and hints read from existing labels, such as collection codes, dates and attribution markers |
-| `work_identity` | MusicBrainz work candidates from the API lookup and the two offline dump indexes, merged by work, with writers, ISWCs and an assessment tier |
+| `work_identity` | MusicBrainz work candidates from the API lookup and three offline dump indexes (works by title, recordings by title and artist, classical works by composer and catalogue number), merged by work, with writers, ISWCs and an assessment tier |
 
 These labels are evidence, not clearance. A corpus license or a per score declaration describes what the source states, not who owns the composition. A missing copyright notice does not mean the music is free of copyright. MusicBrainz candidates come from title and name agreement. They are unverified, they are never promoted to an accepted identity and some sources have several. Nothing in these configurations establishes composition, arrangement or performance rights. `identity_status` is `candidate_unverified` or `unresolved` and `rights_clearance` is always `not_established`. In `work_identity`, an API status of `pending` is historical. The dump indexes cover those sources instead.
 
-Coverage of the identity layer differs by corpus. Lakh titles and artists are popular music that MusicBrainz lists well. PDMX is mostly traditional tunes transcribed from collections, which MusicBrainz rarely records as works, and MAESTRO uses classical titles that the lookup does not normalise yet.
+Coverage of the identity layer differs by corpus. Lakh titles and artists are popular music that MusicBrainz lists well. PDMX is mostly traditional tunes transcribed from collections, which MusicBrainz rarely records as works. MAESTRO uses classical titles, which are matched through the composer and the catalogue number written in the title (opus, BWV, K., D., Hob. and similar systems). A Lakh artist written as a bare surname agrees with a single artist credit that contains it, recorded as the weaker `surname_subset` agreement.
 
 | Corpus | Sources | At least one work candidate | Single candidate, full agreement | Main reason for the rest |
 | --- | ---: | ---: | ---: | --- |
-| Lakh | 17,232 | 78.8% | 39.9% | No MusicBrainz work with that title and artist |
-| MAESTRO | 1,276 | 6.9% | 1.3% | Classical title forms differ from MusicBrainz |
+| Lakh | 17,232 | 83.8% | 39.9% | No MusicBrainz work with that title and artist |
+| MAESTRO | 1,276 | 80.6% | 43.7% | No catalogue number in the title, or no work of the composer carries that number |
 | PDMX | 189,704 | 0.5% | 0.2% | 75% are traditional collection transcriptions, 17.8% match by title only |
 
 Every source has its corpus license and, for PDMX, its per score declaration in `source_terms`. The candidate percentages above say how many sources have a MusicBrainz work proposal, not how many are cleared.
@@ -165,7 +165,7 @@ Copy the BibTeX below or [download the bibliography](https://huggingface.co/data
   author = {Wu, Peiyi and Øren, Asle Fjæran and Dadman, Shayan and Ermilov, Almaz},
   title = {{SaMuGeD} Earworms (Ostinato / Catchy musical hooks)},
   year = {2026},
-  version = {0.2},
+  version = {0.3},
   url = {https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases},
   note = {Research dataset release}
 }

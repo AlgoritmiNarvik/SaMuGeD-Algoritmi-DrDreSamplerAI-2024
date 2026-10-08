@@ -43,9 +43,9 @@ def test_candidates_mirror_api_recording_rule(env):
     one = candidates(out, 'L01')
     assert set(one) == {(w(1), r(1)), (w(1), r(7)), (w(4), r(7))}  # the disagreeing Back\Slash credit is excluded
     e = one[w(1), r(1)]
-    assert (e['provider'], e['policy'], e['metadata_license']) == ('musicbrainz_fullexport', 'work-candidates-v3-fullexport', 'CC0-1.0')
+    assert (e['provider'], e['policy'], e['metadata_license']) == ('musicbrainz_fullexport', 'work-candidates-v4-fullexport', 'CC0-1.0')
     assert e['metadata_license_url'] == 'https://musicbrainz.org/doc/About/Data_License'
-    assert e['method'] == 'normalized_labels_names_or_initials_and_dump_relationship_not_MIDI_identity'
+    assert e['method'] == 'normalized_labels_names_initials_or_surname_subset_and_dump_relationship_not_MIDI_identity'
     assert e['dump']['export_name'] == '20261007-002147' and e['dump']['schema_sequence'] == 31 and len(e['dump']['archive_sha256']) == 64
     b = e['match_basis']
     assert b['title_agreement'] == 'recording_title_normalized' and b['creator_agreement'] == 'normalized_tokens'
@@ -85,6 +85,31 @@ def test_multi_artist_credit_records_per_artist_agreement(env):
     assert [(x['name'], x['gid'], x['agreement']) for x in basis['credited_artists']] == [
         ('Paul Stanley', a(3), None), ('Gene Simmons', a(4), None)]
     assert json.loads(rows[0][4])['work']['relations'] == []  # each writer is compared with the full creator, as in the API
+
+
+def test_surname_agreement_is_a_strict_subset_of_one_name():
+    assert wor.surname_agreement([dict(name='Lucio Battisti')], 'battisti') == 'surname_subset'
+    assert wor.surname_agreement([dict(name='Paul Stanley'), dict(name='Gene Simmons')], 'stanley') is None  # two credited names
+    assert wor.surname_agreement([dict(name='Jerry Goldsmith')], 'jer') is None  # shorter than four letters
+    assert wor.creator_agreement('Lucio Battisti', 'lucio battisti') == 'normalized_tokens'  # the full name agrees before the surname rule
+    assert wor.surname_agreement([dict(name='Lucio Battisti')], 'lucio battisti') is None  # not a strict subset
+
+
+def test_surname_subset_agrees_only_for_a_single_credited_name(env):
+    index, subset, _ = env
+    with sqlite3.connect(subset) as db:
+        state, reason, rows, _ = wor.match(('L10', 'h', 'lakh', 'Home Free', 'Goldsmith', 'usable', None), wor.Reference(db), {})
+    assert (state, reason) == ('candidate', 'candidate')
+    evidence = {(work, rec): json.loads(encoded) for _, work, rec, _, encoded, _ in rows}
+    assert set(evidence) == {(w(1), r(1)), (w(1), r(7)), (w(4), r(7))}  # the disagreeing Back\Slash credit is excluded
+    for e in evidence.values():
+        basis = e['match_basis']
+        assert e['policy'] == 'work-candidates-v4-fullexport' and basis['creator_agreement'] == 'surname_subset'
+        assert basis['credited_artists'] == [dict(name='Jerry Goldsmith', gid=a(1), agreement='surname_subset')]
+        assert e['work']['relations'] == [dict(type='composer', artist=dict(id=a(1), name='Jerry Goldsmith'))]  # Other Writer disagrees
+    with sqlite3.connect(subset) as db:  # Two credited names do not reduce to one surname.
+        state, reason, rows, _ = wor.match(('L11', 'h', 'lakh', 'Lonely Song', 'Stanley', 'usable', None), wor.Reference(db), {})
+    assert (state, reason, rows) == ('no_candidate', 'recordings_without_creator_agreement', [])
 
 
 def test_bounds_are_flagged_and_counted(env, monkeypatch):

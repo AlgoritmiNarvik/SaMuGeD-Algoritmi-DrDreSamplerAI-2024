@@ -1,10 +1,12 @@
 """Offline recording to work candidates for the Lakh queue from the MusicBrainz full export subset.
 
-The module applies the work-candidates-v3 rule for the recording kind to every Lakh queue row against the
+The module applies the work-candidates-v4 rule for the recording kind to every Lakh queue row against the
 local CC0 subset built by musicbrainz_fullexport: a recording whose normalized title equals the source title
 and whose full artist credit agrees with the source creator, its performance work relations and the agreeing
-writers of each work. It never uses the network, never opens the mutable work index, never writes to an
-input and never treats a title or name agreement as a verified identity or a rights clearance.
+writers of each work. A single artist credit also agrees when the source creator is a subset of its name tokens,
+each at least four letters, and is recorded as the weaker surname_subset. It never uses the network, never opens
+the mutable work index, never writes to an input and never treats a title or name agreement as a verified identity
+or a rights clearance.
 """
 from __future__ import annotations
 import argparse
@@ -23,8 +25,8 @@ from .musicbrainz_fullexport import POLICY as SUBSET_POLICY
 from .work_identity import creator_agreement, label, now
 from .work_identity_offline import LICENSE, LICENSE_URL, _guard, _ro
 
-POLICY, PROVIDER = 'work-candidates-v3-fullexport', 'musicbrainz_fullexport'
-METHOD = 'normalized_labels_names_or_initials_and_dump_relationship_not_MIDI_identity'
+POLICY, PROVIDER = 'work-candidates-v4-fullexport', 'musicbrainz_fullexport'
+METHOD = 'normalized_labels_names_initials_or_surname_subset_and_dump_relationship_not_MIDI_identity'
 WRITERS = ('composer', 'writer', 'lyricist')
 RECORDINGS, WORKS, BATCH, CACHE = 50, 20, 5000, 65536
 PAGES, MB = 524288, 1024*1024  # 2 GiB at 4 KiB pages
@@ -96,6 +98,17 @@ class Reference:
             (w, *WRITERS)).fetchall())
 
 
+def surname_agreement(names, creator):
+    """Agreement of a bare surname with a single credited name, recorded as the weaker surname_subset."""
+    c = creator.split()
+    if len(names) != 1 or not c:
+        return None
+    n = label(names[0]['name']).split()
+    if len(c) < len(n) and all(len(token) >= 4 for token in c) and set(c) <= set(n):
+        return 'surname_subset'
+    return None
+
+
 def match(row, ref, dump):
     """Mirror resolve() for the recording kind. Returns status, reason, candidate rows and the source match row."""
     key, _, _, raw_title, raw_creator, title_status, basis = row
@@ -110,7 +123,7 @@ def match(row, ref, dump):
     agreeing = []
     for recording_id, gid, name, credit_id in recordings:
         credit, names = ref.credit(credit_id)
-        found = creator_agreement(credit, creator)
+        found = creator_agreement(credit, creator) or surname_agreement(names, creator)
         if found:
             agreeing.append((recording_id, gid, name, credit, names, found))
     over_recordings = len(agreeing) > RECORDINGS
@@ -120,14 +133,15 @@ def match(row, ref, dump):
         linked += len(works); over_works |= len(works) > WORKS
         for work_id, work_gid, work_name, work_type in works[:WORKS]:
             writers = [dict(name=n, role=role, artist_id=a, agreement=agreed) for n, role, a in ref.work_writers(work_id)
-                       for agreed in [creator_agreement(n, creator)] if agreed]
+                       for agreed in [creator_agreement(n, creator) or surname_agreement([dict(name=n)], creator)] if agreed]
             pending.append((gid, name, credit, names, found, len(works), work_gid, work_name, work_type, writers))
     distinct = len({p[6] for p in pending})
     rows = []
     for gid, name, credit, names, found, work_count, work_gid, work_name, work_type, writers in pending:
         basis_json = dict(source_creator_basis=basis or 'original_catalog_labels_unverified', query_title=raw_title,
             query_creator=raw_creator, title_agreement='recording_title_normalized', creator_agreement=found,
-            credited_artists=[dict(name=n['name'], gid=n['artist_gid'], agreement=creator_agreement(n['name'], creator))
+            credited_artists=[dict(name=n['name'], gid=n['artist_gid'],
+                                   agreement=creator_agreement(n['name'], creator) or surname_agreement([n], creator))
                               for n in names],
             recording=dict(gid=gid, name=name, credit=credit), recording_namesake_count=ref.namesakes.get(title),
             matching_recording_count=len(agreeing), matching_recordings_truncated=over_recordings,

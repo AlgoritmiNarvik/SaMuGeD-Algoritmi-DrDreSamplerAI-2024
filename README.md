@@ -108,7 +108,7 @@ Use **Cite this repository** in the GitHub sidebar, or copy the BibTeX below. [D
   author = {Wu, Peiyi and Øren, Asle Fjæran and Dadman, Shayan and Ermilov, Almaz},
   title = {{SaMuGeD} Earworms (Ostinato / Catchy musical hooks)},
   year = {2026},
-  version = {0.2},
+  version = {0.3},
   url = {https://huggingface.co/datasets/AlmazErmilov/samuged-recurring-phrases},
   note = {Research dataset release}
 }

@@ -1,31 +1,34 @@
-"""Portable per source work identity export that merges the API, dump works and dump recordings indexes.
+"""Portable per source work identity export that merges the API, dump works, dump recordings and dump catalogue indexes.
 
-The module reads the API work index (v05), the offline dump works index, the offline dump recordings index and a
-candidate assessment, all read only, and writes one gzip JSON line per API queue source, sorted by source key,
-plus a receipt next to the output. It never uses the network, never writes to an input, never promotes a
-candidate to an accepted identity and never turns any field into a rights clearance.
+The module reads the API work index (v05), the offline dump works index, the offline dump recordings index, the
+optional offline dump catalogue index and a candidate assessment, all read only, and writes one gzip JSON line per
+API queue source, sorted by source key, plus a receipt next to the output. It never uses the network, never writes
+to an input, never promotes a candidate to an accepted identity and never turns any field into a rights clearance.
 
 Every source key of the dump indexes, the assessment and the metadata file must exist in the API queue with
 the same source hash (the assessment has no hash and is bound by key), and the metadata file must cover the
 API queue exactly. Any mismatch stops the run before an output exists.
 
-Row schema (fixed, policy work-identity-merge-v1):
+Row schema (fixed, policy work-identity-merge-v2):
 
     source_key, source_sha256, dataset_id, title, creator, query_kind   API queue labels, unchanged
     api_status                  API queue status: candidate, no_candidate, pending, missing_labels
     dump_works_status           dump works queue status or null when the source is not in that queue
     dump_recordings_status      dump recordings queue status or null (only Lakh rows are queued there)
     dump_recordings_reason      dump recordings queue reason or null
+    dump_catalogue_status       dump catalogue queue status or null (no catalogue index, or source absent there)
+    dump_catalogue_reason       dump catalogue queue reason or null
     candidates                  list sorted by work_id, one entry per distinct MusicBrainz work:
         work_id, work_title, iswcs, providers, writers [{role, artist_id, name}],
         best_tier (assessment tier across providers, null when unassessed),
         title_agreement (strongest recorded), creator_agreement (strongest recorded kind)
+        providers are musicbrainz, musicbrainz_json_dump, musicbrainz_fullexport and musicbrainz_fullexport_catalogue
     best_tier                   source_summary.best_tier or null
     review_priority             source_summary.review_priority or null
     assessment_reasons          source_summary reasons list, empty when unassessed
     identity_status             candidate_unverified when a candidate exists, else unresolved
     rights_clearance            always not_established
-    policy                      work-identity-merge-v1
+    policy                      work-identity-merge-v2
 
 `pending` API rows are historical. The API chain stopped before they were looked up and the dump indexes
 cover those sources instead.
@@ -46,14 +49,18 @@ from .candidate_assessment import FAVOUR, creator_kind
 from .dataset import file_digest
 from .work_identity import now
 
-POLICY = 'work-identity-merge-v1'
+POLICY = 'work-identity-merge-v2'
 API_PROVIDER, WORKS_PROVIDER, RECORDINGS_PROVIDER = 'musicbrainz', 'musicbrainz_json_dump', 'musicbrainz_fullexport'
+CATALOGUE_PROVIDER = 'musicbrainz_fullexport_catalogue'
 WRITER_ROLES = ('composer', 'writer', 'lyricist', 'librettist')
-TITLES = ('canonical_title_normalized', 'recording_title_normalized', 'alias_normalized')
-CREATORS = ('normalized_tokens', 'initials_candidate')
+TITLES = ('canonical_title_normalized', 'recording_title_normalized', 'catalogue_number_attribute', 'catalogue_number_title',
+          'alias_normalized', 'nickname_quoted')
+CREATORS = ('normalized_tokens', 'composer_identity', 'initials_candidate', 'composer_name_single_namesake',
+            'surname_subset')
 FIELDS = ('source_key', 'source_sha256', 'dataset_id', 'title', 'creator', 'query_kind', 'api_status',
-          'dump_works_status', 'dump_recordings_status', 'dump_recordings_reason', 'candidates', 'best_tier',
-          'review_priority', 'assessment_reasons', 'identity_status', 'rights_clearance', 'policy')
+          'dump_works_status', 'dump_recordings_status', 'dump_recordings_reason', 'dump_catalogue_status',
+          'dump_catalogue_reason', 'candidates', 'best_tier', 'review_priority', 'assessment_reasons',
+          'identity_status', 'rights_clearance', 'policy')
 CANDIDATE_FIELDS = ('work_id', 'work_title', 'iswcs', 'providers', 'writers', 'best_tier', 'title_agreement',
                     'creator_agreement')
 UNVERIFIED = dict(identity_verified=False, rights_clearance='not_established')
@@ -145,8 +152,8 @@ def merge_candidates(groups, tiers):
     result = []
     for work_id in sorted(merged):
         e = merged[work_id]
-        # Prefer the title from the most recent dump, then the API title.
-        order = {RECORDINGS_PROVIDER: 0, WORKS_PROVIDER: 1, API_PROVIDER: 2}
+        # Prefer the catalogue title, then the most recent dump, then the API title.
+        order = {CATALOGUE_PROVIDER: 0, RECORDINGS_PROVIDER: 1, WORKS_PROVIDER: 2, API_PROVIDER: 3}
         title = next((t for _, t in sorted(e['titles'], key=lambda x: order.get(x[0], 3)) if t), None)
         result.append(dict(work_id=work_id, work_title=title, iswcs=sorted(e['iswcs']), providers=sorted(e['providers']),
             writers=[dict(role=r, artist_id=a, name=n) for r, a, n in
@@ -181,24 +188,31 @@ def _bind(work, index, sql, label):
 
 
 def prepare(work_index: Path, offline_index: Path, recordings_index: Path, assessment: Path, output: Path, *,
-            metadata: Path):
+            metadata: Path, catalogue_index: Path | None = None):
     """Write the merged export and its receipt. Inputs are opened read only and re-hashed at the end."""
     work_index, offline_index, recordings_index, assessment, metadata, output = map(
         Path, (work_index, offline_index, recordings_index, assessment, metadata, output))
     _guard(output)
     paths = dict(work_index=work_index, offline_index=offline_index, recordings_index=recordings_index,
                  assessment=assessment, metadata=metadata)
+    if catalogue_index is not None:
+        catalogue_index = Path(catalogue_index)
+        paths['catalogue_index'] = catalogue_index
     inputs = {k: dict(path=str(p), sha256=file_digest(p)) for k, p in paths.items()}
-    counts = {k: Counter() for k in ('api_status', 'dump_works_status', 'dump_recordings_status', 'identity_status',
-                                     'best_tier', 'dataset_id', 'candidate_providers')}
+    counts = {k: Counter() for k in ('api_status', 'dump_works_status', 'dump_recordings_status',
+                                     'dump_catalogue_status', 'identity_status', 'best_tier', 'dataset_id',
+                                     'candidate_providers')}
     rows = candidates = 0
     with ExitStack() as stack:
         _lock(stack, work_index)
         work, offline, recordings, assessed = (stack.enter_context(closing(_ro(p))) for p in
                                                (work_index, offline_index, recordings_index, assessment))
+        catalogue = None if catalogue_index is None else stack.enter_context(closing(_ro(catalogue_index)))
         hashes = _metadata_hashes(metadata)
         _bind(work, offline, 'SELECT source_key,source_sha256 FROM queue', 'dump works')
         _bind(work, recordings, 'SELECT source_key,source_sha256 FROM queue', 'dump recordings')
+        if catalogue is not None:
+            _bind(work, catalogue, 'SELECT source_key,source_sha256 FROM queue', 'dump catalogue')
         _bind(work, assessed, 'SELECT source_key,NULL FROM source_summary', 'assessment')
         temp_dir = stack.enter_context(tempfile.TemporaryDirectory(dir=output.parent))
         target = Path(temp_dir)/'export.jsonl.gz'
@@ -209,17 +223,23 @@ def prepare(work_index: Path, offline_index: Path, recordings_index: Path, asses
                     raise ValueError('metadata source hash differs from the work index')
                 works = offline.execute('SELECT status FROM queue WHERE source_key=?', (key,)).fetchone()
                 recs = recordings.execute('SELECT status,reason FROM queue WHERE source_key=?', (key,)).fetchone()
+                cat = None if catalogue is None else catalogue.execute(
+                    'SELECT status,reason FROM queue WHERE source_key=?', (key,)).fetchone()
                 tiers = {}
                 for work_id, tier in assessed.execute('SELECT work_id,tier FROM assessments WHERE source_key=?', (key,)):
                     tiers.setdefault(work_id, []).append(tier)
                 summary = assessed.execute('SELECT best_tier,review_priority,reasons_json FROM source_summary '
                                            'WHERE source_key=?', (key,)).fetchone()
-                merged = merge_candidates([(API_PROVIDER, _candidates(work, key, API_PROVIDER)),
-                                           (WORKS_PROVIDER, _candidates(offline, key, WORKS_PROVIDER)),
-                                           (RECORDINGS_PROVIDER, _candidates(recordings, key, RECORDINGS_PROVIDER))], tiers)
+                groups = [(API_PROVIDER, _candidates(work, key, API_PROVIDER)),
+                          (WORKS_PROVIDER, _candidates(offline, key, WORKS_PROVIDER)),
+                          (RECORDINGS_PROVIDER, _candidates(recordings, key, RECORDINGS_PROVIDER))]
+                if catalogue is not None:
+                    groups.append((CATALOGUE_PROVIDER, _candidates(catalogue, key, CATALOGUE_PROVIDER)))
+                merged = merge_candidates(groups, tiers)
                 record = dict(source_key=key, source_sha256=sha, dataset_id=dataset, title=title, creator=creator,
                     query_kind=kind, api_status=api_status, dump_works_status=works[0] if works else None,
                     dump_recordings_status=recs[0] if recs else None, dump_recordings_reason=recs[1] if recs else None,
+                    dump_catalogue_status=cat[0] if cat else None, dump_catalogue_reason=cat[1] if cat else None,
                     candidates=merged, best_tier=summary[0] if summary else None,
                     review_priority=summary[1] if summary else None,
                     assessment_reasons=json.loads(summary[2] or '[]') if summary else [],
@@ -228,8 +248,8 @@ def prepare(work_index: Path, offline_index: Path, recordings_index: Path, asses
                 stream.write((json.dumps(record, ensure_ascii=False)+'\n').encode())
                 rows += 1
                 candidates += len(merged)
-                for field in ('api_status', 'dump_works_status', 'dump_recordings_status', 'identity_status',
-                              'best_tier', 'dataset_id'):
+                for field in ('api_status', 'dump_works_status', 'dump_recordings_status', 'dump_catalogue_status',
+                              'identity_status', 'best_tier', 'dataset_id'):
                     counts[field][str(record[field])] += 1
                 for c in merged:
                     counts['candidate_providers']['+'.join(c['providers'])] += 1
@@ -250,8 +270,9 @@ def prepare(work_index: Path, offline_index: Path, recordings_index: Path, asses
 def status(path: Path):
     """Counts of an export, recomputed from its rows and compared with the receipt when present."""
     path = Path(path)
-    counts = {k: Counter() for k in ('api_status', 'dump_works_status', 'dump_recordings_status', 'identity_status',
-                                     'best_tier', 'dataset_id', 'candidate_providers')}
+    counts = {k: Counter() for k in ('api_status', 'dump_works_status', 'dump_recordings_status',
+                                     'dump_catalogue_status', 'identity_status', 'best_tier', 'dataset_id',
+                                     'candidate_providers')}
     rows = candidates = 0
     previous = None
     with gzip.open(path, 'rt', encoding='utf-8') as stream:
@@ -264,8 +285,8 @@ def status(path: Path):
             previous = record['source_key']
             rows += 1
             candidates += len(record['candidates'])
-            for field in ('api_status', 'dump_works_status', 'dump_recordings_status', 'identity_status',
-                          'best_tier', 'dataset_id'):
+            for field in ('api_status', 'dump_works_status', 'dump_recordings_status', 'dump_catalogue_status',
+                          'identity_status', 'best_tier', 'dataset_id'):
                 counts[field][str(record[field])] += 1
             for c in record['candidates']:
                 counts['candidate_providers']['+'.join(c['providers'])] += 1
@@ -286,11 +307,12 @@ def main():
     build = commands.add_parser('prepare')
     for name in ('work-index', 'offline-index', 'recordings-index', 'assessment', 'metadata', 'output'):
         build.add_argument('--'+name, type=Path, required=True)
+    build.add_argument('--catalogue-index', type=Path, help='optional offline dump catalogue index')
     commands.add_parser('status').add_argument('--export', type=Path, required=True)
     args = parser.parse_args()
     if args.command == 'prepare':
         result = prepare(args.work_index, args.offline_index, args.recordings_index, args.assessment, args.output,
-                         metadata=args.metadata)
+                         metadata=args.metadata, catalogue_index=args.catalogue_index)
     else:
         result = status(args.export)
     print(json.dumps(result, ensure_ascii=False, indent=2))

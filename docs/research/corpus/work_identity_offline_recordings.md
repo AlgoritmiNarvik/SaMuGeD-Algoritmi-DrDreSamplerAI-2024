@@ -10,7 +10,7 @@ flowchart LR
  L -->|no| M[missing_labels]:::blocked
  L -->|yes| T{Recordings with the<br/>normalized title?}:::decision
  T -->|no| N1[no_candidate<br/>no_recording_with_title]:::review
- T -->|yes| C{Full credit agrees by<br/>tokens or initials?}:::decision
+ T -->|yes| C{"Credit agrees by<br/>tokens, initials or surname subset?"}:::decision
  C -->|no| N2[no_candidate<br/>recordings_without_creator_agreement]:::review
  C -->|yes| W{Performance work<br/>relation?}:::decision
  W -->|no| N3[no_candidate<br/>agreeing_recordings_without_work]:::review
@@ -39,7 +39,7 @@ Both inputs are hashed before the build and again at the end. The build stops wh
 The rule mirrors `resolve()` in `work_identity.py` for the recording kind, with the network replaced by the subset.
 
 1. A row is `missing_labels` when its normalized title is empty (`missing_title`), its `title_status` is not `usable` (`title_not_usable`) or its normalized creator is empty (`missing_creator`). The API queue never sends rows without a creator to the lookup, so the offline pass does not either.
-2. Recordings match when their normalized title equals the normalized source title and `creator_agreement` between the full joined credit string and the source creator is `normalized_tokens` or `initials_candidate`. The credit string is the credited names with their join phrases in position order, as the API returns it. A credit of several artists therefore agrees only with a creator label that names all of them. The agreement of each credited artist on its own is recorded in the evidence as information and does not change the rule.
+2. Recordings match when their normalized title equals the normalized source title and `creator_agreement` between the full joined credit string and the source creator is `normalized_tokens` or `initials_candidate`. The credit string is the credited names with their join phrases in position order, as the API returns it. A credit of several artists therefore agrees only with a creator label that names all of them. Lakh creators are often a bare surname, which the token rule alone rejects. A credit with exactly one credited name therefore also agrees as the weaker `surname_subset` when `creator_agreement` gives no result, the normalized creator has fewer tokens than the normalized name, every creator token has at least four letters and every creator token is a token of the name. `Battisti` agrees with `Lucio Battisti` on this basis, while `Stanley` does not agree with `Paul Stanley & Gene Simmons`, because that credit has two names. The agreement of each credited artist on its own is recorded in the evidence as information and does not change the rule.
 3. For each matching recording the works come from `performance` relations. For each work the writers are composer, writer and lyricist relations whose artist name agrees with the source creator. An empty writer list is allowed, exactly as in the API.
 4. One candidate row is written per source, work and recording. The source status is `candidate` when at least one row exists, otherwise `no_candidate` with the reason `no_recording_with_title`, `recordings_without_creator_agreement` or `agreeing_recordings_without_work`.
 
@@ -47,12 +47,13 @@ Matching recordings are ordered by recording MBID and capped at 50 per source. W
 
 ## Evidence
 
-The evidence JSON uses the keys of the API evidence with provider `musicbrainz_fullexport`, policy `work-candidates-v3-fullexport`, metadata license `CC0-1.0` and method `normalized_labels_names_or_initials_and_dump_relationship_not_MIDI_identity`. The `dump` block names the export, the archive sha256, the timestamp and the replication and schema sequence. `match_basis` records the source creator basis, the query title and creator, `recording_title_normalized` as title agreement, the credit agreement, the credited artists with MBID and agreement, the recording MBID, name and credit, the whole database recording namesake count, the matching recording count, the linked work count, both truncation flags, the number of distinct work candidates and `musical_comparison` `not_performed`. The `work` block holds the work MBID, title, type and the agreeing writers with role, artist MBID and name. `musical_work_license_status` is `unknown` and `rights_holder_status` is `not_established`.
+The evidence JSON uses the keys of the API evidence with provider `musicbrainz_fullexport`, policy `work-candidates-v4-fullexport`, metadata license `CC0-1.0` and method `normalized_labels_names_initials_or_surname_subset_and_dump_relationship_not_MIDI_identity`. The `dump` block names the export, the archive sha256, the timestamp and the replication and schema sequence. `match_basis` records the source creator basis, the query title and creator, `recording_title_normalized` as title agreement, the credit agreement, the credited artists with MBID and agreement, the recording MBID, name and credit, the whole database recording namesake count, the matching recording count, the linked work count, both truncation flags, the number of distinct work candidates and `musical_comparison` `not_performed`. The `work` block holds the work MBID, title, type and the agreeing writers with role, artist MBID and name. `musical_work_license_status` is `unknown` and `rights_holder_status` is `not_established`. The `creator_agreement` in `match_basis` and the agreement of each credited artist can be `surname_subset`, the weaker agreement described in step 2.
 
 ## What it never establishes
 
 - That a Lakh MIDI file realizes a recording or a work. No musical comparison is performed.
 - That a credit or writer label names the person in MusicBrainz with the same name.
+- That a surname inside a longer artist name establishes that the same person is meant.
 - That a composition or recording is free to use in any territory.
 - That a missing recording, a disagreeing credit or a missing work relation rules a work out.
 
