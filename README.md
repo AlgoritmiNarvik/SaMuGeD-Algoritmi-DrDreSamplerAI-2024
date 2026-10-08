@@ -24,7 +24,7 @@ flowchart LR
     class M,D,R action
 ```
 
-The primary `aligned_closed` release has **95,077 phrases**, 50,566 melodic and 44,511 percussion. The fixed window reference has 94,950 phrases. Both have complete artifact audits. Reference selection was replayed on all 16,995 successful sources, closed selection on a declared 256 source sample.
+The primary `aligned_closed` release has **95,077 phrases**, 50,566 melodic and 44,511 percussion, with complete artifact audits and closed selection replay on a declared 256 source sample. The fixed window baseline of the research note (94,950 phrases, replayed on all 16,995 successful sources) is kept on the hub only as the reference archive and is no longer a dataset configuration.
 
 Local corpus expansion tooling adds [indexed source metadata and rights evidence](docs/research/corpus/metadata.md), including separate corpus and score declarations, MIDI copyright notices and unknown composition rights. The expansion remains local and is separate from the published release above.
 

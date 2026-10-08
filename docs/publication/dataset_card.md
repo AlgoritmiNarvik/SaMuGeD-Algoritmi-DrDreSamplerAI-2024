@@ -26,14 +26,6 @@ configs:
     data_files:
       - split: all
         path: data/closed_percussion/*.parquet
-  - config_name: reference_melodic
-    data_files:
-      - split: all
-        path: data/reference_melodic/*.parquet
-  - config_name: reference_percussion
-    data_files:
-      - split: all
-        path: data/reference_percussion/*.parquet
   - config_name: pdmx_melodic
     data_files:
       - split: all
@@ -73,7 +65,6 @@ The release has three parts. This repository holds the phrases, splits, MIDI byt
 | Release | Melodic | Percussion | Total |
 | --- | ---: | ---: | ---: |
 | Closed selection (primary) | 50,566 | 44,511 | 95,077 |
-| Fixed window reference | 50,439 | 44,511 | 94,950 |
 | PDMX expansion (`pdmx_melodic`) | 459,659 | | 459,659 |
 | MAESTRO expansion (`maestro_melodic`) | 3,423 | | 3,423 |
 
@@ -83,7 +74,7 @@ The release has three parts. This repository holds the phrases, splits, MIDI byt
 
 The corpus expansion applies the same closed detector to PDMX and MAESTRO. `pdmx_melodic` holds 459,659 melodic phrases from 178,888 of the 189,704 PDMX scores and `maestro_melodic` holds 3,423 melodic phrases from 1,201 of the 1,276 MAESTRO performances. The remaining sources produced no phrase that passed the detector. Both use the phrase schema of the Lakh configurations. Artist and title come from the upstream score or performance metadata, not from file paths. Their `split` is `unassigned`, because no combined evaluation split has been made for the expanded corpora. Every PDMX batch and the MAESTRO run passed a full independent replay audit.
 
-Rows contain note arrays, verified occurrence coordinates, source hashes and MIDI bytes. The processed Lakh MIDI Clean snapshot has 17,232 source paths, 16,995 successful parses and 237 recorded failures. Both releases passed complete artifact audits. Reference selection replay covers all successful sources, closed replay covers a stratified 256 source sample.
+Rows contain note arrays, verified occurrence coordinates, source hashes and MIDI bytes. The processed Lakh MIDI Clean snapshot has 17,232 source paths, 16,995 successful parses and 237 recorded failures. The release passed complete artifact audits, with closed selection replay on a stratified 256 source sample.
 
 ```python
 from datasets import load_dataset
@@ -92,9 +83,11 @@ with open("phrase.mid", "wb") as output:
     output.write(phrases[0]["midi_bytes"])
 ```
 
-`closed_*` is the primary selection and `reference_*` is the fixed window baseline. Each has melodic and percussion subsets. The percussion patterns use the same detector in both versions.
+`closed_melodic` and `closed_percussion` hold the Lakh phrases of the primary closed detector.
 
-Filter the original `split` column before training. `overlap_excluded` and `duplicate_excluded` are not training or test rows. [Primary archive](archives/closed.tar.gz) and [reference archive](archives/reference.tar.gz) include manifests, provenance, split views, MIDI and checksums. Extract into an empty directory. Read the [consumer guide](CONSUMER_GUIDE.md).
+Filter the original `split` column before training. `overlap_excluded` and `duplicate_excluded` are not training or test rows. The [primary archive](archives/closed.tar.gz) includes manifests, provenance, split views, MIDI and checksums. Extract into an empty directory. Read the [consumer guide](CONSUMER_GUIDE.md).
+
+The fixed window baseline that the research note compares against is kept for reproducibility only. It has 94,950 phrases, 50,439 melodic and 44,511 percussion, with selection replay on all successful sources. It stays available as the [reference archive](archives/reference.tar.gz) and as the Parquet folders `data/reference_melodic` and `data/reference_percussion`, but it is not a dataset configuration and the viewer does not show it.
 
 ## Source metadata and rights evidence
 
@@ -147,7 +140,7 @@ The Lakh collection follows the upstream [Lakh CC BY 4.0 declaration](https://co
 
 | Configurations | License | Notes |
 | --- | --- | --- |
-| `closed_*` and `reference_*` | CC BY 4.0 | Lakh MIDI declaration, composition attribution incomplete |
+| `closed_*` and the reference archive | CC BY 4.0 | Lakh MIDI declaration, composition attribution incomplete |
 | `pdmx_melodic` | CC BY 4.0 | PDMX corpus license, with per score Public Domain Mark or CC0 declarations kept in `source_terms` |
 | `maestro_melodic` | CC BY NC SA 4.0 | MAESTRO license, noncommercial use only and adapted material shared under the same license |
 | `source_terms`, `provenance_hints` and `work_identity` | CC BY 4.0 | Fields taken from MusicBrainz are CC0 1.0 |
