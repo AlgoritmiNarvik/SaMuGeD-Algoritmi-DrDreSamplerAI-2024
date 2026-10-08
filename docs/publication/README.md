@@ -163,6 +163,25 @@ python -m scripts.publish_huggingface --owner ACCOUNT_NAME --dataset NEW_EXPANSI
 
 `--dataset-only` uploads into the existing dataset repository without creating it. Files present in the folder are added or replaced, and no other repository file is deleted, because the upload passes an explicit file list and no delete patterns. The folder therefore holds only new paths (`data/<config>/`, `evidence/expansion_*.json`) plus the card and guide that are meant to be replaced. `--path-in-repo` places the folder under a repository subfolder, the default is the root. The receipt records the commit and the size and SHA-256 of every uploaded file. Check the dataset viewer and the Parquet row counts after upload.
 
+## Corpus expansion tabs in the Space
+
+The Space has one tab per expansion corpus, PDMX scores and MAESTRO performances, with fifty loops each. `scripts/extend_loop_space.py select` ranks the published expansion phrases of one corpus by occurrence count inside the score or performance under the Lakh motif filter (eight notes, four distinct pitches, four beats), one phrase per artist and title, and writes a selection file. The selected phrases are rendered from the local source MIDI with `scripts/render_audio_loops.py`, one run per PDMX batch build, so every cycle carries the source notes of the part. `build` then copies a built Space, binds those renders, re-renders their audio with the bank and effect profile recorded in the Space catalog, appends the groups, regenerates the page and the card and writes `rendering/expansion_tabs.json`. FLAC files land in a separate folder for the audio repository and the Space keeps only MIDI and metadata. `pin` rewrites the audio base URL once the audio commit is known.
+
+```sh
+python scripts/extend_loop_space.py select --corpus pdmx --parquet-dir PUBLISHED_DATA --output pdmx_selection.json
+python scripts/extend_loop_space.py select --corpus maestro --parquet-dir PUBLISHED_DATA --output maestro_selection.json
+python scripts/render_audio_loops.py --phrase-ids-json IDS --dataset BUILD_DIR --source SOURCE_ROOT --soundfont FluidR3_GM.sf2 --output RENDER_DIR --flac
+python scripts/extend_loop_space.py build --space LIVE_SPACE_CLONE --output NEW_SPACE --audio-output AUDIO_UPLOAD \
+  --selection pdmx_selection.json --selection maestro_selection.json --render RENDER_DIR ... \
+  --soundfont ColomboGMGS2_Vanilla.sf2 --bank-name 'ColomboGMGS2 17.02 Vanilla' --audio-base-url CURRENT_URL \
+  --source-root PDMX_SOURCES --source-root MAESTRO_SOURCES --phrase-manifest BUILD_DIR/phrases.jsonl ...
+python scripts/publish_huggingface.py --owner OWNER --dataset AUDIO_UPLOAD --dataset-only --dataset-name samuged-earworms-audio --receipt audio_receipt.json --publish
+python scripts/extend_loop_space.py pin --space NEW_SPACE --audio-base-url AUDIO_REPO/resolve/AUDIO_COMMIT/audio
+python scripts/publish_huggingface.py --owner OWNER --space CHANGED_FILES --space-only --receipt space_receipt.json --publish
+```
+
+The catalog carries `group_order`, so new tabs follow the existing ones instead of sorting by key. Rows carry `tempo_label`; MAESTRO rows show the nominal file tempo as "no tempo map" because the performances are recorded in real time. Note views for the new phrases are written from the verified sources and merged into `notes/index.json`. `--space-only` adds or replaces files in the existing Space and never deletes.
+
 ## Public cards and citation
 
 The root README and `CITATION.cff` provide GitHub citation metadata. `CITATION.bib` contains the same dataset citation. The Hugging Face card source is [dataset_card.md](dataset_card.md). Publish it as the dataset `README.md` with both citation files. The card of the listening audio repository is [audio_dataset_card.md](audio_dataset_card.md). Publish it as that repository `README.md`. The two cards name the main dataset and the supplement differently so the release parts are not confused. Preserve the four Lakh data configurations and the five expansion configurations when editing the card. Card updates do not require rebuilding archives or Parquet files.
