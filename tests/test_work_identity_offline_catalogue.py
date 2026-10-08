@@ -265,7 +265,7 @@ def test_prepare_candidates_and_evidence(prepared):
     assert (basis['form_agreement'], basis['source_forms'], basis['work_forms']) == ('agrees', ['sonata'], ['sonata'])
     assert m01['work'] == dict(gid=w(1), title='Piano Sonata No. 14 in C-sharp minor, Op. 27 No. 2', type=1,
                                relations=[dict(type='composer', artist=dict(id=a(1), name='Ludwig van Beethoven'))])
-    assert m01['provider'] == 'musicbrainz_fullexport_catalogue' and m01['policy'] == 'work-candidates-v4-catalogue'
+    assert m01['provider'] == 'musicbrainz_fullexport_catalogue' and m01['policy'] == 'work-candidates-v5-catalogue'
     assert m01['method'] == 'composer_identity_and_catalogue_number_agreement_not_MIDI_identity'
     assert (m01['identity_verified'], m01['rights_clearance']) == (False, 'not_established')
     assert (m01['musical_work_license_status'], m01['rights_holder_status'], m01['metadata_license']) == (
@@ -312,7 +312,7 @@ def test_prepare_status_counts_and_provenance(prepared):
     assert s['truncated_sources'] == 0
     policy, verified, rights, selection = q(
         prepared, 'SELECT policy,identity_verified,rights_clearance,selection_json FROM provenance')[0]
-    assert (policy, verified, rights) == ('work-candidates-v4-catalogue', 0, 'not_established')
+    assert (policy, verified, rights) == ('work-candidates-v5-catalogue', 0, 'not_established')
     assert json.loads(selection) == dict(dataset='maestro', query_kind='work', limit=None, truncated=False, sources=15,
                                          max_parent_works=20, composer_names=6, composer_names_identified=2)
 
@@ -479,11 +479,12 @@ def test_match_keeps_matched_works_not_their_parents(tmp_path):
             (1, w(1), 'Piano Sonatas, complete set', 1),          # parent without a catalogue key
             (2, w(2), 'Piano Sonata, Op. 13', 1),                  # matched work
             (3, w(3), 'Piano Sonata, Op. 13 (arr. strings)', 1),   # arrangement of work 2
-            (4, w(4), 'Grave, "Pathetique" movement', 1)])         # movement with the only nickname
+            (4, w(4), 'Grave, "Pathetique" movement', 1),          # movement with the only nickname
+            (5, w(5), 'Piano Sonata, Op. 13', 1)])                 # revision of work 2 (MusicBrainz 'revision of' link)
         db.executemany('INSERT INTO work_parts(parent_id,part_id) VALUES (?,?)', [(1, 2), (2, 4)])
-        db.execute("INSERT INTO work_links VALUES (2, 3, 'arrangement')")
+        db.executemany('INSERT INTO work_links VALUES (?,?,?)', [(2, 3, 'arrangement'), (2, 5, 'revision of')])
         db.executemany('INSERT INTO work_composers VALUES (?,?,?)', [(1, 1, 'composer'), (2, 1, 'composer'),
-                                                                     (3, 1, 'composer'), (4, 1, 'composer')])
+                                                                     (3, 1, 'composer'), (4, 1, 'composer'), (5, 1, 'composer')])
         ref = wic.Reference(db, {})
 
         def row_of(key, title):
@@ -491,7 +492,8 @@ def test_match_keeps_matched_works_not_their_parents(tmp_path):
         state, reason, candidates, _ = wic.match(row_of('C1', 'Sonata, Op. 13'), ref, {})
         assert (state, reason) == ('candidate', 'candidate')
         assert [c[1] for c in candidates] == [w(2)]  # work 1 has no key in its title, so it is never a candidate
-        assert json.loads(candidates[0][4])['match_basis']['derived_or_part_works_dropped'] == 1
+        basis = json.loads(candidates[0][4])['match_basis']
+        assert basis['derived_or_part_works_dropped'] == 2 and basis['related_work_ids'] == [w(3), w(5)]
         assert wic.match(row_of('C2', 'Sonata "Pathetique"'), ref, {})[:2] == ('no_candidate', 'catalogue_number_without_work')
 
 

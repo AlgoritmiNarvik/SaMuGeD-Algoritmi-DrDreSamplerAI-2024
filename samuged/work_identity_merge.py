@@ -9,7 +9,7 @@ Every source key of the dump indexes, the assessment and the metadata file must 
 the same source hash (the assessment has no hash and is bound by key), and the metadata file must cover the
 API queue exactly. Any mismatch stops the run before an output exists.
 
-Row schema (fixed, policy work-identity-merge-v2):
+Row schema (fixed, policy work-identity-merge-v3):
 
     source_key, source_sha256, dataset_id, title, creator, query_kind   API queue labels, unchanged
     api_status                  API queue status: candidate, no_candidate, pending, missing_labels
@@ -21,14 +21,16 @@ Row schema (fixed, policy work-identity-merge-v2):
     candidates                  list sorted by work_id, one entry per distinct MusicBrainz work:
         work_id, work_title, iswcs, providers, writers [{role, artist_id, name}],
         best_tier (assessment tier across providers, null when unassessed),
-        title_agreement (strongest recorded), creator_agreement (strongest recorded kind)
+        title_agreement (strongest recorded), creator_agreement (strongest recorded kind),
+        counts_as (the work id this candidate counts as in the assessment: the catalogue work whose part or
+        version it is, or the lowest id of its duplicate family; null when it counts as itself or is unassessed)
         providers are musicbrainz, musicbrainz_json_dump, musicbrainz_fullexport and musicbrainz_fullexport_catalogue
     best_tier                   source_summary.best_tier or null
     review_priority             source_summary.review_priority or null
     assessment_reasons          source_summary reasons list, empty when unassessed
     identity_status             candidate_unverified when a candidate exists, else unresolved
     rights_clearance            always not_established
-    policy                      work-identity-merge-v2
+    policy                      work-identity-merge-v3
 
 `pending` API rows are historical. The API chain stopped before they were looked up and the dump indexes
 cover those sources instead.
@@ -49,7 +51,7 @@ from .candidate_assessment import FAVOUR, creator_kind
 from .dataset import file_digest
 from .work_identity import now
 
-POLICY = 'work-identity-merge-v2'
+POLICY = 'work-identity-merge-v3'
 API_PROVIDER, WORKS_PROVIDER, RECORDINGS_PROVIDER = 'musicbrainz', 'musicbrainz_json_dump', 'musicbrainz_fullexport'
 CATALOGUE_PROVIDER = 'musicbrainz_fullexport_catalogue'
 WRITER_ROLES = ('composer', 'writer', 'lyricist', 'librettist')
@@ -62,7 +64,7 @@ FIELDS = ('source_key', 'source_sha256', 'dataset_id', 'title', 'creator', 'quer
           'dump_catalogue_reason', 'candidates', 'best_tier', 'review_priority', 'assessment_reasons',
           'identity_status', 'rights_clearance', 'policy')
 CANDIDATE_FIELDS = ('work_id', 'work_title', 'iswcs', 'providers', 'writers', 'best_tier', 'title_agreement',
-                    'creator_agreement')
+                    'creator_agreement', 'counts_as')
 UNVERIFIED = dict(identity_verified=False, rights_clearance='not_established')
 
 
@@ -135,8 +137,9 @@ def _candidates(db, key, provider):
     return rows
 
 
-def merge_candidates(groups, tiers):
-    """Merge (provider, rows) groups by work id. `tiers` maps work id to the assessed tiers of every provider."""
+def merge_candidates(groups, tiers, counts_as=None):
+    """Merge (provider, rows) groups by work id. `tiers` maps work id to the assessed tiers of every provider and
+    `counts_as` maps work id to the canonical work recorded by the assessment, when any."""
     merged = {}
     for provider, rows in groups:
         for work_id, title, evidence, basis in rows:
@@ -160,7 +163,7 @@ def merge_candidates(groups, tiers):
                      sorted(e['writers'], key=lambda w: tuple('' if x is None else x for x in w))],
             best_tier=_best_tier(tiers.get(work_id, ())),
             title_agreement=_strongest(e['title_agreement'], TITLES),
-            creator_agreement=_strongest(e['creator_agreement'], CREATORS)))
+            creator_agreement=_strongest(e['creator_agreement'], CREATORS), counts_as=(counts_as or {}).get(work_id)))
     return result
 
 
@@ -225,9 +228,12 @@ def prepare(work_index: Path, offline_index: Path, recordings_index: Path, asses
                 recs = recordings.execute('SELECT status,reason FROM queue WHERE source_key=?', (key,)).fetchone()
                 cat = None if catalogue is None else catalogue.execute(
                     'SELECT status,reason FROM queue WHERE source_key=?', (key,)).fetchone()
-                tiers = {}
-                for work_id, tier in assessed.execute('SELECT work_id,tier FROM assessments WHERE source_key=?', (key,)):
+                tiers, counts_as = {}, {}
+                for work_id, tier, canonical in assessed.execute(
+                        "SELECT work_id,tier,json_extract(signals_json,'$.canonical_work') FROM assessments WHERE source_key=?", (key,)):
                     tiers.setdefault(work_id, []).append(tier)
+                    if canonical:
+                        counts_as[work_id] = canonical
                 summary = assessed.execute('SELECT best_tier,review_priority,reasons_json FROM source_summary '
                                            'WHERE source_key=?', (key,)).fetchone()
                 groups = [(API_PROVIDER, _candidates(work, key, API_PROVIDER)),
@@ -235,7 +241,7 @@ def prepare(work_index: Path, offline_index: Path, recordings_index: Path, asses
                           (RECORDINGS_PROVIDER, _candidates(recordings, key, RECORDINGS_PROVIDER))]
                 if catalogue is not None:
                     groups.append((CATALOGUE_PROVIDER, _candidates(catalogue, key, CATALOGUE_PROVIDER)))
-                merged = merge_candidates(groups, tiers)
+                merged = merge_candidates(groups, tiers, counts_as)
                 record = dict(source_key=key, source_sha256=sha, dataset_id=dataset, title=title, creator=creator,
                     query_kind=kind, api_status=api_status, dump_works_status=works[0] if works else None,
                     dump_recordings_status=recs[0] if recs else None, dump_recordings_reason=recs[1] if recs else None,

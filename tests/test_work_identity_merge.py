@@ -57,7 +57,7 @@ def recording_evidence(work_id, title, writers):
 
 
 def catalogue_evidence(work_id, title):
-    return dict(provider='musicbrainz_fullexport_catalogue', policy='work-candidates-v4-catalogue',
+    return dict(provider='musicbrainz_fullexport_catalogue', policy='work-candidates-v5-catalogue',
         match_basis=dict(title_agreement='catalogue_number_attribute', creator_agreement='composer_identity',
                          catalogue_key='op27no2', catalogue_key_specific=True, key_agreement='agrees',
                          title_namesake_count=1, source_identity_verified=False),
@@ -127,7 +127,7 @@ def make_indexes(root, sources=None, *, candidates=True):
             db.executemany('INSERT INTO assessments VALUES (?,?,?,?,?,?,?)', [
                 (key, W1, 'musicbrainz', 'single_work_full_agreement', '{}', 'candidate-assessment-v1', 'now'),
                 (key, W1, 'musicbrainz_fullexport', 'multiple_works', '{}', 'candidate-assessment-v1', 'now'),
-                (key, W2, 'musicbrainz_fullexport', 'multiple_works', '{}', 'candidate-assessment-v1', 'now')])
+                (key, W2, 'musicbrainz_fullexport', 'multiple_works', '{"canonical_work": "work-1"}', 'candidate-assessment-v1', 'now')])
             db.execute('INSERT INTO source_summary VALUES (?,?,?,?,?,?,?,?,?)', (key, 'lakh', 'multiple_works', 2,
                 '["musicbrainz","musicbrainz_fullexport"]', 4, '["2 distinct work candidates"]',
                 'unverified_assessment_only', 'not_established'))
@@ -151,7 +151,7 @@ def test_merge_row_shape_and_candidates(tmp_path):
     paths, out, receipt, rows = run(tmp_path)
     assert [r['source_key'] for r in rows] == ['k1', 'k2', 'k3', 'k4', 'k5']
     assert all(tuple(r) == wim.FIELDS for r in rows)
-    assert receipt['policy'] == 'work-identity-merge-v2' and all(r['policy'] == 'work-identity-merge-v2' for r in rows)
+    assert receipt['policy'] == 'work-identity-merge-v3' and all(r['policy'] == 'work-identity-merge-v3' for r in rows)
     one = rows[0]
     assert (one['api_status'], one['dump_works_status'], one['dump_recordings_status'], one['dump_recordings_reason']) == \
         ('candidate', 'no_candidate', 'candidate', 'candidate')
@@ -166,16 +166,18 @@ def test_merge_row_shape_and_candidates(tmp_path):
     assert first['best_tier'] == 'single_work_full_agreement'  # best across providers
     assert (first['title_agreement'], first['creator_agreement']) == ('recording_title_normalized', 'normalized_tokens')
     assert one['candidates'][1]['best_tier'] == 'multiple_works' and one['candidates'][1]['writers'] == []
+    # The assessment recorded W2 as counting as W1; W1 counts as itself.
+    assert first['counts_as'] is None and one['candidates'][1]['counts_as'] == W1
     assert (one['best_tier'], one['review_priority'], one['assessment_reasons']) == ('multiple_works', 4, ['2 distinct work candidates'])
     assert one['identity_status'] == 'candidate_unverified' and one['rights_clearance'] == 'not_established'
     dump = rows[1]['candidates'][0]
-    assert dump['providers'] == ['musicbrainz_json_dump'] and dump['best_tier'] is None
+    assert dump['providers'] == ['musicbrainz_json_dump'] and dump['best_tier'] is None and dump['counts_as'] is None
     assert dump['writers'] == [dict(role='composer', artist_id='a3', name='J. S. Bach')]  # the performer is not a writer
     assert (dump['title_agreement'], dump['creator_agreement']) == ('alias_normalized', 'initials_candidate')
     assert rows[1]['dump_recordings_status'] is None and rows[1]['api_status'] == 'pending'
     empty = rows[2]
     assert empty['candidates'] == [] and empty['identity_status'] == 'unresolved' and empty['best_tier'] is None
-    assert empty['assessment_reasons'] == [] and empty['policy'] == 'work-identity-merge-v2'
+    assert empty['assessment_reasons'] == [] and empty['policy'] == 'work-identity-merge-v3'
     assert (empty['dump_catalogue_status'], empty['dump_catalogue_reason']) == ('missing_labels', 'missing_title')
     catalogue = rows[4]
     assert (catalogue['dump_catalogue_status'], catalogue['dump_catalogue_reason']) == ('candidate', 'candidate')

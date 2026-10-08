@@ -39,11 +39,13 @@ Up to four candidate indexes are read. They share the `queue` and `work_candidat
 | `--work-index` | `work_index` | `musicbrainz` | `work-candidates-v3` and older API policies |
 | `--offline-index` | `offline_index` | `musicbrainz_json_dump` | `work-candidates-v3-dump` |
 | `--recordings-index` | `recordings_index` | `musicbrainz_fullexport` | `work-candidates-v3-fullexport` |
-| `--catalogue-index` | `catalogue_index` | `musicbrainz_fullexport_catalogue` | `work-candidates-v4-catalogue` |
+| `--catalogue-index` | `catalogue_index` | `musicbrainz_fullexport_catalogue` | `work-candidates-v5-catalogue` |
 
 The recordings index is the sidecar written by [offline recording candidates from the full export](work_identity_offline_recordings.md). Its candidates come from the recording rule, so their evidence has the API recording shape. The title agreement is `recording_title_normalized`, the creator agreement is the full credit agreement (`normalized_tokens` or the weaker `initials_candidate`) and `work.relations` lists the agreeing writers. Its `recording_namesake_count` counts recordings, not works, so it is not used as `namesake_count`. Like API rows, full export rows take their namesake count from `--subset`.
 
 The catalogue index is the sidecar written by `work_identity_offline_catalogue` from the same full export. Its composer resolves to one artist, either through the creator identities of the offline works index (`composer_identity`) or by a person name with a single namesake (`composer_name_single_namesake`). Its candidates are the works of that composer whose own title or alias carries the catalogue number (MusicBrainz keeps catalogue numbers in work titles, the attribute path exists for completeness), reduced to the highest matched ancestor and without arrangements of another matched work. The `match_basis` holds the `title_agreement` (`catalogue_number_attribute`, `catalogue_number_title` or the quoted `nickname_quoted`), the `catalogue_key` and whether it is specific (a bare opus such as `op27` is not) `key_agreement`, which compares the work key attribute with the key named in the title, and `form_agreement`, which compares the form words of the title (sonata, etude, nocturne and so on) with those of the work, its aliases and its parts. `title_namesake_count` counts the parent works of the composer that matched the key, so these rows carry their own namesake count and do not need `--subset`. Its `related_work_ids` list the movements, parts and arrangements that were reduced into the candidate. A candidate of another provider that appears in that list counts as the catalogue work: the sets compared by the provider cross check and the distinct work counts use the catalogue work in its place, the row keeps its own work id, records it as `canonical_work` and gets the reason "candidate is a part or version of another candidate work and counts as that work". A dump candidate for the first movement of a sonata therefore agrees with the catalogue candidate for the sonata instead of conflicting with it. The work relations list the composer. The rule never compares the music.
+
+MusicBrainz lists many classical works more than once, one entry per editor, so a source whose composer and catalogue number resolve cleanly would still count several works. Catalogue candidates of one source form a duplicate family when they share the composer and a specific catalogue key (`op25no10`, `bwv807`), or a bare key such as `op36` together with an equal normalized title. Nickname matches never form a family. The family counts as its lowest work id: the other members, the parts they list and the rows of other providers for any member record that id as `canonical_work`, every row records the members as `work_family` and the rule as `work_family_rule`, the distinct work counts use one work and no row of the source reaches the full tier. The reason reads "2 duplicate works of one composer and catalogue number count as the lowest work id" (with "and title" for the bare key rule). Two numbered pieces of the same opus have different titles and stay separate works.
 
 Every candidate source key must exist in its own queue, in the API work index queue and in `metadata.records`, all with the same `source_sha256`. Each provider may come from one origin only. A provider that appears in two indexes, a candidate whose evidence claims a verified source identity or a binding mismatch stops the run with an error and no output.
 
@@ -68,7 +70,8 @@ Several recording rows for the same work collapse into one assessment row per so
 | `catalogue_key` | The catalogue key that matched, for example `op27no2` or `bwv846`, or the quoted nickname |
 | `catalogue_key_specific` | `false` for a bare opus such as `op27` and for a quoted nickname, `true` otherwise |
 | `form_agreement` | `agrees`, `disagrees` or `unknown` from the catalogue evidence; none for other providers |
-| `canonical_work` | The catalogue work that lists this candidate among its related parts or versions, else none |
+| `canonical_work` | The work this candidate counts as: the catalogue work that lists it among its related parts or versions, or the lowest work id of its duplicate family, else none |
+| `work_family`, `work_family_rule` | Sorted work ids of the duplicate family this row counts in and the rule that formed it (`catalogue_key` or `catalogue_key_and_title`), else none |
 
 API and full export rows have no work namesake count of their own. Without `--subset` their count is unknown and they can reach at most `single_work_weaker_agreement`, so pass `--subset` when these rows should be able to reach the full tier. Catalogue rows carry their own count and do not need it.
 
@@ -110,8 +113,8 @@ The first matching tier applies.
 | --- | --- | --- |
 | `conflict` | `duplicates_conflict` or `providers_differ` (disjoint work sets) | 0 |
 | `multiple_works` | More than one distinct work from this provider or from all providers | 3 |
-| `single_work_full_agreement` | One work, canonical or recording title or a specific catalogue number (attribute or title), creator by full tokens or composer identity, `namesake_count` known and at most three, with no key or form disagreement | 1 |
-| `single_work_weaker_agreement` | One work otherwise: alias title, quoted nickname, bare opus number, initials, surname only or name only creator, missing match basis, unknown `namesake_count`, one above three, a key disagreement or a form disagreement | 2 |
+| `single_work_full_agreement` | One work, canonical or recording title or a specific catalogue number (attribute or title), creator by full tokens or composer identity, `namesake_count` known and at most three, with no key or form disagreement and no duplicate family | 1 |
+| `single_work_weaker_agreement` | One work otherwise: alias title, quoted nickname, bare opus number, initials, surname only or name only creator, missing match basis, unknown `namesake_count`, one above three, a key disagreement, a form disagreement or a duplicate family | 2 |
 
 A bare opus number stays at the weaker tier because one opus number can cover several works. A catalogue number read from the work title counts as a full title agreement when it is specific, since MusicBrainz records catalogue numbers in titles.
 
@@ -138,7 +141,7 @@ The output is built at a temporary path in the target directory, checked with `P
 
 | Table | Content |
 | --- | --- |
-| `provenance` | Policy `candidate-assessment-v2`, input paths and hashes, creation time |
+| `provenance` | Policy `candidate-assessment-v3`, input paths and hashes, creation time |
 | `assessments` | One row per source, work and provider with tier and signals |
 | `source_summary` | Best tier, distinct works, providers, priority and reasons per source |
 

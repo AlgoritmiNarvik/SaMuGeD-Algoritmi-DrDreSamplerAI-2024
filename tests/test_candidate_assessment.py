@@ -426,7 +426,8 @@ def test_cli_recordings_index_flag(tmp_path, monkeypatch, capsys):
 
 
 CATALOGUE_BASIS = dict(title_agreement='catalogue_number_attribute', creator_agreement='composer_identity',
-    catalogue_key='op27no2', catalogue_key_specific=True, key_agreement='agrees', title_namesake_count=1)
+    catalogue_key='op27no2', catalogue_key_specific=True, key_agreement='agrees', title_namesake_count=1,
+    composer=dict(gid='c1', name='Ludwig van Beethoven', component='Ludwig van Beethoven', identity_status='disambiguated_by_work_relation'))
 
 
 def catalogue_evidence(work_id, change):
@@ -438,7 +439,8 @@ def catalogue_evidence(work_id, change):
 
 
 def catalogue_index(tmp_path, work, candidates):
-    """Catalogue sidecar with the queue rows of the work index. Candidates map a source key to (work id, basis changes)."""
+    """Catalogue sidecar with the queue rows of the work index. Candidates map a source key to (work id, basis changes)
+    or (work id, basis changes, work title)."""
     path = tmp_path/'catalogue.sqlite'
     with sqlite3.connect(path) as db:
         db.executescript(woc.SCHEMA)
@@ -446,8 +448,8 @@ def catalogue_index(tmp_path, work, candidates):
         db.execute("""INSERT INTO queue SELECT source_key,source_sha256,dataset_id,title,creator,'work','candidate','candidate','now'
             FROM w.queue WHERE source_key IN (%s)""" % ','.join('?'*len(candidates)), list(candidates))
         for key, items in candidates.items():
-            for work_id, change in items:
-                db.execute('INSERT INTO work_candidates VALUES (?,?,?,?,?,?)', (key, work_id, '', 'Sonata',
+            for work_id, change, *title in items:
+                db.execute('INSERT INTO work_candidates VALUES (?,?,?,?,?,?)', (key, work_id, '', title[0] if title else 'Sonata',
                            json.dumps(catalogue_evidence(work_id, change)), 'candidate'))
     return path
 
@@ -593,3 +595,69 @@ def test_related_part_counts_as_the_catalogue_work(tmp_path, monkeypatch):
     assert part['canonical_work'] == THIRD and part['tier'] == 'single_work_full_agreement'
     assert 'candidate is a part or version of another candidate work and counts as that work' in json.loads(
         sqlite3.connect(out).execute("SELECT reasons_json FROM source_summary WHERE source_key='s8'").fetchone()[0])
+
+
+def reasons(path, key):
+    return json.loads(sqlite3.connect(path).execute('SELECT reasons_json FROM source_summary WHERE source_key=?', (key,)).fetchone()[0])
+
+
+def test_duplicate_works_with_one_specific_key_count_as_the_lowest_work_id(tmp_path, monkeypatch):
+    """Two MusicBrainz entries for the same opus number of one composer are one family: the source counts one work,
+    the lowest id is the representative, the family never reaches the full tier and every member records the family."""
+    work, meta, _ = build(tmp_path, monkeypatch)
+    catalogue = catalogue_index(tmp_path, work, {'s12': [(THIRD, {}, 'Sonata quasi una fantasia, Op. 27 No. 2'), (WORK, {})]})
+    out = tmp_path/'a.sqlite'; prepare(work, meta, out, catalogue_index=catalogue)
+    found, best = rows(out)
+    assert best['s12'] == ('single_work_weaker_agreement', 4)
+    lowest, other = found['s12', WORK, CATALOGUE][1], found['s12', THIRD, CATALOGUE][1]
+    assert lowest['canonical_work'] is None and other['canonical_work'] == WORK
+    assert lowest['work_family'] == other['work_family'] == [WORK, THIRD] and lowest['work_family_rule'] == 'catalogue_key'
+    assert lowest['distinct_works'] == other['distinct_works'] == 1 and lowest['distinct_works_all_providers'] == 1
+    assert lowest['tier'] == other['tier'] == 'single_work_weaker_agreement'
+    found_reasons = reasons(out, 's12')
+    assert '2 duplicate works of one composer and catalogue number count as the lowest work id' in found_reasons
+    assert 'candidate is a part or version of another candidate work and counts as that work' not in found_reasons
+    assert '2 distinct work candidates' not in found_reasons
+
+
+def test_bare_opus_duplicates_need_an_equal_title(tmp_path, monkeypatch):
+    """With a bare opus key, two works are one family only when their normalized titles agree."""
+    work, meta, _ = build(tmp_path, monkeypatch)
+    bare = dict(catalogue_key='op36', catalogue_key_specific=False)
+    catalogue = catalogue_index(tmp_path, work, {
+        's12': [(WORK, bare, 'Piano Sonata no. 2 in B-flat minor, op. 36'), (SECOND, bare, 'Piano Sonata No. 2 in B‐flat Minor, Op. 36')],
+        's8': [(WORK, bare, 'Études, op. 25: No. 1'), (SECOND, bare, 'Études, op. 25: No. 2')]})
+    out = tmp_path/'a.sqlite'; prepare(work, meta, out, catalogue_index=catalogue)
+    found, best = rows(out)
+    assert best['s12'][0] == 'single_work_weaker_agreement' and found['s12', SECOND, CATALOGUE][1]['canonical_work'] == WORK
+    assert found['s12', WORK, CATALOGUE][1]['work_family_rule'] == 'catalogue_key_and_title'
+    assert '2 duplicate works of one composer and catalogue number and title count as the lowest work id' in reasons(out, 's12')
+    # Different numbered pieces of the same opus stay separate works.
+    assert found['s8', WORK, CATALOGUE][1]['work_family'] is None and '2 distinct work candidates' in reasons(out, 's8')
+
+
+def test_families_never_cross_composers_or_nicknames(tmp_path, monkeypatch):
+    work, meta, _ = build(tmp_path, monkeypatch)
+    other = dict(composer=dict(gid='c2', name='Carl Czerny', component='Carl Czerny', identity_status='disambiguated_by_work_relation'))
+    nick = dict(title_agreement='nickname_quoted', catalogue_key='moonlight', catalogue_key_specific=False)
+    catalogue = catalogue_index(tmp_path, work, {'s12': [(WORK, {}), (SECOND, other)], 's8': [(WORK, nick), (SECOND, nick)]})
+    out = tmp_path/'a.sqlite'; prepare(work, meta, out, catalogue_index=catalogue)
+    found, best = rows(out)
+    assert best['s12'][0] == 'multiple_works' and best['s8'][0] == 'multiple_works'
+    assert all(found[k][1]['work_family'] is None for k in found if k[0] in ('s12', 's8') and k[2] == CATALOGUE)
+
+
+def test_related_part_of_a_family_member_counts_as_the_lowest_work_id(tmp_path, monkeypatch):
+    """s8 has a dump candidate SECOND. The catalogue finds THIRD, which lists SECOND among its parts, and WORK, a
+    duplicate of THIRD. Everything counts as WORK, the lowest id of the family."""
+    work, meta, offline = build(tmp_path, monkeypatch)
+    catalogue = catalogue_index(tmp_path, work, {'s8': [(THIRD, dict(related_work_ids=[SECOND])), (WORK, {})]})
+    out = tmp_path/'a.sqlite'; prepare(work, meta, out, offline_index=offline, catalogue_index=catalogue)
+    found, best = rows(out)
+    assert best['s8'][0] == 'single_work_weaker_agreement'
+    part = found['s8', SECOND, 'musicbrainz_json_dump'][1]
+    assert part['canonical_work'] == WORK and part['work_family'] == [WORK, THIRD] and part['tier'] == 'single_work_weaker_agreement'
+    assert found['s8', WORK, 'musicbrainz'][1]['work_family'] == [WORK, THIRD]  # the API row for the same work follows the family
+    assert found['s8', THIRD, CATALOGUE][1]['canonical_work'] == WORK and found['s8', WORK, CATALOGUE][1]['canonical_work'] is None
+    assert found['s8', WORK, CATALOGUE][1]['provider_cross_check'] == 'providers_agree'
+    assert found['s8', WORK, CATALOGUE][1]['providers'] == sorted(['musicbrainz', 'musicbrainz_json_dump', CATALOGUE])
