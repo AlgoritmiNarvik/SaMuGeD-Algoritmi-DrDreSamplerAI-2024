@@ -17,7 +17,7 @@ mir-eval==0.8.2
 narwhals==2.26.0
 numpy==2.5.3
 packaging==26.3
-pillow==12.3.0
+pillow==13.0.0
 pluggy==1.6.0
 pygments==2.21.0
 pyparsing==3.3.3
